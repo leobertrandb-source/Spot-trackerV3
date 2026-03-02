@@ -11,17 +11,20 @@
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     html { scroll-behavior: smooth; }
     body {
-      background: #050507;
-      color: #f0f2f5;
+      background: #0d0f12;
+      color: #f0f3f8;
       font-family: 'Barlow', sans-serif;
       -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
     }
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: #0a0a0f; }
-    ::-webkit-scrollbar-thumb { background: #1a2535; border-radius: 2px; }
-    ::-webkit-scrollbar-thumb:hover { background: #43d17a; }
-    ::selection { background: #43d17a33; color: #43d17a; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #111318; }
+    ::-webkit-scrollbar-thumb { background: #252b38; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #39e07a66; }
+    ::selection { background: rgba(57,224,122,0.2); color: #39e07a; }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { opacity: 0.4; }
+    select option { background: #1a1e27; color: #f0f3f8; }
   </style>
 </head>
 <body>
