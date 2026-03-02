@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { Card, Label, Select, StatCard, PageWrap } from '../components/UI'
+import { Card, Label, PageHeader, Select, StatCard, PageWrap } from '../components/UI'
 import { ALL_EXERCISES, CHART_COLORS, SEANCE_ICONS, T } from '../lib/data'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 

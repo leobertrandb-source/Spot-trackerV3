@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-import { Card, Label, Select, StatCard, PageWrap } from '../components/UI'
+import { Card, Label, PageHeader, Select, StatCard, PageWrap } from '../components/UI'
 import { ALL_EXERCISES, CHART_COLORS, T } from '../lib/data'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,

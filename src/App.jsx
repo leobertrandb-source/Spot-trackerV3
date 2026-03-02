@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './components/AuthContext'
 import { Grain, Layout } from './components/UI'
+import { DirtyProvider } from './components/DirtyContext'
 import Sidebar from './components/Sidebar'
 import AuthPage from './pages/AuthPage'
 import SaisiePage from './pages/SaisiePage'
@@ -8,6 +9,7 @@ import HistoriquePage from './pages/HistoriquePage'
 import ProgressionPage from './pages/ProgressionPage'
 import CoachPage from './pages/CoachPage'
 import AujourdhuiPage from './pages/AujourdhuiPage'
+import NutritionPage from './pages/NutritionPage'
 import ProgramBuilderPage from './pages/ProgramBuilderPage'
 import { T } from './lib/data'
 
@@ -33,6 +35,7 @@ function AppShell() {
   if (!user) return <AuthPage />
 
   return (
+    <DirtyProvider>
     <Layout sidebar={<Sidebar />}>
       <Routes>
         <Route path="/" element={<Navigate to="/aujourd-hui" />} />
@@ -41,9 +44,11 @@ function AppShell() {
         <Route path="/progression" element={<ProgressionPage />} />
         <Route path="/coach" element={<CoachPage />} />
         <Route path="/aujourd-hui" element={<AujourdhuiPage />} />
+        <Route path="/nutrition" element={<NutritionPage />} />
         <Route path="/programmes" element={<ProgramBuilderPage />} />
       </Routes>
     </Layout>
+    </DirtyProvider>
   )
 }
 

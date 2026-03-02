@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
+import { useDirty } from '../components/DirtyContext'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-import { Card, Label, Input, Select, Btn, Badge, PageWrap } from '../components/UI'
+import { Card, Label, PageHeader, Input, Select, Btn, Badge, PageWrap } from '../components/UI'
 import { ALL_EXERCISES, SEANCE_ICONS, T } from '../lib/data'
 
 // ── Bibliothèque latérale pour l'athlète ──────────────────────────
@@ -109,6 +110,7 @@ export default function AujourdhuiPage() {
   const [exercises, setExercises] = useState([])
   const [notes, setNotes] = useState('')
   const [status, setStatus] = useState(null)
+  const { markDirty, markClean } = useDirty()
 
   useEffect(() => {
     loadToday()
@@ -144,6 +146,7 @@ export default function AujourdhuiPage() {
   }
 
   function addExercise(name) {
+    markDirty()
     setExercises(p => [...p, {
       exercise: name, sets_target: null, reps_target: null, rpe_target: null,
       sets: [{ reps: '', weight: '', rpe: '' }],
@@ -155,6 +158,7 @@ export default function AujourdhuiPage() {
   }
 
   function updateSet(exoIdx, setIdx, field, val) {
+    markDirty()
     setExercises(p => p.map((e, ei) => ei !== exoIdx ? e : {
       ...e,
       sets: e.sets.map((s, si) => si !== setIdx ? s : { ...s, [field]: val }),
@@ -212,6 +216,7 @@ export default function AujourdhuiPage() {
     if (e2) { setStatus('error'); return }
 
     setStatus('saved')
+    markClean()
     setTimeout(() => setStatus(null), 4000)
   }
 

@@ -20,42 +20,54 @@ export const SEANCES = {
 export const ALL_EXERCISES = [...new Set(Object.values(SEANCES).flat())]
 
 export const T = {
-  // Colors
-  bg:       '#050507',
-  surface:  '#0c0e13',
-  card:     '#111520',
-  border:   '#1a2235',
-  borderHi: '#243047',
-  accent:   '#43d17a',
-  accentDim:'#2a8a4e',
-  accentGlow:'rgba(67,209,122,0.15)',
-  text:     '#f0f2f5',
-  textMid:  '#8896a8',
-  textDim:  '#3d4f63',
-  danger:   '#ff4757',
-  warn:     '#ffa502',
-  blue:     '#3b9eff',
-
-  // Fonts
-  fontDisplay: "'Barlow Condensed', sans-serif",
-  fontBody:    "'Barlow', sans-serif",
-
-  // Shadows
-  shadowCard:  '0 4px 24px rgba(0,0,0,0.5)',
-  shadowGlow:  '0 0 40px rgba(67,209,122,0.12)',
-  shadowGlowSm:'0 0 20px rgba(67,209,122,0.08)',
-
-  // Radii
-  radius:   10,
-  radiusLg: 16,
-  radiusSm: 7,
+  bg:           '#030305',
+  bgAlt:        '#060810',
+  surface:      '#0a0d14',
+  card:         '#0f1219',
+  cardHover:    '#131720',
+  border:       '#161d2b',
+  borderHi:     '#1f2d42',
+  borderFocus:  '#2a3f5f',
+  accent:       '#39e07a',
+  accentDim:    '#22a355',
+  accentGlow:   'rgba(57,224,122,0.12)',
+  accentGlowSm: 'rgba(57,224,122,0.07)',
+  blue:         '#4da6ff',
+  blueGlow:     'rgba(77,166,255,0.1)',
+  orange:       '#ff7043',
+  orangeGlow:   'rgba(255,112,67,0.1)',
+  purple:       '#a78bfa',
+  purpleGlow:   'rgba(167,139,250,0.1)',
+  text:         '#eef1f6',
+  textMid:      '#7a8fa8',
+  textDim:      '#2d3d52',
+  danger:       '#ff3b5c',
+  warn:         '#ffb020',
+  fontDisplay:  "'Barlow Condensed', sans-serif",
+  fontBody:     "'Barlow', sans-serif",
+  shadowSm:     '0 2px 12px rgba(0,0,0,0.4)',
+  shadowMd:     '0 4px 24px rgba(0,0,0,0.6)',
+  shadowLg:     '0 8px 48px rgba(0,0,0,0.7)',
+  shadowGlow:   '0 0 40px rgba(57,224,122,0.1)',
+  shadowGlowMd: '0 0 60px rgba(57,224,122,0.15)',
+  radius:       8,
+  radiusLg:     14,
+  radiusXl:     20,
 }
 
-export const CHART_COLORS = ['#43d17a','#3b9eff','#ff6b6b','#ffd93d','#c77dff','#ff9f43']
+export const CHART_COLORS = ['#39e07a','#4da6ff','#ff7043','#ffb020','#a78bfa','#26c6da']
 
 export const SEANCE_ICONS = {
   "Pectoraux / Triceps": "⚡",
   "Dos / Biceps":        "🏹",
   "Jambes":              "🔥",
   "Épaules":             "⚔️",
+}
+
+export const MACRO_CONFIG = {
+  calories: { label: 'Calories',    unit: 'kcal', color: '#39e07a', icon: '🔥' },
+  proteins: { label: 'Protéines',   unit: 'g',    color: '#4da6ff', icon: '💪' },
+  carbs:    { label: 'Glucides',    unit: 'g',    color: '#ffb020', icon: '⚡' },
+  fats:     { label: 'Lipides',     unit: 'g',    color: '#a78bfa', icon: '🥑' },
+  water:    { label: 'Hydratation', unit: 'ml',   color: '#26c6da', icon: '💧' },
 }

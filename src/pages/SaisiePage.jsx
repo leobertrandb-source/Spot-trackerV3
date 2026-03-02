@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { useDirty } from '../components/DirtyContext'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-import { Card, Label, Input, Select, Btn, Badge, PageWrap } from '../components/UI'
+import { Card, Label, PageHeader, Input, Select, Btn, Badge, PageWrap } from '../components/UI'
 import { SEANCES, SEANCE_ICONS, T } from '../lib/data'
 
 export default function SaisiePage() {
@@ -14,6 +15,7 @@ export default function SaisiePage() {
   const [notes, setNotes] = useState('')
   const [sets, setSets] = useState([{ exercise: SEANCES[seanceKeys[0]][0], reps: '', weight: '', rpe: '' }])
   const [status, setStatus] = useState(null)
+  const { markDirty, markClean } = useDirty()
 
   const exos = SEANCES[seance] || []
 
@@ -45,6 +47,7 @@ export default function SaisiePage() {
     if (e2) { setStatus('error'); return }
 
     setStatus('saved')
+    markClean()
     setSets([{ exercise: exos[0], reps: '', weight: '', rpe: '' }])
     setNotes('')
     setTimeout(() => setStatus(null), 3500)

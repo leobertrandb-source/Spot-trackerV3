@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-import { Card, Label, Btn, Badge, PageWrap } from '../components/UI'
+import { Card, Label, PageHeader, Btn, Badge, PageWrap } from '../components/UI'
 import { SEANCE_ICONS, T } from '../lib/data'
 
 export default function HistoriquePage() {

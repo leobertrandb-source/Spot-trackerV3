@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-import { Card, Label, Input, Select, Btn, Badge, PageWrap, Divider } from '../components/UI'
+import { Card, Label, PageHeader, Input, Select, Btn, Badge, PageWrap, Divider } from '../components/UI'
 import { SEANCES, ALL_EXERCISES, SEANCE_ICONS, T } from '../lib/data'
 
 // ── Drag source : exercice depuis la bibliothèque ──────────────────

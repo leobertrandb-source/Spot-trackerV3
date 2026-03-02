@@ -1,131 +1,128 @@
-import { NavLink } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import { Logo } from './UI'
 import { useAuth } from './AuthContext'
+import { useDirty } from './DirtyContext'
 import { T } from '../lib/data'
 
 const NAV_ITEMS = [
-  { to: '/aujourd-hui', icon: '⚡', label: "Aujourd'hui"     },
-  { to: '/saisie',      icon: '✦', label: 'Séance libre'    },
-  { to: '/historique',  icon: '◈', label: 'Historique'      },
-  { to: '/progression', icon: '◎', label: 'Progression'     },
+  { to: '/aujourd-hui', icon: '◈', label: "Aujourd'hui" },
+  { to: '/nutrition',   icon: '◉', label: 'Nutrition'   },
+  { to: '/saisie',      icon: '✦', label: 'Séance libre' },
+  { to: '/historique',  icon: '▦', label: 'Historique'  },
+  { to: '/progression', icon: '◎', label: 'Progression' },
 ]
 
 const COACH_ITEMS = [
-  { to: '/coach',    icon: '◉', label: 'Vue Coach'     },
-  { to: '/programmes', icon: '◆', label: 'Programmes'  },
+  { to: '/coach',       icon: '◆', label: 'Vue Coach'   },
+  { to: '/programmes',  icon: '▣', label: 'Programmes'  },
 ]
+
+function NavBtn({ item, isActive, onClick, showDot }) {
+  return (
+    <button onClick={onClick} style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      width: '100%', padding: '9px 12px', borderRadius: T.radius,
+      background: isActive ? `linear-gradient(135deg, ${T.accentGlow}, transparent)` : 'transparent',
+      border: `1px solid ${isActive ? T.accent + '30' : 'transparent'}`,
+      color: isActive ? T.accent : T.textMid,
+      fontFamily: T.fontDisplay, fontWeight: isActive ? 700 : 500,
+      fontSize: 13, letterSpacing: 0.3, cursor: 'pointer',
+      transition: 'all .2s', textAlign: 'left', position: 'relative',
+    }}
+      onMouseEnter={!isActive ? e => { e.currentTarget.style.background = T.surface; e.currentTarget.style.color = T.text } : undefined}
+      onMouseLeave={!isActive ? e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.textMid } : undefined}
+    >
+      <span style={{ fontSize: 13, lineHeight: 1, opacity: isActive ? 1 : 0.6 }}>{item.icon}</span>
+      <span>{item.label}</span>
+      {showDot && <span style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%', background: T.warn, flexShrink: 0, boxShadow: `0 0 6px ${T.warn}` }} />}
+      {isActive && <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: 2, height: 16, background: T.accent, borderRadius: 1 }} />}
+    </button>
+  )
+}
 
 export default function Sidebar() {
   const { profile, signOut } = useAuth()
+  const { tryNavigate, isDirty } = useDirty()
+  const location = useLocation()
+
+  const isCoach = profile?.role === 'coach'
+  const initial = (profile?.full_name || profile?.email || '?')[0].toUpperCase()
 
   return (
     <aside style={{
-      width: 220,
-      flexShrink: 0,
+      width: 210, flexShrink: 0,
       background: T.surface,
       borderRight: `1px solid ${T.border}`,
-      display: 'flex',
-      flexDirection: 'column',
-      position: 'sticky',
-      top: 0,
-      height: '100vh',
+      display: 'flex', flexDirection: 'column',
+      position: 'sticky', top: 0, height: '100vh',
       overflow: 'hidden',
     }}>
+      {/* Ambient glow top */}
+      <div style={{ position: 'absolute', top: -80, left: '50%', transform: 'translateX(-50%)', width: 200, height: 200, background: T.accentGlow, borderRadius: '50%', filter: 'blur(60px)', pointerEvents: 'none' }} />
 
-      {/* Top glow */}
-      <div style={{ position: 'absolute', top: -60, left: '50%', transform: 'translateX(-50%)', width: 160, height: 160, background: T.accentGlow, borderRadius: '50%', filter: 'blur(50px)', pointerEvents: 'none' }} />
+      {/* Vertical line decoration */}
+      <div style={{ position: 'absolute', right: 0, top: 0, width: 1, height: '100%', background: `linear-gradient(180deg, transparent, ${T.border} 20%, ${T.border} 80%, transparent)` }} />
 
       {/* Logo */}
-      <div style={{ padding: '28px 22px 24px', borderBottom: `1px solid ${T.border}` }}>
+      <div style={{ padding: '24px 18px 20px', borderBottom: `1px solid ${T.border}` }}>
         <Logo size="sm" />
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-
-        <div style={{ fontFamily: T.fontDisplay, fontSize: 9, fontWeight: 700, letterSpacing: 2.5, color: T.textDim, textTransform: 'uppercase', padding: '8px 10px 10px', marginBottom: 2 }}>
-          Athlète
-        </div>
+      <nav style={{ flex: 1, padding: '14px 10px', display: 'flex', flexDirection: 'column', gap: 2, overflowY: 'auto' }}>
+        <div style={{ fontFamily: T.fontDisplay, fontSize: 8, fontWeight: 700, letterSpacing: 3, color: T.textDim, textTransform: 'uppercase', padding: '6px 12px 8px' }}>Athlète</div>
 
         {NAV_ITEMS.map(item => (
-          <NavLink key={item.to} to={item.to} style={({ isActive }) => ({
-            display: 'flex', alignItems: 'center', gap: 11,
-            padding: '10px 12px', borderRadius: T.radiusSm,
-            textDecoration: 'none',
-            color: isActive ? T.accent : T.textMid,
-            background: isActive ? T.accentGlow : 'transparent',
-            border: `1px solid ${isActive ? T.accent + '33' : 'transparent'}`,
-            fontFamily: T.fontDisplay,
-            fontWeight: isActive ? 700 : 500,
-            fontSize: 13,
-            letterSpacing: 0.5,
-            transition: 'all .2s',
-          })}>
-            <span style={{ fontSize: 14, lineHeight: 1 }}>{item.icon}</span>
-            {item.label}
-          </NavLink>
+          <NavBtn key={item.to} item={item}
+            isActive={location.pathname === item.to}
+            onClick={() => tryNavigate(item.to)}
+            showDot={isDirty && location.pathname === item.to}
+          />
         ))}
 
-        {profile?.role === 'coach' && (
+        {isCoach && (
           <>
-            <div style={{ fontFamily: T.fontDisplay, fontSize: 9, fontWeight: 700, letterSpacing: 2.5, color: T.textDim, textTransform: 'uppercase', padding: '16px 10px 10px', marginTop: 8, borderTop: `1px solid ${T.border}` }}>
-              Coach
-            </div>
+            <div style={{ height: 1, background: T.border, margin: '10px 12px', borderRadius: 1 }} />
+            <div style={{ fontFamily: T.fontDisplay, fontSize: 8, fontWeight: 700, letterSpacing: 3, color: T.textDim, textTransform: 'uppercase', padding: '4px 12px 8px' }}>Coach</div>
             {COACH_ITEMS.map(item => (
-              <NavLink key={item.to} to={item.to} style={({ isActive }) => ({
-                display: 'flex', alignItems: 'center', gap: 11,
-                padding: '10px 12px', borderRadius: T.radiusSm,
-                textDecoration: 'none',
-                color: isActive ? T.accent : T.textMid,
-                background: isActive ? T.accentGlow : 'transparent',
-                border: `1px solid ${isActive ? T.accent + '33' : 'transparent'}`,
-                fontFamily: T.fontDisplay,
-                fontWeight: isActive ? 700 : 500,
-                fontSize: 13,
-                transition: 'all .2s',
-              })}>
-                <span style={{ fontSize: 14 }}>{item.icon}</span>
-                {item.label}
-              </NavLink>
+              <NavBtn key={item.to} item={item}
+                isActive={location.pathname === item.to}
+                onClick={() => tryNavigate(item.to)}
+              />
             ))}
           </>
         )}
       </nav>
 
-      {/* User footer */}
-      <div style={{ padding: '16px 14px', borderTop: `1px solid ${T.border}` }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+      {/* User */}
+      <div style={{ padding: '14px 12px 18px', borderTop: `1px solid ${T.border}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 12, padding: '8px 8px', background: T.card, borderRadius: T.radius, border: `1px solid ${T.border}` }}>
           <div style={{
-            width: 34, height: 34, borderRadius: '50%',
+            width: 30, height: 30, borderRadius: '50%',
             background: `linear-gradient(135deg, ${T.accent}33, ${T.accentDim}22)`,
             border: `1px solid ${T.accent}44`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 14, color: T.accent,
-            flexShrink: 0,
-          }}>
-            {profile?.full_name?.[0]?.toUpperCase() || '?'}
-          </div>
-          <div>
-            <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 13, color: T.text, lineHeight: 1 }}>
+            fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 13, color: T.accent, flexShrink: 0,
+          }}>{initial}</div>
+          <div style={{ overflow: 'hidden' }}>
+            <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 12, color: T.text, lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {profile?.full_name || 'Athlète'}
             </div>
-            <div style={{ fontSize: 10, color: T.textDim, marginTop: 3 }}>
-              {profile?.role === 'coach' ? '🎯 Coach' : '💪 Athlète'}
+            <div style={{ fontSize: 9, color: T.textDim, marginTop: 3, letterSpacing: 1, textTransform: 'uppercase' }}>
+              {isCoach ? '🎯 Coach' : '💪 Athlète'}
             </div>
           </div>
         </div>
         <button onClick={signOut} style={{
-          width: '100%', background: 'transparent', border: `1px solid ${T.border}`,
-          borderRadius: T.radiusSm, padding: '8px 0',
-          fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 11,
-          letterSpacing: 1.5, color: T.textDim, textTransform: 'uppercase',
+          width: '100%', background: 'transparent',
+          border: `1px solid ${T.border}`, borderRadius: T.radius,
+          padding: '7px 0', fontFamily: T.fontDisplay, fontWeight: 700,
+          fontSize: 10, letterSpacing: 2, color: T.textDim, textTransform: 'uppercase',
           cursor: 'pointer', transition: 'all .2s',
         }}
-          onMouseEnter={e => { e.target.style.borderColor = T.danger; e.target.style.color = T.danger }}
-          onMouseLeave={e => { e.target.style.borderColor = T.border; e.target.style.color = T.textDim }}
-        >
-          Déconnexion
-        </button>
+          onMouseEnter={e => { e.currentTarget.style.borderColor = T.danger + '66'; e.currentTarget.style.color = T.danger }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.textDim }}
+        >Déconnexion</button>
       </div>
     </aside>
   )
