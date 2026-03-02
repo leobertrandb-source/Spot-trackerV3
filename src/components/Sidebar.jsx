@@ -194,18 +194,11 @@ export default function Sidebar() {
           <span style={{ fontSize: 12 }}>→</span> Déconnexion
         </button>
         
+        <div style={{position:"fixed",bottom:10,right:10,background:"yellow",padding:10,zIndex:9999}}>
+      DESIGN TEST
+    </div>
+        
 </div>
-      </div><div
-  style={{
-    position: "fixed",
-    bottom: 10,
-    right: 10,
-    background: "yellow",
-    padding: 10,
-    zIndex: 9999,
-  }}
->
-  DESIGN TEST
 </div>
     </aside>
   )
