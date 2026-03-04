@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import { Card, Label, Input, Btn, Ring, MacroBar, PageWrap, PageHeader, Badge } from '../components/UI'
@@ -62,14 +62,7 @@ export default function NutritionPage() {
   const [showGoals, setShowGoals] = useState(false)
   const [goalDraft, setGoalDraft] = useState({})
 
-  // Wait for auth to be ready (important for Supabase RLS + user_id).
-  useEffect(() => {
-    if (!user?.id) return
-    loadAll()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id])
-
-  async function loadAll() {
+  const loadAll = useCallback(async () => {
     try {
       setLoading(true)
       const [{ data: g, error: gErr }, { data: l, error: lErr }] = await Promise.all([
@@ -91,7 +84,13 @@ export default function NutritionPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.id])
+
+  // Wait for auth to be ready (important for Supabase RLS + user_id).
+  useEffect(() => {
+    if (!user?.id) return
+    loadAll()
+  }, [user?.id, loadAll])
 
   const totals = logs.reduce((acc, log) => ({
     calories: (acc.calories || 0) + (log.calories || 0),
