@@ -168,7 +168,6 @@ export default function ProgressionPage() {
 
   useEffect(() => {
     loadAll()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id])
 
   // =========================
