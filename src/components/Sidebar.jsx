@@ -21,18 +21,18 @@ function NavBtn({ item, isActive, onClick, showDot }) {
   return (
     <button onClick={onClick} style={{
       display: 'flex', alignItems: 'center', gap: 11,
-      width: '100%', padding: '10px 12px', borderRadius: T.radius,
+      width: '100%', padding: '10px 10px', borderRadius: T.radius,
       background: isActive ? T.accentGlowSm : 'transparent',
-      border: `1px solid ${isActive ? T.accent + '25' : 'transparent'}`,
-      color: isActive ? T.accent : T.textMid,
-      fontFamily: T.fontDisplay,
-      fontWeight: isActive ? 800 : 600,
-      fontSize: 13, letterSpacing: 0.5,
+      border: `1px solid ${isActive ? T.accent + '26' : 'transparent'}`,
+      color: isActive ? T.text : T.textMid,
+      fontFamily: T.fontBody,
+      fontWeight: isActive ? 700 : 600,
+      fontSize: 14, letterSpacing: 0.1,
       cursor: 'pointer', transition: 'all .15s',
       textAlign: 'left', position: 'relative',
     }}
       onMouseEnter={!isActive ? e => {
-        e.currentTarget.style.background = T.surface
+        e.currentTarget.style.background = T.card
         e.currentTarget.style.color = T.text
         e.currentTarget.style.borderColor = T.border
       } : undefined}
@@ -48,10 +48,20 @@ function NavBtn({ item, isActive, onClick, showDot }) {
           width: 3, height: 18,
           background: `linear-gradient(180deg, ${T.accentLight}, ${T.accentDim})`,
           borderRadius: '0 2px 2px 0',
-          boxShadow: `0 0 8px ${T.accent}66`,
+          boxShadow: `0 0 10px ${T.accentGlowMd}`,
         }} />
       )}
-      <span style={{ fontSize: 14, lineHeight: 1, opacity: isActive ? 1 : 0.5, transition: 'opacity .15s', flexShrink: 0 }}>{item.icon}</span>
+      <span style={{
+        width: 26, height: 26,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        borderRadius: 10,
+        background: isActive ? (T.accent + '14') : 'transparent',
+        border: `1px solid ${isActive ? (T.accent + '28') : 'transparent'}`,
+        fontSize: 13, lineHeight: 1,
+        opacity: isActive ? 1 : 0.7,
+        transition: 'opacity .15s, background .15s, border-color .15s',
+        flexShrink: 0,
+      }}>{item.icon}</span>
       <span style={{ flex: 1 }}>{item.label}</span>
       {showDot && (
         <span style={{
@@ -68,13 +78,14 @@ function NavBtn({ item, isActive, onClick, showDot }) {
 
 function SectionLabel({ children }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px 8px' }}>
-      <div style={{ flex: 1, height: 1, background: T.border }} />
+    <div style={{ padding: '10px 10px 6px' }}>
       <span style={{
-        fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 8,
-        letterSpacing: 3, color: T.textDim, textTransform: 'uppercase', flexShrink: 0,
+        fontFamily: T.fontBody,
+        fontWeight: 700,
+        fontSize: 12,
+        letterSpacing: 0.15,
+        color: T.textSub,
       }}>{children}</span>
-      <div style={{ flex: 1, height: 1, background: T.border }} />
     </div>
   )
 }
@@ -90,26 +101,20 @@ export default function Sidebar() {
 
   return (
     <aside style={{
-      width: 220, flexShrink: 0,
+      width: 244, flexShrink: 0,
       background: T.surface,
       borderRight: `1px solid ${T.border}`,
+      backdropFilter: 'blur(14px)',
       display: 'flex', flexDirection: 'column',
       position: 'sticky', top: 0, height: '100vh',
       overflow: 'hidden',
     }}>
-      <div style={{
-        position: 'absolute', top: -60, left: '50%', transform: 'translateX(-50%)',
-        width: 180, height: 180,
-        background: T.accentGlowSm,
-        borderRadius: '50%', filter: 'blur(50px)', pointerEvents: 'none',
-      }} />
-
-      <div style={{ padding: '22px 18px 20px', borderBottom: `1px solid ${T.border}` }}>
+      <div style={{ padding: '18px 16px 14px', borderBottom: `1px solid ${T.border}` }}>
         <Logo size="sm" />
       </div>
 
       <nav style={{
-        flex: 1, padding: '16px 10px 10px',
+        flex: 1, padding: '10px 8px 12px',
         display: 'flex', flexDirection: 'column', gap: 2,
         overflowY: 'auto',
       }}>
@@ -136,32 +141,33 @@ export default function Sidebar() {
         )}
       </nav>
 
-      <div style={{ padding: '12px 12px 18px', borderTop: `1px solid ${T.border}` }}>
+      <div style={{ padding: '12px 12px 16px', borderTop: `1px solid ${T.border}` }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '10px 12px', marginBottom: 10,
           background: T.card,
           border: `1px solid ${T.border}`,
           borderRadius: T.radius,
+          backdropFilter: 'blur(12px)',
         }}>
           <div style={{
             width: 32, height: 32, borderRadius: '50%',
             background: `linear-gradient(135deg, ${T.accent}25, ${T.accentDim}15)`,
             border: `1.5px solid ${T.accent}40`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 14,
+            fontFamily: T.fontBody, fontWeight: 800, fontSize: 14,
             color: T.accent, flexShrink: 0,
           }}>{initial}</div>
           <div style={{ overflow: 'hidden', flex: 1 }}>
             <div style={{
-              fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 12,
+              fontFamily: T.fontBody, fontWeight: 700, fontSize: 13,
               color: T.text, lineHeight: 1.2,
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>{name}</div>
             <div style={{
-              fontSize: 9, color: T.textDim, marginTop: 2,
-              letterSpacing: 1.5, textTransform: 'uppercase',
-              fontFamily: T.fontDisplay, fontWeight: 600,
+              fontSize: 12, color: T.textSub, marginTop: 2,
+              letterSpacing: 0.1,
+              fontFamily: T.fontBody, fontWeight: 600,
             }}>
               {isCoach ? '🎯 Coach' : '💪 Athlète'}
             </div>
@@ -173,10 +179,10 @@ export default function Sidebar() {
           background: 'transparent',
           border: `1px solid ${T.border}`,
           borderRadius: T.radius,
-          padding: '8px 0',
-          fontFamily: T.fontDisplay, fontWeight: 700,
-          fontSize: 10, letterSpacing: 2,
-          color: T.textDim, textTransform: 'uppercase',
+          padding: '10px 0',
+          fontFamily: T.fontBody, fontWeight: 650,
+          fontSize: 13, letterSpacing: 0.1,
+          color: T.textMid,
           cursor: 'pointer', transition: 'all .15s',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
         }}
@@ -193,9 +199,7 @@ export default function Sidebar() {
         >
           <span style={{ fontSize: 12 }}>→</span> Déconnexion
         </button>
-        
-</div>
-</div>
+      </div>
     </aside>
   )
 }

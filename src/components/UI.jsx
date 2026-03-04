@@ -2,7 +2,7 @@ import { T } from '../lib/data'
 
 export function Grain() {
   return (
-    <svg style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 9999, opacity: 0.018 }}>
+    <svg style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 9999, opacity: 0.012 }}>
       <filter id="grain">
         <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="4" stitchTiles="stitch" />
         <feColorMatrix type="saturate" values="0" />
@@ -14,7 +14,7 @@ export function Grain() {
 
 export function Logo({ size = 'md' }) {
   const d = size === 'sm' ? 30 : size === 'lg' ? 48 : 38
-  const fs = size === 'sm' ? 13 : size === 'lg' ? 19 : 15
+  const fs = size === 'sm' ? 12 : size === 'lg' ? 18 : 14
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 11, userSelect: 'none' }}>
       <div style={{
@@ -22,15 +22,15 @@ export function Logo({ size = 'md' }) {
         background: `linear-gradient(145deg, ${T.accent}, ${T.accentDim})`,
         borderRadius: T.radius, display: 'flex', alignItems: 'center', justifyContent: 'center',
         flexShrink: 0,
-        boxShadow: `0 0 20px ${T.accentGlow}, 0 0 60px ${T.accentGlowSm}, inset 0 1px 0 rgba(255,255,255,0.15)`,
+        boxShadow: `0 0 18px ${T.accentGlow}, inset 0 1px 0 rgba(255,255,255,0.12)`,
       }}>
         <svg viewBox="0 0 24 24" width={d * 0.5} fill="#000">
           <path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29l-1.43-1.43z"/>
         </svg>
       </div>
       <div>
-        <div style={{ fontFamily: T.fontDisplay, fontWeight: 900, fontSize: fs + 1, letterSpacing: 3, color: T.text, lineHeight: 1 }}>LE SPOT</div>
-        <div style={{ fontFamily: T.fontDisplay, fontWeight: 600, fontSize: fs * 0.6, letterSpacing: 3.5, color: T.accent, lineHeight: 1.3 }}>TRAINING</div>
+        <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: fs + 2, letterSpacing: -0.2, color: T.text, lineHeight: 1.05 }}>Le Spot</div>
+        <div style={{ fontFamily: T.fontBody, fontWeight: 600, fontSize: fs * 0.85, letterSpacing: 0.2, color: T.textMid, lineHeight: 1.25 }}>Training</div>
       </div>
     </div>
   )
@@ -41,11 +41,12 @@ export function Card({ children, style = {}, glow = false, onClick }) {
     background: T.card,
     border: `1px solid ${T.border}`,
     borderRadius: T.radiusLg,
-    padding: '24px 26px',
+    padding: '20px 22px',
     boxShadow: glow ? `${T.shadowMd}, ${T.shadowGlow}` : T.shadowSm,
-    transition: 'border-color .2s, box-shadow .2s, transform .2s',
+    transition: 'background .2s, border-color .2s, box-shadow .2s, transform .2s',
     position: 'relative',
     overflow: 'hidden',
+    backdropFilter: 'blur(12px)',
     cursor: onClick ? 'pointer' : 'default',
     ...style,
   }
@@ -55,11 +56,13 @@ export function Card({ children, style = {}, glow = false, onClick }) {
       onMouseEnter={onClick ? e => {
         e.currentTarget.style.borderColor = T.borderHi
         e.currentTarget.style.boxShadow = `${T.shadowMd}, ${T.shadowGlow}`
+        e.currentTarget.style.background = T.cardHover
         e.currentTarget.style.transform = 'translateY(-1px)'
       } : undefined}
       onMouseLeave={onClick ? e => {
         e.currentTarget.style.borderColor = T.border
         e.currentTarget.style.boxShadow = T.shadowSm
+        e.currentTarget.style.background = T.card
         e.currentTarget.style.transform = 'translateY(0)'
       } : undefined}
     >
@@ -72,13 +75,13 @@ export function Label({ children, style = {} }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 18, ...style }}>
       <div style={{
-        width: 3, height: 16, borderRadius: 2,
+        width: 3, height: 14, borderRadius: 2,
         background: `linear-gradient(180deg, ${T.accent}, ${T.accentDim})`,
-        boxShadow: `0 0 8px ${T.accentGlow}`,
+        boxShadow: `0 0 10px ${T.accentGlow}`,
       }} />
       <div style={{
-        fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 11,
-        letterSpacing: 3, color: T.accent, textTransform: 'uppercase',
+        fontFamily: T.fontBody, fontWeight: 700, fontSize: 12,
+        letterSpacing: 0.2, color: T.textMid,
       }}>{children}</div>
     </div>
   )
@@ -144,8 +147,8 @@ export function Input({ label, value, onChange, type = 'text', placeholder = '',
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {label && (
         <label style={{
-          fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 9,
-          letterSpacing: 2.5, color: T.textSub, textTransform: 'uppercase',
+          fontFamily: T.fontBody, fontWeight: 700, fontSize: 12,
+          letterSpacing: 0.15, color: T.textSub,
         }}>
           {label}{required && <span style={{ color: T.accent, marginLeft: 3 }}>*</span>}
         </label>
@@ -158,7 +161,7 @@ export function Input({ label, value, onChange, type = 'text', placeholder = '',
           background: T.surface,
           border: `1px solid ${T.border}`,
           borderRadius: T.radius,
-          padding: '10px 14px',
+          padding: '11px 14px',
           color: T.text,
           fontFamily: T.fontBody, fontSize: 14,
           outline: 'none', width: '100%',
@@ -166,7 +169,7 @@ export function Input({ label, value, onChange, type = 'text', placeholder = '',
         }}
         onFocus={e => {
           e.target.style.borderColor = T.accent
-          e.target.style.boxShadow = `0 0 0 3px ${T.accentGlowSm}`
+          e.target.style.boxShadow = `0 0 0 4px ${T.accentGlowSm}`
         }}
         onBlur={e => {
           e.target.style.borderColor = T.border
@@ -182,15 +185,15 @@ export function Select({ label, value, onChange, options }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {label && (
         <label style={{
-          fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 9,
-          letterSpacing: 2.5, color: T.textSub, textTransform: 'uppercase',
+          fontFamily: T.fontBody, fontWeight: 700, fontSize: 12,
+          letterSpacing: 0.15, color: T.textSub,
         }}>{label}</label>
       )}
       <select value={value} onChange={e => onChange(e.target.value)} style={{
         background: T.surface,
         border: `1px solid ${T.border}`,
         borderRadius: T.radius,
-        padding: '10px 14px',
+        padding: '11px 14px',
         color: T.text,
         fontFamily: T.fontBody, fontSize: 14,
         outline: 'none', width: '100%', cursor: 'pointer',
@@ -209,16 +212,16 @@ export function Select({ label, value, onChange, options }) {
 
 export function Btn({ children, onClick, variant = 'primary', disabled = false, size = 'md', style = {} }) {
   const sizes = {
-    sm: { padding: '7px 16px', fontSize: 11 },
-    md: { padding: '11px 24px', fontSize: 12 },
-    lg: { padding: '14px 34px', fontSize: 13 },
+    sm: { padding: '8px 14px', fontSize: 13 },
+    md: { padding: '10px 18px', fontSize: 14 },
+    lg: { padding: '12px 22px', fontSize: 15 },
   }
   const variants = {
     primary: {
       background: `linear-gradient(135deg, ${T.accent}, ${T.accentDim})`,
-      color: '#050a05',
+      color: '#061006',
       border: 'none',
-      boxShadow: `0 4px 16px ${T.accentGlow}, inset 0 1px 0 rgba(255,255,255,0.1)`,
+      boxShadow: `0 6px 18px ${T.accentGlowMd}, inset 0 1px 0 rgba(255,255,255,0.10)`,
     },
     secondary: {
       background: T.surface,
@@ -240,10 +243,9 @@ export function Btn({ children, onClick, variant = 'primary', disabled = false, 
   return (
     <button onClick={onClick} disabled={disabled} style={{
       borderRadius: T.radius,
-      fontFamily: T.fontDisplay,
-      fontWeight: 800,
-      letterSpacing: 1.5,
-      textTransform: 'uppercase',
+      fontFamily: T.fontBody,
+      fontWeight: 650,
+      letterSpacing: 0.15,
       cursor: disabled ? 'not-allowed' : 'pointer',
       opacity: disabled ? 0.4 : 1,
       transition: 'all .18s',
@@ -254,7 +256,7 @@ export function Btn({ children, onClick, variant = 'primary', disabled = false, 
       onMouseEnter={!disabled ? e => {
         if (variant === 'primary') {
           e.currentTarget.style.transform = 'translateY(-1px)'
-          e.currentTarget.style.boxShadow = `0 8px 24px ${T.accentGlowMd}`
+          e.currentTarget.style.boxShadow = `0 10px 30px ${T.accentGlowMd}`
         }
         if (variant === 'secondary') {
           e.currentTarget.style.borderColor = T.borderHi
@@ -264,7 +266,7 @@ export function Btn({ children, onClick, variant = 'primary', disabled = false, 
       onMouseLeave={!disabled ? e => {
         if (variant === 'primary') {
           e.currentTarget.style.transform = 'translateY(0)'
-          e.currentTarget.style.boxShadow = `0 4px 16px ${T.accentGlow}`
+          e.currentTarget.style.boxShadow = `0 6px 18px ${T.accentGlowMd}`
         }
         if (variant === 'secondary') {
           e.currentTarget.style.borderColor = T.border
@@ -280,10 +282,10 @@ export function Badge({ children, color = T.accent }) {
     <span style={{
       background: color + '14',
       border: `1px solid ${color}30`,
-      borderRadius: T.radiusSm,
-      padding: '3px 9px',
-      fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 10,
-      color, letterSpacing: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap',
+      borderRadius: T.radiusFull,
+      padding: '5px 10px',
+      fontFamily: T.fontBody, fontWeight: 700, fontSize: 12,
+      color, letterSpacing: 0.15, whiteSpace: 'nowrap',
     }}>{children}</span>
   )
 }
@@ -306,9 +308,9 @@ export function PageHeader({ title, sub }) {
   return (
     <div style={{ paddingBottom: 4 }}>
       <h1 style={{
-        fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 42,
-        letterSpacing: 1, color: T.text, lineHeight: 0.95,
-        textTransform: 'uppercase', margin: 0,
+        fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 30,
+        letterSpacing: -0.4, color: T.text, lineHeight: 1.05,
+        margin: 0,
       }}>{title}</h1>
       {sub && <div style={{ fontFamily: T.fontBody, fontSize: 13, color: T.textMid, marginTop: 9, letterSpacing: 0.3 }}>{sub}</div>}
     </div>
@@ -342,15 +344,20 @@ export function MacroBar({ label, value, max, unit, color }) {
   )
 }
 
-export function Layout({ children, sidebar }) {
+export function Layout({ children, sidebar, topbar }) {
   return (
     <div style={{ minHeight: '100vh', background: T.bg, display: 'flex' }}>
       {sidebar}
       <main style={{
-        flex: 1, padding: '40px 40px 100px',
-        minWidth: 0, maxWidth: 1020, margin: '0 auto', width: '100%',
+        flex: 1,
+        minWidth: 0,
+        padding: '18px 32px 90px',
+        maxWidth: 1120,
+        margin: '0 auto',
+        width: '100%',
       }}>
-        {children}
+        {topbar}
+        <div style={{ paddingTop: topbar ? 18 : 0 }}>{children}</div>
       </main>
     </div>
   )

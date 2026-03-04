@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './components/AuthContext'
 import { Grain, Layout } from './components/UI'
 import { DirtyProvider } from './components/DirtyContext'
 import Sidebar from './components/Sidebar'
+import Topbar from './components/Topbar'
 import AuthPage from './pages/AuthPage'
 import SaisiePage from './pages/SaisiePage'
 import HistoriquePage from './pages/HistoriquePage'
@@ -36,7 +37,7 @@ function AppShell() {
 
   return (
     <DirtyProvider>
-    <Layout sidebar={<Sidebar />}>
+    <Layout sidebar={<Sidebar />} topbar={<Topbar />}>
       <Routes>
         <Route path="/" element={<Navigate to="/aujourd-hui" />} />
         <Route path="/saisie" element={<SaisiePage />} />

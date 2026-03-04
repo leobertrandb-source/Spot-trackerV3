@@ -62,16 +62,35 @@ export default function NutritionPage() {
   const [showGoals, setShowGoals] = useState(false)
   const [goalDraft, setGoalDraft] = useState({})
 
-  useEffect(() => { loadAll() }, [])
+  // Wait for auth to be ready (important for Supabase RLS + user_id).
+  useEffect(() => {
+    if (!user?.id) return
+    loadAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id])
 
   async function loadAll() {
-    const [{ data: g }, { data: l }] = await Promise.all([
-      supabase.from('nutrition_goals').select('*').eq('user_id', user.id).single(),
-      supabase.from('nutrition_logs').select('*').eq('user_id', user.id).eq('log_date', today).order('created_at'),
-    ])
-    if (g) setGoals(g)
-    setLogs(l || [])
-    setLoading(false)
+    try {
+      setLoading(true)
+      const [{ data: g, error: gErr }, { data: l, error: lErr }] = await Promise.all([
+        // If the user has no row yet, Supabase can return an error with .single().
+        // We keep defaults in that case.
+        supabase.from('nutrition_goals').select('*').eq('user_id', user.id).single(),
+        supabase.from('nutrition_logs').select('*').eq('user_id', user.id).eq('log_date', today).order('created_at'),
+      ])
+
+      if (gErr && gErr.code !== 'PGRST116') {
+        console.error('Nutrition goals load error:', gErr)
+      }
+      if (lErr) {
+        console.error('Nutrition logs load error:', lErr)
+      }
+
+      if (g) setGoals(g)
+      setLogs(l || [])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const totals = logs.reduce((acc, log) => ({
@@ -85,15 +104,28 @@ export default function NutritionPage() {
   async function addMeal() {
     if (!meal.calories && !meal.proteins && !meal.water) return
     setSaving(true)
-    const { data } = await supabase.from('nutrition_logs').insert({
-      user_id: user.id, log_date: today,
-      meal_name: meal.meal_name || null,
-      calories: parseInt(meal.calories) || 0,
-      proteins: parseFloat(meal.proteins) || 0,
-      carbs:    parseFloat(meal.carbs)    || 0,
-      fats:     parseFloat(meal.fats)     || 0,
-      water:    parseInt(meal.water)      || 0,
-    }).select().single()
+    const { data, error } = await supabase
+      .from('nutrition_logs')
+      .insert({
+        user_id: user.id,
+        log_date: today,
+        meal_name: meal.meal_name || null,
+        calories: parseInt(meal.calories) || 0,
+        proteins: parseFloat(meal.proteins) || 0,
+        carbs: parseFloat(meal.carbs) || 0,
+        fats: parseFloat(meal.fats) || 0,
+        water: parseInt(meal.water) || 0,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Erreur ajout repas:', error)
+      alert(`Impossible d\'enregistrer le repas : ${error.message}`)
+      setSaving(false)
+      return
+    }
+
     if (data) setLogs(p => [...p, data])
     setMeal(EMPTY_MEAL)
     setSaving(false)
