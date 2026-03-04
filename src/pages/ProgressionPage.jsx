@@ -16,7 +16,6 @@ import {
 
 function formatDateFR(d) {
   if (!d) return ''
-  // supports YYYY-MM-DD
   if (typeof d === 'string' && d.includes('-')) {
     const [y, m, day] = d.split('-')
     return `${day}/${m}/${y}`
@@ -28,6 +27,15 @@ function numberOrNull(v) {
   if (v === '' || v === null || v === undefined) return null
   const n = Number(v)
   return Number.isFinite(n) ? n : null
+}
+
+function extFromFile(file) {
+  const n = (file?.name || '').toLowerCase()
+  if (n.endsWith('.png')) return 'png'
+  if (n.endsWith('.webp')) return 'webp'
+  if (n.endsWith('.jpeg')) return 'jpg'
+  if (n.endsWith('.jpg')) return 'jpg'
+  return 'jpg'
 }
 
 function ChartTooltip({ active, payload, label, unit = '' }) {
@@ -83,6 +91,9 @@ export default function ProgressionPage() {
   // Tabs
   const [tab, setTab] = useState('charges') // charges | mesures | prs | photos
 
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
   // ---------- Charges (sessions/sets) ----------
   const [allSessions, setAllSessions] = useState([])
   const [usedExercises, setUsedExercises] = useState([])
@@ -108,15 +119,37 @@ export default function ProgressionPage() {
 
   // ---------- Photos ----------
   const [photos, setPhotos] = useState([])
+  const [photoUrls, setPhotoUrls] = useState({}) // storage_path -> signedUrl
+  const [photoDate, setPhotoDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [photoTag, setPhotoTag] = useState('front') // front/side/back/other
+  const [photoNote, setPhotoNote] = useState('')
+  const [uploading, setUploading] = useState(false)
 
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  async function refreshSignedUrls(list) {
+    const entries = await Promise.all(
+      (list || []).map(async (ph) => {
+        const { data, error } = await supabase.storage
+          .from('progress-photos')
+          .createSignedUrl(ph.storage_path, 60 * 60) // 1h
+
+        if (error) {
+          console.error('signed url error', ph.storage_path, error)
+          return [ph.storage_path, null]
+        }
+        return [ph.storage_path, data?.signedUrl || null]
+      })
+    )
+
+    const map = {}
+    for (const [path, url] of entries) map[path] = url
+    setPhotoUrls(map)
+  }
 
   async function loadAll() {
     if (!user?.id) return
     setLoading(true)
 
-    // Charges data
+    // Charges: sessions + sets
     const { data: sessions, error: sErr } = await supabase
       .from('sessions')
       .select('id, date, seance_type')
@@ -130,6 +163,7 @@ export default function ProgressionPage() {
       const ids = sessions.map((s) => s.id)
       const { data: sets, error: setsErr } = await supabase.from('sets').select('*').in('session_id', ids)
       if (setsErr) console.error('sets load error', setsErr)
+
       merged = (sessions || []).map((s) => ({
         ...s,
         sets: (sets || []).filter((st) => st.session_id === s.id),
@@ -152,7 +186,7 @@ export default function ProgressionPage() {
     ] = await Promise.all([
       supabase.from('body_metrics').select('*').order('metric_date', { ascending: true }).limit(240),
       supabase.from('exercise_prs').select('*').order('pr_date', { ascending: false }).limit(80),
-      supabase.from('progress_photos').select('*').order('photo_date', { ascending: false }).limit(36),
+      supabase.from('progress_photos').select('*').order('photo_date', { ascending: false }).limit(48),
     ])
 
     if (mErr) console.error('body_metrics load error', mErr)
@@ -162,6 +196,7 @@ export default function ProgressionPage() {
     setMetrics(mData || [])
     setPrs(prData || [])
     setPhotos(phData || [])
+    await refreshSignedUrls(phData || [])
 
     setLoading(false)
   }
@@ -200,13 +235,7 @@ export default function ProgressionPage() {
     const last = vals[vals.length - 1]
     const max = Math.max(...vals)
     const progressPct = vals.length > 1 && first ? ((last - first) / first) * 100 : 0
-    return {
-      max,
-      last,
-      first,
-      progressPct,
-      sessions: chargesChartData.length,
-    }
+    return { max, last, first, progressPct, sessions: chargesChartData.length }
   }, [chargesChartData, chargeMetric])
 
   // =========================
@@ -288,6 +317,50 @@ export default function ProgressionPage() {
     setPrNote('')
     await loadAll()
     setSaving(false)
+  }
+
+  async function uploadProgressPhoto(file) {
+    if (!user?.id) return
+    if (!file) return
+
+    setUploading(true)
+    try {
+      const ext = extFromFile(file)
+      const safeTag = String(photoTag || 'front').toLowerCase().trim() || 'front'
+      const path = `${user.id}/${photoDate}/${safeTag}-${Date.now()}.${ext}`
+
+      const { error: upErr } = await supabase.storage
+        .from('progress-photos')
+        .upload(path, file, {
+          upsert: false,
+          contentType: file.type || `image/${ext}`,
+        })
+
+      if (upErr) {
+        console.error('upload error', upErr)
+        alert(upErr.message)
+        return
+      }
+
+      const { error: insErr } = await supabase.from('progress_photos').insert({
+        user_id: user.id,
+        photo_date: photoDate,
+        tag: safeTag,
+        storage_path: path,
+        note: photoNote || null,
+      })
+
+      if (insErr) {
+        console.error('insert progress_photos error', insErr)
+        alert(insErr.message)
+        return
+      }
+
+      setPhotoNote('')
+      await loadAll()
+    } finally {
+      setUploading(false)
+    }
   }
 
   if (loading) {
@@ -602,42 +675,202 @@ export default function ProgressionPage() {
 
       {/* ===================== Photos ===================== */}
       {tab === 'photos' ? (
-        <Card>
-          <Label>Photos de progression</Label>
-          <div style={{ color: T.textMid, marginBottom: 10 }}>
-            Cette section affiche les entrées de <span style={{ color: T.text }}>progress_photos</span>.
-            (Upload Supabase Storage à ajouter ensuite.)
+        {tab === 'photos' ? (
+  <Card>
+    <Label>Photos de progression</Label>
+
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+      gap: 12
+    }}>
+
+      <Input
+        label="Date"
+        type="date"
+        value={photoDate}
+        onChange={setPhotoDate}
+      />
+
+      <Input
+        label="Tag"
+        value={photoTag}
+        onChange={setPhotoTag}
+        placeholder="front / side / back"
+      />
+
+      <Input
+        label="Note"
+        value={photoNote}
+        onChange={setPhotoNote}
+      />
+
+      <div>
+        <div style={{fontSize:12,color:T.textDim,marginBottom:6}}>
+          Image
+        </div>
+
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e)=>uploadProgressPhoto(e.target.files[0])}
+          style={{
+            width:"100%",
+            padding:10,
+            borderRadius:T.radius,
+            border:`1px solid ${T.border}`,
+            background:T.surface
+          }}
+        />
+      </div>
+
+    </div>
+
+    <div style={{height:20}}/>
+
+    {photos.length ? (
+      <div style={{
+        display:"grid",
+        gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",
+        gap:12
+      }}>
+        {photos.map(ph=>{
+          const url = photoUrls[ph.storage_path]
+
+          return (
+            <div key={ph.id}
+              style={{
+                border:`1px solid ${T.border}`,
+                borderRadius:T.radius,
+                overflow:"hidden",
+                background:T.surface
+              }}
+            >
+              <div style={{aspectRatio:"1/1"}}>
+                {url && (
+                  <img
+                    src={url}
+                    style={{
+                      width:"100%",
+                      height:"100%",
+                      objectFit:"cover"
+                    }}
+                  />
+                )}
+              </div>
+
+              <div style={{padding:10}}>
+                <div style={{fontWeight:700}}>
+                  {ph.tag}
+                </div>
+
+                <div style={{fontSize:12,color:T.textDim}}>
+                  {formatDateFR(ph.photo_date)}
+                </div>
+              </div>
+
+            </div>
+          )
+        })}
+      </div>
+    ) : (
+      <div style={{color:T.textMid}}>
+        Aucune photo enregistrée.
+      </div>
+    )}
+
+  </Card>
+) : null}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12, marginTop: 10 }}>
+            <Input label="Date" type="date" value={photoDate} onChange={setPhotoDate} />
+            <Input label="Tag" value={photoTag} onChange={setPhotoTag} placeholder="front / side / back" />
+            <Input label="Note" value={photoNote} onChange={setPhotoNote} placeholder="optionnel" />
+
+            <div style={{ alignSelf: 'end' }}>
+              <div style={{ color: T.textDim, fontSize: 12, marginBottom: 6 }}>Fichier</div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => uploadProgressPhoto(e.target.files?.[0])}
+                disabled={uploading}
+                style={{
+                  width: '100%',
+                  color: T.textMid,
+                  background: T.surface,
+                  border: `1px solid ${T.border}`,
+                  borderRadius: T.radius,
+                  padding: 10,
+                }}
+              />
+              <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
+                <Btn disabled={uploading}>
+                  {uploading ? 'Upload…' : 'Sélectionner une photo'}
+                </Btn>
+              </div>
+            </div>
           </div>
 
+          <div style={{ height: 16 }} />
+
           {photos.length ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
-              {photos.map((ph) => (
-                <div
-                  key={ph.id}
-                  style={{
-                    border: `1px solid ${T.border}`,
-                    borderRadius: T.radius,
-                    background: T.surface,
-                    padding: 10,
-                  }}
-                >
-                  <div style={{ fontFamily: T.fontBody, fontWeight: 800, color: T.text, marginBottom: 6 }}>
-                    {ph.tag || 'photo'}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+              {photos.map((ph) => {
+                const url = photoUrls[ph.storage_path]
+                return (
+                  <div
+                    key={ph.id}
+                    style={{
+                      border: `1px solid ${T.border}`,
+                      borderRadius: T.radius,
+                      background: T.surface,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div style={{ aspectRatio: '1 / 1', background: T.card }}>
+                      {url ? (
+                        <img
+                          src={url}
+                          alt={ph.tag || 'photo'}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: T.textDim,
+                            fontSize: 12,
+                          }}
+                        >
+                          (URL…)
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ padding: 10 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                        <div style={{ fontFamily: T.fontBody, fontWeight: 900, color: T.text }}>
+                          {String(ph.tag || 'photo').toUpperCase()}
+                        </div>
+                        <div style={{ color: T.textSub, fontSize: 12 }}>{formatDateFR(ph.photo_date)}</div>
+                      </div>
+
+                      {ph.note ? (
+                        <div style={{ marginTop: 6, color: T.textMid, fontSize: 12 }}>
+                          {ph.note}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 12, color: T.textSub }}>{formatDateFR(ph.photo_date)}</div>
-                  <div style={{ fontSize: 12, color: T.textDim, marginTop: 6, wordBreak: 'break-all' }}>
-                    {ph.storage_path}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           ) : (
             <div style={{ color: T.textMid }}>Aucune photo enregistrée.</div>
           )}
-
-          <div style={{ marginTop: 12, color: T.textDim, fontSize: 12 }}>
-            Si tu veux, je te donne le composant “upload + signed URL + thumbnails” en gardant ton style Apple noir/vert.
-          </div>
         </Card>
       ) : null}
     </PageWrap>
