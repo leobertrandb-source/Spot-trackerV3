@@ -12,6 +12,7 @@ import CoachPage from './pages/CoachPage'
 import AujourdhuiPage from './pages/AujourdhuiPage'
 import NutritionPage from './pages/NutritionPage'
 import ProgramBuilderPage from './pages/ProgramBuilderPage'
+import MealPlanPage from "./pages/MealPlanPage"
 
 // ✅ AJOUT RECETTES
 import RecipesPage from './pages/RecipesPage'
