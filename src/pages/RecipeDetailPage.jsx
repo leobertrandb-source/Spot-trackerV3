@@ -69,7 +69,7 @@ export default function RecipeDetailPage() {
   useEffect(() => {
     if (!id) return
     load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  
   }, [id])
 
   const ratio = useMemo(() => {
