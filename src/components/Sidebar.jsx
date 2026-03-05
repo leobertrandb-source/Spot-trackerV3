@@ -6,31 +6,31 @@ import { T } from '../lib/data'
 
 const NAV_ITEMS = [
   { to: '/aujourd-hui', icon: '◈', label: "Aujourd'hui", desc: 'Programme du jour' },
-  { to: '/nutrition',   icon: '◉', label: 'Nutrition',   desc: 'Macros & hydratation' },
-
-  // ✅ AJOUT RECETTES
-  { to: '/recettes',    icon: '☰', label: 'Recettes',    desc: 'Bibliothèque & slider kcal' },
-
-  { to: '/saisie',      icon: '✦', label: 'Séance libre', desc: 'Saisie manuelle' },
-  { to: '/historique',  icon: '▦', label: 'Historique',  desc: 'Mes séances' },
+  { to: '/nutrition', icon: '◉', label: 'Nutrition', desc: 'Macros & hydratation' },
+  { to: '/recettes', icon: '☰', label: 'Recettes', desc: 'Bibliothèque & slider kcal' },
+  { to: '/plan', icon: '▤', label: 'Plan journalier', desc: 'Génération automatique' },
+  { to: '/saisie', icon: '✦', label: 'Séance libre', desc: 'Saisie manuelle' },
+  { to: '/historique', icon: '▦', label: 'Historique', desc: 'Mes séances' },
   { to: '/progression', icon: '◎', label: 'Progression', desc: 'Courbes de perfs' },
 ]
 
 const COACH_ITEMS = [
-  { to: '/coach',      icon: '◆', label: 'Vue Coach',  desc: 'Suivi athlètes' },
+  { to: '/coach', icon: '◆', label: 'Vue Coach', desc: 'Suivi athlètes' },
   { to: '/programmes', icon: '▣', label: 'Programmes', desc: 'Builder de séances' },
 ]
 
 function SectionLabel({ children }) {
   return (
     <div style={{ padding: '10px 10px 6px' }}>
-      <span style={{
-        fontFamily: T.fontBody,
-        fontWeight: 700,
-        fontSize: 12,
-        letterSpacing: 0.15,
-        color: T.textSub,
-      }}>
+      <span
+        style={{
+          fontFamily: T.fontBody,
+          fontWeight: 700,
+          fontSize: 12,
+          letterSpacing: 0.15,
+          color: T.textSub,
+        }}
+      >
         {children}
       </span>
     </div>
@@ -61,16 +61,24 @@ function NavBtn({ item, isActive, onClick, showDot }) {
         textAlign: 'left',
         position: 'relative',
       }}
-      onMouseEnter={!isActive ? (e) => {
-        e.currentTarget.style.background = T.card
-        e.currentTarget.style.color = T.text
-        e.currentTarget.style.borderColor = T.border
-      } : undefined}
-      onMouseLeave={!isActive ? (e) => {
-        e.currentTarget.style.background = 'transparent'
-        e.currentTarget.style.color = T.textMid
-        e.currentTarget.style.borderColor = 'transparent'
-      } : undefined}
+      onMouseEnter={
+        !isActive
+          ? (e) => {
+              e.currentTarget.style.background = T.card
+              e.currentTarget.style.color = T.text
+              e.currentTarget.style.borderColor = T.border
+            }
+          : undefined
+      }
+      onMouseLeave={
+        !isActive
+          ? (e) => {
+              e.currentTarget.style.background = 'transparent'
+              e.currentTarget.style.color = T.textMid
+              e.currentTarget.style.borderColor = 'transparent'
+            }
+          : undefined
+      }
     >
       {isActive ? (
         <div
@@ -96,8 +104,8 @@ function NavBtn({ item, isActive, onClick, showDot }) {
           alignItems: 'center',
           justifyContent: 'center',
           borderRadius: 10,
-          background: isActive ? (T.accent + '14') : 'transparent',
-          border: `1px solid ${isActive ? (T.accent + '28') : 'transparent'}`,
+          background: isActive ? T.accent + '14' : 'transparent',
+          border: `1px solid ${isActive ? T.accent + '28' : 'transparent'}`,
           fontSize: 13,
           lineHeight: 1,
           opacity: isActive ? 1 : 0.7,
@@ -182,6 +190,7 @@ export default function Sidebar() {
           <>
             <div style={{ marginTop: 6 }} />
             <SectionLabel>Coach</SectionLabel>
+
             {COACH_ITEMS.map((item) => (
               <NavBtn
                 key={item.to}
@@ -226,24 +235,29 @@ export default function Sidebar() {
           </div>
 
           <div style={{ minWidth: 0 }}>
-            <div style={{
-              fontFamily: T.fontBody,
-              fontWeight: 800,
-              fontSize: 13,
-              color: T.text,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}>
+            <div
+              style={{
+                fontFamily: T.fontBody,
+                fontWeight: 800,
+                fontSize: 13,
+                color: T.text,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
               {name}
             </div>
-            <div style={{
-              marginTop: 2,
-              fontFamily: T.fontBody,
-              fontWeight: 650,
-              fontSize: 12,
-              color: isCoach ? T.accentLight : T.textSub,
-            }}>
+
+            <div
+              style={{
+                marginTop: 2,
+                fontFamily: T.fontBody,
+                fontWeight: 650,
+                fontSize: 12,
+                color: isCoach ? T.accentLight : T.textSub,
+              }}
+            >
               {isCoach ? '🎯 Coach' : '💪 Athlète'}
             </div>
           </div>
