@@ -12,6 +12,11 @@ import CoachPage from './pages/CoachPage'
 import AujourdhuiPage from './pages/AujourdhuiPage'
 import NutritionPage from './pages/NutritionPage'
 import ProgramBuilderPage from './pages/ProgramBuilderPage'
+
+// ✅ AJOUT RECETTES
+import RecipesPage from './pages/RecipesPage'
+import RecipeDetailPage from './pages/RecipeDetailPage'
+
 import { T } from './lib/data'
 
 function AppShell() {
@@ -37,18 +42,23 @@ function AppShell() {
 
   return (
     <DirtyProvider>
-    <Layout sidebar={<Sidebar />} topbar={<Topbar />}>
-      <Routes>
-        <Route path="/" element={<Navigate to="/aujourd-hui" />} />
-        <Route path="/saisie" element={<SaisiePage />} />
-        <Route path="/historique" element={<HistoriquePage />} />
-        <Route path="/progression" element={<ProgressionPage />} />
-        <Route path="/coach" element={<CoachPage />} />
-        <Route path="/aujourd-hui" element={<AujourdhuiPage />} />
-        <Route path="/nutrition" element={<NutritionPage />} />
-        <Route path="/programmes" element={<ProgramBuilderPage />} />
-      </Routes>
-    </Layout>
+      <Layout sidebar={<Sidebar />} topbar={<Topbar />}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/aujourd-hui" />} />
+
+          <Route path="/saisie" element={<SaisiePage />} />
+          <Route path="/historique" element={<HistoriquePage />} />
+          <Route path="/progression" element={<ProgressionPage />} />
+          <Route path="/coach" element={<CoachPage />} />
+          <Route path="/aujourd-hui" element={<AujourdhuiPage />} />
+          <Route path="/nutrition" element={<NutritionPage />} />
+          <Route path="/programmes" element={<ProgramBuilderPage />} />
+
+          {/* ✅ RECETTES */}
+          <Route path="/recettes" element={<RecipesPage />} />
+          <Route path="/recette/:id" element={<RecipeDetailPage />} />
+        </Routes>
+      </Layout>
     </DirtyProvider>
   )
 }
