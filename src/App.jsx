@@ -12,8 +12,6 @@ import CoachPage from './pages/CoachPage'
 import AujourdhuiPage from './pages/AujourdhuiPage'
 import NutritionPage from './pages/NutritionPage'
 import ProgramBuilderPage from './pages/ProgramBuilderPage'
-import RecipesPage from './pages/RecipesPage'
-import RecipeDetailPage from './pages/RecipeDetailPage'
 import { T } from './lib/data'
 
 function AppShell() {
@@ -49,8 +47,6 @@ function AppShell() {
         <Route path="/aujourd-hui" element={<AujourdhuiPage />} />
         <Route path="/nutrition" element={<NutritionPage />} />
         <Route path="/programmes" element={<ProgramBuilderPage />} />
-        <Route path="/recettes" element={<RecipesPage />} />
-        <Route path="/recette/:id" element={<RecipeDetailPage />} />
       </Routes>
     </Layout>
     </DirtyProvider>

@@ -227,7 +227,19 @@ export default function NutritionPage() {
                 onMouseEnter={e => e.currentTarget.style.background = T.surface}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
-                <div style={{ fontFamily: T.fontBody, fontSize: 13, color: T.text }}>{log.meal_name || '—'}</div>
+                <div style={{ display: 'grid', gap: 6 }}>
+                  <div style={{ fontFamily: T.fontBody, fontSize: 13, color: T.text }}>{log.meal_name || '—'}</div>
+
+                  {log.recipe_details?.ingredients?.length ? (
+                    <div style={{ fontSize: 11, color: T.textMid, lineHeight: 1.5 }}>
+                      {log.recipe_details.ingredients.map((ing, i) => (
+                        <div key={i}>
+                          {ing.quantity}{ing.unit ? ` ${ing.unit}` : ''} {ing.name}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
                 <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 14, color: MACRO_CONFIG.calories.color }}>{log.calories}</div>
                 <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 13, color: MACRO_CONFIG.proteins.color }}>{log.proteins}g</div>
                 <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 13, color: MACRO_CONFIG.carbs.color }}>{log.carbs}g</div>

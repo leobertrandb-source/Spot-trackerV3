@@ -7,7 +7,6 @@ import { T } from '../lib/data'
 const NAV_ITEMS = [
   { to: '/aujourd-hui', icon: '◈', label: "Aujourd'hui",  desc: 'Programme du jour' },
   { to: '/nutrition',   icon: '◉', label: 'Nutrition',    desc: 'Macros & hydratation' },
-  { to: '/recettes',    icon: '⬣', label: 'Recettes',     desc: 'Curseur calories' },
   { to: '/saisie',      icon: '✦', label: 'Séance libre', desc: 'Saisie manuelle' },
   { to: '/historique',  icon: '▦', label: 'Historique',   desc: 'Mes séances' },
   { to: '/progression', icon: '◎', label: 'Progression',  desc: 'Courbes de perfs' },

@@ -69,7 +69,7 @@ export default function RecipeDetailPage() {
   useEffect(() => {
     if (!id) return
     load()
-  
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   const ratio = useMemo(() => {
@@ -97,6 +97,24 @@ export default function RecipeDetailPage() {
     if (!scaled) return
 
     setSaving(true)
+    const details = {
+      recipe_id: recipe?.id,
+      title: recipe?.title,
+      targetCalories,
+      ratio: Number(ratio.toFixed(4)),
+      macros: {
+        calories: scaled.calories || 0,
+        proteins: scaled.proteins || 0,
+        carbs: scaled.carbs || 0,
+        fats: scaled.fats || 0,
+      },
+      ingredients: (scaled.ingredients || []).map(i => ({
+        name: i.name,
+        quantity: i.scaled_qty,
+        unit: i.unit,
+      })),
+    }
+
     const { error } = await supabase
       .from('nutrition_logs')
       .insert({
@@ -108,6 +126,8 @@ export default function RecipeDetailPage() {
         carbs: scaled.carbs || 0,
         fats: scaled.fats || 0,
         water: 0,
+        recipe_id: recipe?.id,
+        recipe_details: details,
       })
 
     if (error) {
