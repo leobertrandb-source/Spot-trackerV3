@@ -54,7 +54,7 @@ function AppShell() {
           <Route path="/aujourd-hui" element={<AujourdhuiPage />} />
           <Route path="/nutrition" element={<NutritionPage />} />
           <Route path="/programmes" element={<ProgramBuilderPage />} />
-
+<Route path="/plan" element={<MealPlanPage />} />
           {/* ✅ RECETTES */}
           <Route path="/recettes" element={<RecipesPage />} />
           <Route path="/recette/:id" element={<RecipeDetailPage />} />
