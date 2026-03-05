@@ -5,11 +5,15 @@ import { useDirty } from './DirtyContext'
 import { T } from '../lib/data'
 
 const NAV_ITEMS = [
-  { to: '/aujourd-hui', icon: '◈', label: "Aujourd'hui",  desc: 'Programme du jour' },
-  { to: '/nutrition',   icon: '◉', label: 'Nutrition',    desc: 'Macros & hydratation' },
+  { to: '/aujourd-hui', icon: '◈', label: "Aujourd'hui", desc: 'Programme du jour' },
+  { to: '/nutrition',   icon: '◉', label: 'Nutrition',   desc: 'Macros & hydratation' },
+
+  // ✅ AJOUT RECETTES
+  { to: '/recettes',    icon: '☰', label: 'Recettes',    desc: 'Bibliothèque & slider kcal' },
+
   { to: '/saisie',      icon: '✦', label: 'Séance libre', desc: 'Saisie manuelle' },
-  { to: '/historique',  icon: '▦', label: 'Historique',   desc: 'Mes séances' },
-  { to: '/progression', icon: '◎', label: 'Progression',  desc: 'Courbes de perfs' },
+  { to: '/historique',  icon: '▦', label: 'Historique',  desc: 'Mes séances' },
+  { to: '/progression', icon: '◎', label: 'Progression', desc: 'Courbes de perfs' },
 ]
 
 const COACH_ITEMS = [
@@ -250,38 +254,34 @@ export default function Sidebar() {
           onClick={signOut}
           style={{
             width: '100%',
-            background: 'transparent',
-            border: `1px solid ${T.border}`,
+            padding: '10px 10px',
             borderRadius: T.radius,
-            padding: '10px 0',
-            fontFamily: T.fontBody,
-            fontWeight: 650,
-            fontSize: 13,
-            letterSpacing: 0.1,
+            border: `1px solid ${T.border}`,
+            background: 'transparent',
             color: T.textMid,
+            fontFamily: T.fontBody,
+            fontWeight: 700,
             cursor: 'pointer',
-            transition: 'all .15s',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 7,
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = T.danger + '55'
-            e.currentTarget.style.color = T.danger
-            e.currentTarget.style.background = T.dangerGlow
+            e.currentTarget.style.background = T.card
+            e.currentTarget.style.color = T.text
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = T.border
-            e.currentTarget.style.color = T.textMid
             e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = T.textMid
           }}
         >
-          <span style={{ fontSize: 12 }}>→</span> Déconnexion
+          → Déconnexion
         </button>
       </div>
 
-      <style>{`@keyframes pulseWarn { 0%,100%{opacity:1} 50%{opacity:.4} }`}</style>
+      <style>{`
+        @keyframes pulseWarn {
+          0%,100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.35); opacity: .5; }
+        }
+      `}</style>
     </aside>
   )
 }
