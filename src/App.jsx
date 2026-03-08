@@ -62,10 +62,8 @@ function AppShell() {
             element={hasGoal ? <Navigate to="/mon-espace" replace /> : <Navigate to="/objectif" replace />}
           />
 
-          <Route
-            path="/objectif"
-            element={hasGoal ? <Navigate to="/mon-espace" replace /> : <GoalSelectionPage />}
-          />
+          {/* IMPORTANT : on laisse toujours accessible /objectif */}
+          <Route path="/objectif" element={<GoalSelectionPage />} />
 
           <Route
             path="/mon-espace"
