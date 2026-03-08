@@ -1,278 +1,517 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-import { Card, Label, Input, Btn, Ring, MacroBar, PageWrap, PageHeader, Badge } from '../components/UI'
-import { MACRO_CONFIG, T } from '../lib/data'
+import { PageWrap, Btn, Input } from '../components/UI'
+import { T } from '../lib/data'
 
-const today = new Date().toISOString().split('T')[0]
-const EMPTY_MEAL = { meal_name: '', calories: '', proteins: '', carbs: '', fats: '', water: '' }
+function ProgressBar({ label, value, goal, suffix = '' }) {
+const safeGoal = Math.max(Number(goal || 0), 1)
+const safeValue = Number(value || 0)
+const percent = Math.min(100, Math.round((safeValue / safeGoal) * 100))
 
-function MacroRings({ totals, goals }) {
-  const macros = [
-    { key: 'calories', size: 130, stroke: 10 },
-    { key: 'proteins', size: 90,  stroke: 7  },
-    { key: 'carbs',    size: 90,  stroke: 7  },
-    { key: 'fats',     size: 90,  stroke: 7  },
-  ]
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
-      {macros.map(({ key, size, stroke }) => {
-        const cfg = MACRO_CONFIG[key]
-        const val = Math.round(totals[key] || 0)
-        const max = goals[key] || 1
-        return (
-          <div key={key} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-            <Ring
-              value={val} max={max} color={cfg.color}
-              size={size} stroke={stroke}
-              label={val >= 1000 ? `${(val/1000).toFixed(1)}k` : String(val)}
-              sublabel={cfg.unit}
-            />
-            <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 10, letterSpacing: 1.5, color: T.textMid, textTransform: 'uppercase' }}>
-              {cfg.icon} {cfg.label}
-            </div>
-          </div>
-        )
-      })}
+return (
+<div
+style={{
+padding: '16px 16px',
+borderRadius: 20,
+background: 'linear-gradient(135deg, rgba(255,255,255,0.035), rgba(255,255,255,0.015))',
+border: '1px solid rgba(255,255,255,0.08)',
+backdropFilter: 'blur(10px)',
+}}
+>
+<div
+style={{
+display: 'flex',
+justifyContent: 'space-between',
+gap: 12,
+alignItems: 'center',
+marginBottom: 10,
+}}
+>
+<div
+style={{
+fontSize: 12,
+fontWeight: 800,
+letterSpacing: 1,
+textTransform: 'uppercase',
+color: T.textSub,
+}}
+>
+{label}
+</div>
 
-      {/* Water bar */}
-      <div style={{ flex: 1, minWidth: 160 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-          <div style={{ fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 28, color: '#26c6da', lineHeight: 1 }}>
-            {((totals.water || 0) / 1000).toFixed(1)}L
-          </div>
-          <div style={{ fontSize: 11, color: T.textDim }}>/ {(goals.water / 1000).toFixed(1)}L</div>
-        </div>
-        <MacroBar label="Hydratation" value={totals.water || 0} max={goals.water || 2500} unit="ml" color="#26c6da" />
-        <MacroBar label="Protéines"   value={Math.round(totals.proteins || 0)} max={goals.proteins || 180} unit="g" color={MACRO_CONFIG.proteins.color} />
-        <MacroBar label="Glucides"    value={Math.round(totals.carbs || 0)} max={goals.carbs || 280} unit="g" color={MACRO_CONFIG.carbs.color} />
-        <MacroBar label="Lipides"     value={Math.round(totals.fats || 0)} max={goals.fats || 80} unit="g" color={MACRO_CONFIG.fats.color} />
-      </div>
-    </div>
-  )
+<div
+style={{
+color: T.text,
+fontSize: 13,
+fontWeight: 800,
+}}
+>
+{safeValue}{suffix} / {Number(goal || 0)}{suffix}
+</div>
+</div>
+
+<div
+style={{
+height: 10,
+borderRadius: 999,
+background: 'rgba(255,255,255,0.06)',
+overflow: 'hidden',
+border: '1px solid rgba(255,255,255,0.05)',
+}}
+>
+<div
+style={{
+width: `${percent}%`,
+height: '100%',
+borderRadius: 999,
+background: 'linear-gradient(90deg, rgba(45,255,155,0.65), rgba(45,255,155,1))',
+boxShadow: '0 0 16px rgba(45,255,155,0.20)',
+}}
+/>
+</div>
+</div>
+)
+}
+
+function MealCard({ meal }) {
+const ingredients = meal.recipe_details?.ingredients || []
+
+return (
+<div
+style={{
+borderRadius: 22,
+overflow: 'hidden',
+border: '1px solid rgba(255,255,255,0.08)',
+background: 'linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
+boxShadow: '0 18px 40px rgba(0,0,0,0.20)',
+}}
+>
+<div
+style={{
+padding: '18px 18px 14px',
+borderBottom: '1px solid rgba(255,255,255,0.06)',
+}}
+>
+<div
+style={{
+display: 'flex',
+justifyContent: 'space-between',
+gap: 12,
+alignItems: 'start',
+flexWrap: 'wrap',
+}}
+>
+<div>
+<div
+style={{
+color: T.text,
+fontSize: 22,
+fontWeight: 900,
+lineHeight: 1.1,
+}}
+>
+{meal.meal_name || 'Repas'}
+</div>
+
+<div
+style={{
+marginTop: 8,
+color: T.textMid,
+fontSize: 14,
+lineHeight: 1.6,
+}}
+>
+{meal.calories} kcal • P {Number(meal.proteins || 0).toFixed(0)}g • C {Number(meal.carbs || 0).toFixed(0)}g • F {Number(meal.fats || 0).toFixed(0)}g
+</div>
+</div>
+
+<div
+style={{
+display: 'inline-flex',
+padding: '8px 12px',
+borderRadius: 999,
+border: `1px solid ${T.accent + '28'}`,
+background: T.accentGlowSm,
+color: T.accentLight,
+fontWeight: 800,
+fontSize: 12,
+letterSpacing: 0.7,
+textTransform: 'uppercase',
+}}
+>
+{meal.log_date}
+</div>
+</div>
+</div>
+
+<div style={{ padding: 18 }}>
+<div
+style={{
+fontSize: 13,
+fontWeight: 800,
+letterSpacing: 1,
+textTransform: 'uppercase',
+color: T.textSub,
+marginBottom: 10,
+}}
+>
+Ingrédients
+</div>
+
+{ingredients.length ? (
+<div style={{ display: 'grid', gap: 8 }}>
+{ingredients.map((ing, idx) => (
+<div
+key={idx}
+style={{
+display: 'flex',
+justifyContent: 'space-between',
+gap: 12,
+padding: '10px 12px',
+borderRadius: 14,
+background: 'rgba(255,255,255,0.03)',
+border: '1px solid rgba(255,255,255,0.06)',
+}}
+>
+<div style={{ color: T.text }}>{ing.name}</div>
+<div style={{ color: T.textMid, fontWeight: 800 }}>
+{ing.quantity} {ing.unit}
+</div>
+</div>
+))}
+</div>
+) : (
+<div style={{ color: T.textDim, fontSize: 14 }}>
+Aucun détail de recette enregistré pour ce repas.
+</div>
+)}
+</div>
+</div>
+)
 }
 
 export default function NutritionPage() {
-  const { user } = useAuth()
-  const [goals, setGoals] = useState({ calories: 2500, proteins: 180, carbs: 280, fats: 80, water: 2500 })
-  const [logs, setLogs] = useState([])
-  const [meal, setMeal] = useState(EMPTY_MEAL)
-  const [saving, setSaving] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [showGoals, setShowGoals] = useState(false)
-  const [goalDraft, setGoalDraft] = useState({})
+const { user } = useAuth()
+const [goals, setGoals] = useState(null)
+const [logs, setLogs] = useState([])
+const [loading, setLoading] = useState(true)
+const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10))
 
-  const loadAll = useCallback(async () => {
-    try {
-      setLoading(true)
-      const [{ data: g, error: gErr }, { data: l, error: lErr }] = await Promise.all([
-        // If the user has no row yet, Supabase can return an error with .single().
-        // We keep defaults in that case.
-        supabase.from('nutrition_goals').select('*').eq('user_id', user.id).single(),
-        supabase.from('nutrition_logs').select('*').eq('user_id', user.id).eq('log_date', today).order('created_at'),
-      ])
+async function loadNutrition() {
+if (!user?.id) return
 
-      if (gErr && gErr.code !== 'PGRST116') {
-        console.error('Nutrition goals load error:', gErr)
-      }
-      if (lErr) {
-        console.error('Nutrition logs load error:', lErr)
-      }
+setLoading(true)
 
-      if (g) setGoals(g)
-      setLogs(l || [])
-    } finally {
-      setLoading(false)
-    }
-  }, [user?.id])
+const [{ data: goalsData, error: goalsErr }, { data: logsData, error: logsErr }] =
+await Promise.all([
+supabase
+.from('nutrition_goals')
+.select('*')
+.eq('user_id', user.id)
+.maybeSingle(),
+supabase
+.from('nutrition_logs')
+.select('*')
+.eq('user_id', user.id)
+.eq('log_date', logDate)
+.order('created_at', { ascending: false }),
+])
 
-  // Wait for auth to be ready (important for Supabase RLS + user_id).
-  useEffect(() => {
-    if (!user?.id) return
-    loadAll()
-  }, [user?.id, loadAll])
+if (goalsErr) console.error(goalsErr)
+if (logsErr) console.error(logsErr)
 
-  const totals = logs.reduce((acc, log) => ({
-    calories: (acc.calories || 0) + (log.calories || 0),
-    proteins: (acc.proteins || 0) + parseFloat(log.proteins || 0),
-    carbs:    (acc.carbs    || 0) + parseFloat(log.carbs    || 0),
-    fats:     (acc.fats     || 0) + parseFloat(log.fats     || 0),
-    water:    (acc.water    || 0) + (log.water || 0),
-  }), {})
+setGoals(
+goalsData || {
+calories: 2500,
+proteins: 180,
+carbs: 280,
+fats: 80,
+water: 2500,
+}
+)
+setLogs(logsData || [])
+setLoading(false)
+}
 
-  async function addMeal() {
-    if (!meal.calories && !meal.proteins && !meal.water) return
-    setSaving(true)
-    const { data, error } = await supabase
-      .from('nutrition_logs')
-      .insert({
-        user_id: user.id,
-        log_date: today,
-        meal_name: meal.meal_name || null,
-        calories: parseInt(meal.calories) || 0,
-        proteins: parseFloat(meal.proteins) || 0,
-        carbs: parseFloat(meal.carbs) || 0,
-        fats: parseFloat(meal.fats) || 0,
-        water: parseInt(meal.water) || 0,
-      })
-      .select()
-      .single()
+useEffect(() => {
+loadNutrition()
+}, [user?.id, logDate])
 
-    if (error) {
-      console.error('Erreur ajout repas:', error)
-      alert(`Impossible d\'enregistrer le repas : ${error.message}`)
-      setSaving(false)
-      return
-    }
+const totals = useMemo(() => {
+return logs.reduce(
+(acc, item) => {
+acc.calories += Number(item.calories || 0)
+acc.proteins += Number(item.proteins || 0)
+acc.carbs += Number(item.carbs || 0)
+acc.fats += Number(item.fats || 0)
+acc.water += Number(item.water || 0)
+return acc
+},
+{ calories: 0, proteins: 0, carbs: 0, fats: 0, water: 0 }
+)
+}, [logs])
 
-    if (data) setLogs(p => [...p, data])
-    setMeal(EMPTY_MEAL)
-    setSaving(false)
-  }
+const remaining = useMemo(() => {
+return {
+calories: Math.max(0, Number(goals?.calories || 0) - totals.calories),
+proteins: Math.max(0, Number(goals?.proteins || 0) - totals.proteins),
+carbs: Math.max(0, Number(goals?.carbs || 0) - totals.carbs),
+fats: Math.max(0, Number(goals?.fats || 0) - totals.fats),
+water: Math.max(0, Number(goals?.water || 0) - totals.water),
+}
+}, [goals, totals])
 
-  async function removeLog(id) {
-    await supabase.from('nutrition_logs').delete().eq('id', id)
-    setLogs(p => p.filter(l => l.id !== id))
-  }
+return (
+<PageWrap>
+<div style={{ maxWidth: 1180, margin: '0 auto' }}>
+<div
+style={{
+position: 'relative',
+overflow: 'hidden',
+borderRadius: 28,
+padding: '24px 24px 26px',
+background:
+'radial-gradient(circle at 16% 20%, rgba(45,255,155,0.14), transparent 28%), linear-gradient(135deg, rgba(22,27,24,0.96), rgba(10,14,12,0.98))',
+border: '1px solid rgba(255,255,255,0.08)',
+boxShadow: '0 24px 60px rgba(0,0,0,0.24)',
+marginBottom: 20,
+}}
+>
+<div
+style={{
+position: 'absolute',
+inset: 0,
+opacity: 0.07,
+backgroundImage:
+'radial-gradient(rgba(255,255,255,0.72) 0.7px, transparent 0.7px)',
+backgroundSize: '14px 14px',
+pointerEvents: 'none',
+}}
+/>
 
-  async function saveGoals() {
-    const updated = { ...goals, ...goalDraft }
-    await supabase.from('nutrition_goals').upsert({ user_id: user.id, ...updated })
-    setGoals(updated)
-    setShowGoals(false)
-    setGoalDraft({})
-  }
+<div style={{ position: 'relative', zIndex: 1 }}>
+<div
+style={{
+display: 'inline-flex',
+padding: '8px 12px',
+borderRadius: 999,
+border: `1px solid ${T.accent + '28'}`,
+background: T.accentGlowSm,
+color: T.accentLight,
+fontWeight: 800,
+fontSize: 12,
+letterSpacing: 1,
+textTransform: 'uppercase',
+marginBottom: 14,
+}}
+>
+Suivi nutrition
+</div>
 
-  const calPct = Math.round(((totals.calories || 0) / goals.calories) * 100)
+<div
+style={{
+fontSize: 40,
+fontWeight: 900,
+letterSpacing: 1.5,
+color: T.text,
+lineHeight: 1,
+}}
+>
+NUTRITION
+</div>
 
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: T.textDim, fontFamily: T.fontDisplay, fontSize: 11, letterSpacing: 3 }}>CHARGEMENT...</div>
-  )
+<div
+style={{
+color: T.textMid,
+marginTop: 10,
+fontSize: 15,
+lineHeight: 1.65,
+maxWidth: 760,
+}}
+>
+Suis tes apports du jour, visualise tes objectifs et retrouve le détail des repas déjà enregistrés.
+</div>
 
-  return (
-    <PageWrap>
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <PageHeader title="Nutrition" sub={new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} />
-        <Btn variant="secondary" size="sm" onClick={() => { setShowGoals(!showGoals); setGoalDraft(goals) }}>
-          {showGoals ? 'Fermer' : '⚙ Objectifs'}
-        </Btn>
-      </div>
+<div
+style={{
+marginTop: 18,
+display: 'flex',
+gap: 12,
+flexWrap: 'wrap',
+alignItems: 'end',
+}}
+>
+<div style={{ minWidth: 220 }}>
+<Input
+label="Date"
+type="date"
+value={logDate}
+onChange={setLogDate}
+/>
+</div>
 
-      {/* Objectifs editor */}
-      {showGoals && (
-        <Card style={{ border: `1px solid ${T.borderHi}` }}>
-          <Label>Mes objectifs quotidiens</Label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 14 }}>
-            {Object.entries(MACRO_CONFIG).map(([key, cfg]) => (
-              <Input key={key} label={`${cfg.icon} ${cfg.label} (${cfg.unit})`}
-                value={goalDraft[key] ?? goals[key]}
-                onChange={v => setGoalDraft(p => ({ ...p, [key]: parseInt(v) || 0 }))}
-                type="number" min="0"
-              />
-            ))}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-            <Btn onClick={saveGoals}>Sauvegarder</Btn>
-          </div>
-        </Card>
-      )}
+<Btn onClick={() => (window.location.href = '/nutrition/recettes')}>
+Ajouter une recette
+</Btn>
+</div>
+</div>
+</div>
 
-      {/* Rings */}
-      <Card glow>
-        <Label>Bilan du jour — {calPct}% de l'objectif calorique</Label>
-        <MacroRings totals={totals} goals={goals} />
-      </Card>
+{loading ? (
+<div style={{ color: T.textMid, padding: 16 }}>Chargement…</div>
+) : (
+<>
+<div
+style={{
+display: 'grid',
+gridTemplateColumns: '1.2fr 1fr',
+gap: 18,
+marginBottom: 18,
+}}
+>
+<div
+style={{
+padding: '20px 20px',
+borderRadius: 26,
+background: 'linear-gradient(135deg, rgba(18,21,19,0.96), rgba(9,12,10,0.98))',
+border: '1px solid rgba(255,255,255,0.08)',
+boxShadow: '0 20px 50px rgba(0,0,0,0.22)',
+}}
+>
+<div
+style={{
+display: 'grid',
+gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))',
+gap: 14,
+}}
+>
+<ProgressBar
+label="Calories"
+value={totals.calories}
+goal={goals?.calories}
+suffix=" kcal"
+/>
+<ProgressBar
+label="Protéines"
+value={totals.proteins}
+goal={goals?.proteins}
+suffix="g"
+/>
+<ProgressBar
+label="Glucides"
+value={totals.carbs}
+goal={goals?.carbs}
+suffix="g"
+/>
+<ProgressBar
+label="Lipides"
+value={totals.fats}
+goal={goals?.fats}
+suffix="g"
+/>
+</div>
+</div>
 
-      {/* Ajouter un repas */}
-      <Card>
-        <Label>Ajouter un repas / aliment</Label>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr repeat(5, 1fr)', gap: 12, marginBottom: 14 }}>
-          <Input label="Repas" value={meal.meal_name} onChange={v => setMeal(p => ({ ...p, meal_name: v }))} placeholder="Déjeuner, snack..." />
-          {[
-            { key: 'calories', label: '🔥 Kcal',    placeholder: '650' },
-            { key: 'proteins', label: '💪 Prot. g',  placeholder: '45' },
-            { key: 'carbs',    label: '⚡ Gluc. g',  placeholder: '80' },
-            { key: 'fats',     label: '🥑 Lip. g',   placeholder: '20' },
-            { key: 'water',    label: '💧 Eau ml',   placeholder: '500' },
-          ].map(f => (
-            <Input key={f.key} label={f.label} value={meal[f.key]}
-              onChange={v => setMeal(p => ({ ...p, [f.key]: v }))}
-              type="number" min="0" placeholder={f.placeholder}
-            />
-          ))}
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Btn onClick={addMeal} disabled={saving}>{saving ? '...' : 'Ajouter'}</Btn>
-        </div>
-      </Card>
+<div
+style={{
+padding: '20px 20px',
+borderRadius: 26,
+background:
+'radial-gradient(circle at 20% 20%, rgba(45,255,155,0.10), transparent 30%), linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
+border: '1px solid rgba(255,255,255,0.08)',
+boxShadow: '0 20px 50px rgba(0,0,0,0.22)',
+}}
+>
+<div
+style={{
+fontSize: 14,
+fontWeight: 800,
+letterSpacing: 1,
+textTransform: 'uppercase',
+color: T.textSub,
+marginBottom: 12,
+}}
+>
+Restant aujourd’hui
+</div>
 
-      {/* Liste repas du jour */}
-      {logs.length > 0 && (
-        <Card>
-          <Label>Repas enregistrés aujourd'hui</Label>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {/* Header */}
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr repeat(5, 1fr) 28px', gap: 8, padding: '0 4px 10px', borderBottom: `1px solid ${T.border}` }}>
-              {['Repas', 'Kcal', 'Prot.', 'Gluc.', 'Lip.', 'Eau', ''].map((h, i) => (
-                <div key={i} style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 9, letterSpacing: 2, color: T.textDim, textTransform: 'uppercase' }}>{h}</div>
-              ))}
-            </div>
-            {logs.map(log => (
-              <div key={log.id} style={{
-                display: 'grid', gridTemplateColumns: '2fr repeat(5, 1fr) 28px',
-                gap: 8, padding: '10px 4px',
-                borderBottom: `1px solid ${T.border}`,
-                transition: 'background .2s',
-              }}
-                onMouseEnter={e => e.currentTarget.style.background = T.surface}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                <div style={{ display: 'grid', gap: 6 }}>
-                  <div style={{ fontFamily: T.fontBody, fontSize: 13, color: T.text }}>{log.meal_name || '—'}</div>
+<div
+style={{
+display: 'grid',
+gap: 10,
+}}
+>
+<MiniMetric label="Calories" value={`${remaining.calories} kcal`} />
+<MiniMetric label="Protéines" value={`${remaining.proteins.toFixed(0)} g`} />
+<MiniMetric label="Glucides" value={`${remaining.carbs.toFixed(0)} g`} />
+<MiniMetric label="Lipides" value={`${remaining.fats.toFixed(0)} g`} />
+</div>
+</div>
+</div>
 
-                  {log.recipe_details?.ingredients?.length ? (
-                    <div style={{ fontSize: 11, color: T.textMid, lineHeight: 1.5 }}>
-                      {log.recipe_details.ingredients.map((ing, i) => (
-                        <div key={i}>
-                          {ing.quantity}{ing.unit ? ` ${ing.unit}` : ''} {ing.name}
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-                <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 14, color: MACRO_CONFIG.calories.color }}>{log.calories}</div>
-                <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 13, color: MACRO_CONFIG.proteins.color }}>{log.proteins}g</div>
-                <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 13, color: MACRO_CONFIG.carbs.color }}>{log.carbs}g</div>
-                <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 13, color: MACRO_CONFIG.fats.color }}>{log.fats}g</div>
-                <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 13, color: '#26c6da' }}>{log.water}ml</div>
-                <button onClick={() => removeLog(log.id)} style={{ background: 'transparent', border: 'none', color: T.textDim, cursor: 'pointer', fontSize: 14, padding: 0 }}
-                  onMouseEnter={e => e.currentTarget.style.color = T.danger}
-                  onMouseLeave={e => e.currentTarget.style.color = T.textDim}
-                >×</button>
-              </div>
-            ))}
-            {/* Totaux */}
-            <div style={{
-              display: 'grid', gridTemplateColumns: '2fr repeat(5, 1fr) 28px',
-              gap: 8, padding: '12px 4px 0', marginTop: 4,
-            }}>
-              <div style={{ fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 10, letterSpacing: 2, color: T.textMid, textTransform: 'uppercase' }}>Total</div>
-              {[
-                { v: Math.round(totals.calories || 0), c: MACRO_CONFIG.calories.color, u: '' },
-                { v: Math.round(totals.proteins || 0), c: MACRO_CONFIG.proteins.color, u: 'g' },
-                { v: Math.round(totals.carbs || 0),    c: MACRO_CONFIG.carbs.color,    u: 'g' },
-                { v: Math.round(totals.fats || 0),     c: MACRO_CONFIG.fats.color,     u: 'g' },
-                { v: totals.water || 0,                c: '#26c6da',                   u: 'ml' },
-              ].map((item, i) => (
-                <div key={i} style={{ fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 15, color: item.c }}>
-                  {item.v}{item.u}
-                </div>
-              ))}
-              <div />
-            </div>
-          </div>
-        </Card>
-      )}
-    </PageWrap>
-  )
+<div
+style={{
+display: 'grid',
+gap: 16,
+}}
+>
+{logs.length ? (
+logs.map((meal) => <MealCard key={meal.id} meal={meal} />)
+) : (
+<div
+style={{
+padding: 20,
+borderRadius: 22,
+border: '1px solid rgba(255,255,255,0.08)',
+background: 'rgba(255,255,255,0.02)',
+color: T.textMid,
+}}
+>
+Aucun repas enregistré pour cette date.
+</div>
+)}
+</div>
+</>
+)}
+</div>
+</PageWrap>
+)
+}
+
+function MiniMetric({ label, value }) {
+return (
+<div
+style={{
+display: 'flex',
+justifyContent: 'space-between',
+gap: 12,
+alignItems: 'center',
+padding: '10px 12px',
+borderRadius: 14,
+background: 'rgba(255,255,255,0.03)',
+border: '1px solid rgba(255,255,255,0.06)',
+}}
+>
+<div
+style={{
+color: T.textMid,
+fontSize: 13,
+fontWeight: 700,
+}}
+>
+{label}
+</div>
+
+<div
+style={{
+color: T.text,
+fontSize: 14,
+fontWeight: 900,
+}}
+>
+{value}
+</div>
+</div>
+)
 }
