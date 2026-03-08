@@ -1,287 +1,680 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
+import { supabase } from '../lib/supabase'
 import { PageWrap, Card, Btn } from '../components/UI'
 import { T } from '../lib/data'
 
-const OPTIONS = [
-  {
-    value: 'mass_gain',
-    title: 'Prise de masse',
-    subtitle:
-      'Développer la masse musculaire, augmenter les charges et soutenir un surplus calorique structuré.',
-    icon: '⬢',
-    points: ['Volume musculaire', 'Progression en charge', 'Apport énergétique adapté'],
-  },
-  {
-    value: 'fat_loss',
-    title: 'Perte de poids',
-    subtitle:
-      'Réduire la masse grasse tout en conservant la masse musculaire et une bonne adhérence au plan.',
-    icon: '◌',
-    points: ['Déficit maîtrisé', 'Adhérence long terme', 'Suivi simple et efficace'],
-  },
-  {
-    value: 'athletic',
-    title: 'Athlétique',
-    subtitle:
-      'Développer un profil global : force, explosivité, mobilité, condition physique et qualité de mouvement.',
-    icon: '△',
-    points: ['Performance globale', 'Explosivité', 'Condition physique'],
-  },
-]
-
-function PointPill({ children, active }) {
-  return (
-    <div
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: '7px 10px',
-        borderRadius: 999,
-        background: active ? T.accent + '14' : T.card,
-        border: `1px solid ${active ? T.accent + '28' : T.border}`,
-        color: active ? T.accentLight : T.textMid,
-        fontSize: 12,
-        fontWeight: 800,
-        letterSpacing: 0.3,
-      }}
-    >
-      {children}
-    </div>
-  )
+const GOAL_CONFIG = {
+mass_gain: {
+title: 'Prise de masse',
+badge: 'MASS GAIN',
+description:
+'Ton espace est orienté vers le développement musculaire, la progression en charge, le volume d’entraînement et le soutien calorique.',
+cta: '/programme/bodybuilding',
+highlights: [
+'Progression en charge',
+'Surplus calorique maîtrisé',
+'Volume d’entraînement structuré',
+],
+gradient:
+'linear-gradient(135deg, rgba(32,44,38,0.94), rgba(10,14,12,0.96))',
+accentGlow:
+'radial-gradient(circle at 15% 20%, rgba(45,255,155,0.18), transparent 35%)',
+},
+fat_loss: {
+title: 'Perte de poids',
+badge: 'FAT LOSS',
+description:
+'Ton espace est orienté vers le déficit calorique maîtrisé, l’adhérence, la régularité et la progression de la composition corporelle.',
+cta: '/programme/perte-de-poids',
+highlights: [
+'Déficit calorique durable',
+'Maintien de la masse maigre',
+'Suivi de progression simplifié',
+],
+gradient:
+'linear-gradient(135deg, rgba(28,34,32,0.94), rgba(10,14,12,0.96))',
+accentGlow:
+'radial-gradient(circle at 15% 20%, rgba(35,210,140,0.14), transparent 35%)',
+},
+athletic: {
+title: 'Athlétique',
+badge: 'ATHLETIC',
+description:
+'Ton espace est orienté vers la performance globale : force, condition physique, mobilité et qualités athlétiques.',
+cta: '/programme/athletique',
+highlights: [
+'Force & explosivité',
+'Condition physique',
+'Mobilité & qualité de mouvement',
+],
+gradient:
+'linear-gradient(135deg, rgba(26,34,37,0.94), rgba(10,14,12,0.96))',
+accentGlow:
+'radial-gradient(circle at 15% 20%, rgba(60,255,170,0.16), transparent 35%)',
+},
 }
 
-export default function GoalSelectionPage() {
-  const navigate = useNavigate()
-  const { user, profile } = useAuth()
+function HighlightPill({ children }) {
+return (
+<div
+style={{
+display: 'inline-flex',
+alignItems: 'center',
+padding: '8px 12px',
+borderRadius: 999,
+background: 'rgba(255,255,255,0.05)',
+border: `1px solid rgba(255,255,255,0.08)`,
+color: T.text,
+fontSize: 12,
+fontWeight: 800,
+letterSpacing: 0.4,
+backdropFilter: 'blur(8px)',
+}}
+>
+{children}
+</div>
+)
+}
 
-  const [selected, setSelected] = useState(profile?.goal_type || '')
-  const [saving, setSaving] = useState(false)
-  const [errorMsg, setErrorMsg] = useState('')
+function MetricCard({ title, value, subtitle }) {
+return (
+<div
+style={{
+padding: '16px 16px',
+borderRadius: 20,
+background:
+'linear-gradient(135deg, rgba(255,255,255,0.035), rgba(255,255,255,0.015))',
+border: '1px solid rgba(255,255,255,0.08)',
+backdropFilter: 'blur(10px)',
+}}
+>
+<div
+style={{
+color: T.textSub,
+fontSize: 11,
+fontWeight: 800,
+letterSpacing: 1.1,
+textTransform: 'uppercase',
+marginBottom: 8,
+}}
+>
+{title}
+</div>
 
-  async function saveGoal() {
-    setErrorMsg('')
+<div
+style={{
+color: T.text,
+fontSize: 26,
+fontWeight: 900,
+lineHeight: 1,
+}}
+>
+{value}
+</div>
 
-    if (!selected) {
-      setErrorMsg("Choisis d'abord un objectif.")
-      return
-    }
+<div
+style={{
+color: T.textMid,
+fontSize: 13,
+marginTop: 8,
+lineHeight: 1.5,
+}}
+>
+{subtitle}
+</div>
+</div>
+)
+}
 
-    if (!user?.id) {
-      setErrorMsg('Utilisateur non connecté.')
-      return
-    }
+function VisualActionCard({
+title,
+subtitle,
+buttonLabel,
+onClick,
+imageUrl,
+glow = false,
+}) {
+const fallback =
+'linear-gradient(135deg, rgba(24,30,27,0.96), rgba(10,14,12,0.98))'
 
-    setSaving(true)
+return (
+<button
+type="button"
+onClick={onClick}
+style={{
+width: '100%',
+background: 'transparent',
+border: 'none',
+padding: 0,
+textAlign: 'left',
+cursor: 'pointer',
+}}
+>
+<div
+style={{
+position: 'relative',
+minHeight: 250,
+overflow: 'hidden',
+borderRadius: 26,
+border: `1px solid ${glow ? T.accent + '30' : 'rgba(255,255,255,0.08)'}`,
+background: imageUrl
+? `linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.82)), url("${imageUrl}") center/cover no-repeat`
+: fallback,
+boxShadow: glow
+? '0 0 40px rgba(45,255,155,0.10)'
+: '0 18px 40px rgba(0,0,0,0.22)',
+transition: 'transform .22s ease, box-shadow .22s ease, border-color .22s ease',
+}}
+onMouseEnter={(e) => {
+e.currentTarget.style.transform = 'translateY(-4px)'
+e.currentTarget.style.boxShadow = glow
+? '0 0 50px rgba(45,255,155,0.16)'
+: '0 22px 46px rgba(0,0,0,0.28)'
+e.currentTarget.style.borderColor = 'rgba(45,255,155,0.22)'
+}}
+onMouseLeave={(e) => {
+e.currentTarget.style.transform = 'translateY(0px)'
+e.currentTarget.style.boxShadow = glow
+? '0 0 40px rgba(45,255,155,0.10)'
+: '0 18px 40px rgba(0,0,0,0.22)'
+e.currentTarget.style.borderColor = glow
+? T.accent + '30'
+: 'rgba(255,255,255,0.08)'
+}}
+>
+<div
+style={{
+position: 'absolute',
+inset: 0,
+background: imageUrl
+? 'linear-gradient(180deg, rgba(0,0,0,0.00), rgba(0,0,0,0.82))'
+: 'radial-gradient(circle at 15% 10%, rgba(45,255,155,0.14), transparent 35%)',
+}}
+/>
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({ goal_type: selected })
-      .eq('id', user.id)
+{!imageUrl ? (
+<div
+style={{
+position: 'absolute',
+inset: 0,
+opacity: 0.08,
+backgroundImage:
+'radial-gradient(rgba(255,255,255,0.7) 0.6px, transparent 0.6px)',
+backgroundSize: '14px 14px',
+}}
+/>
+) : null}
 
-    if (error) {
-      console.error('Erreur update goal_type:', error)
-      setErrorMsg(error.message || "Impossible d'enregistrer l'objectif.")
-      setSaving(false)
-      return
-    }
+<div
+style={{
+position: 'absolute',
+inset: 0,
+padding: 18,
+display: 'flex',
+flexDirection: 'column',
+justifyContent: 'flex-end',
+}}
+>
+<div
+style={{
+fontSize: 28,
+fontWeight: 900,
+color: '#fff',
+marginBottom: 8,
+letterSpacing: 0.4,
+lineHeight: 1.05,
+}}
+>
+{title}
+</div>
 
-    navigate('/mon-espace', { replace: true })
-  }
+<div
+style={{
+color: 'rgba(255,255,255,0.78)',
+fontSize: 14,
+lineHeight: 1.55,
+maxWidth: 360,
+marginBottom: 14,
+}}
+>
+{subtitle}
+</div>
 
-  return (
-    <PageWrap>
-      <div style={{ maxWidth: 1120, margin: '0 auto' }}>
-        <div style={{ marginBottom: 26 }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              padding: '8px 12px',
-              borderRadius: 999,
-              border: `1px solid ${T.accent + '28'}`,
-              background: T.accentGlowSm,
-              color: T.accentLight,
-              fontWeight: 800,
-              fontSize: 12,
-              letterSpacing: 1,
-              textTransform: 'uppercase',
-              marginBottom: 14,
-            }}
-          >
-            Personnalisation
-          </div>
+<div
+style={{
+display: 'inline-flex',
+alignItems: 'center',
+gap: 8,
+width: 'fit-content',
+padding: '9px 12px',
+borderRadius: 999,
+background: 'rgba(255,255,255,0.08)',
+border: '1px solid rgba(255,255,255,0.10)',
+color: '#fff',
+fontSize: 12,
+fontWeight: 800,
+letterSpacing: 0.5,
+textTransform: 'uppercase',
+backdropFilter: 'blur(10px)',
+}}
+>
+{buttonLabel}
+</div>
+</div>
+</div>
+</button>
+)
+}
 
-          <div
-            style={{
-              fontSize: 40,
-              fontWeight: 900,
-              letterSpacing: 1.5,
-              color: T.text,
-              lineHeight: 1,
-            }}
-          >
-            CHOISIS TON OBJECTIF
-          </div>
+export default function GoalHomePage() {
+const navigate = useNavigate()
+const { profile } = useAuth()
 
-          <div
-            style={{
-              color: T.textMid,
-              marginTop: 10,
-              fontSize: 15,
-              lineHeight: 1.6,
-              maxWidth: 820,
-            }}
-          >
-            Cette sélection permet d’adapter ton espace, ton programme et les priorités mises en avant dans l’application.
-          </div>
-        </div>
+const [featuredRecipe, setFeaturedRecipe] = useState(null)
+const [heroRecipe, setHeroRecipe] = useState(null)
+const [secondaryRecipe, setSecondaryRecipe] = useState(null)
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))',
-            gap: 18,
-          }}
-        >
-          {OPTIONS.map((option) => {
-            const active = selected === option.value
+const cfg = useMemo(() => {
+return GOAL_CONFIG[profile?.goal_type] || null
+}, [profile?.goal_type])
 
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setSelected(option.value)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  padding: 0,
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                }}
-              >
-                <Card
-                  glow={active}
-                  style={{
-                    minHeight: 280,
-                    border: `1px solid ${active ? T.accent + '44' : T.border}`,
-                    background: active ? T.accentGlowSm : T.surface,
-                    transition: 'all .18s ease',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 54,
-                      height: 54,
-                      borderRadius: 16,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: active ? T.accent + '18' : T.card,
-                      border: `1px solid ${active ? T.accent + '30' : T.border}`,
-                      fontSize: 22,
-                      marginBottom: 18,
-                      color: T.text,
-                    }}
-                  >
-                    {option.icon}
-                  </div>
+useEffect(() => {
+async function loadVisualRecipes() {
+const { data, error } = await supabase
+.from('recipes')
+.select('id,title,image_url,calories,proteins,carbs,fats')
+.not('image_url', 'is', null)
+.order('title', { ascending: true })
+.limit(3)
 
-                  <div
-                    style={{
-                      fontSize: 26,
-                      fontWeight: 900,
-                      letterSpacing: 0.4,
-                      color: T.text,
-                      marginBottom: 10,
-                    }}
-                  >
-                    {option.title}
-                  </div>
+if (!error && data?.length) {
+setHeroRecipe(data[0] || null)
+setFeaturedRecipe(data[1] || data[0] || null)
+setSecondaryRecipe(data[2] || data[0] || null)
+}
+}
 
-                  <div
-                    style={{
-                      color: T.textMid,
-                      lineHeight: 1.6,
-                      fontSize: 14,
-                      marginBottom: 18,
-                    }}
-                  >
-                    {option.subtitle}
-                  </div>
+loadVisualRecipes()
+}, [])
 
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {option.points.map((point) => (
-                      <PointPill key={point} active={active}>
-                        {point}
-                      </PointPill>
-                    ))}
-                  </div>
+if (!cfg) return null
 
-                  {active ? (
-                    <div
-                      style={{
-                        marginTop: 18,
-                        display: 'inline-flex',
-                        padding: '6px 10px',
-                        borderRadius: 999,
-                        background: T.accent + '18',
-                        border: `1px solid ${T.accent + '28'}`,
-                        color: T.accentLight,
-                        fontWeight: 800,
-                        fontSize: 12,
-                        letterSpacing: 0.6,
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      Sélectionné
-                    </div>
-                  ) : null}
-                </Card>
-              </button>
-            )
-          })}
-        </div>
+return (
+<PageWrap>
+<div
+style={{
+maxWidth: 1180,
+margin: '0 auto',
+position: 'relative',
+}}
+>
+<div
+style={{
+position: 'absolute',
+inset: '-60px -30px auto -30px',
+height: 420,
+background: cfg.accentGlow,
+pointerEvents: 'none',
+filter: 'blur(8px)',
+}}
+/>
 
-        {errorMsg ? (
-          <div
-            style={{
-              marginTop: 16,
-              color: '#ff7b7b',
-              fontSize: 14,
-              fontWeight: 700,
-            }}
-          >
-            {errorMsg}
-          </div>
-        ) : null}
+<div
+style={{
+position: 'relative',
+overflow: 'hidden',
+borderRadius: 30,
+padding: '26px 26px 28px',
+background: heroRecipe?.image_url
+? `${cfg.gradient}, linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.65)), url("${heroRecipe.image_url}") center/cover no-repeat`
+: `${cfg.gradient}, radial-gradient(circle at 85% 10%, rgba(255,255,255,0.06), transparent 30%)`,
+border: `1px solid rgba(255,255,255,0.08)`,
+boxShadow: '0 24px 60px rgba(0,0,0,0.26)',
+marginBottom: 20,
+}}
+>
+<div
+style={{
+position: 'absolute',
+inset: 0,
+background: 'linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.62))',
+}}
+/>
 
-        <div
-          style={{
-            marginTop: 24,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 12,
-            flexWrap: 'wrap',
-          }}
-        >
-          <div
-            style={{
-              color: T.textDim,
-              fontSize: 13,
-              lineHeight: 1.5,
-            }}
-          >
-            Tu pourras revenir ici plus tard pour consulter les explications ou modifier ton choix.
-          </div>
+<div
+style={{
+position: 'absolute',
+inset: 0,
+opacity: 0.07,
+backgroundImage:
+'radial-gradient(rgba(255,255,255,0.7) 0.6px, transparent 0.6px)',
+backgroundSize: '14px 14px',
+pointerEvents: 'none',
+}}
+/>
 
-          <Btn onClick={saveGoal} disabled={!selected || saving}>
-            {saving ? 'Enregistrement…' : 'Continuer'}
-          </Btn>
-        </div>
-      </div>
-    </PageWrap>
-  )
+<div style={{ position: 'relative', zIndex: 1 }}>
+<div
+style={{
+display: 'inline-flex',
+alignItems: 'center',
+gap: 8,
+padding: '8px 12px',
+borderRadius: 999,
+border: `1px solid ${T.accent + '28'}`,
+background: 'rgba(45,255,155,0.10)',
+color: T.accentLight,
+fontWeight: 800,
+fontSize: 12,
+letterSpacing: 1,
+textTransform: 'uppercase',
+marginBottom: 14,
+backdropFilter: 'blur(10px)',
+}}
+>
+{cfg.badge}
+</div>
+
+<div
+style={{
+fontSize: 46,
+fontWeight: 900,
+letterSpacing: 1.6,
+color: '#fff',
+lineHeight: 0.95,
+maxWidth: 700,
+}}
+>
+TON ESPACE
+<br />
+AUJOURD’HUI
+</div>
+
+<div
+style={{
+color: 'rgba(255,255,255,0.74)',
+marginTop: 14,
+fontSize: 15,
+lineHeight: 1.65,
+maxWidth: 760,
+}}
+>
+{cfg.description}
+</div>
+
+<div
+style={{
+display: 'flex',
+gap: 10,
+flexWrap: 'wrap',
+marginTop: 18,
+}}
+>
+{cfg.highlights.map((item) => (
+<HighlightPill key={item}>{item}</HighlightPill>
+))}
+</div>
+
+<div
+style={{
+display: 'grid',
+gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))',
+gap: 14,
+marginTop: 24,
+}}
+>
+<MetricCard
+title="Objectif"
+value={cfg.title}
+subtitle="Profil actif pour ton accompagnement"
+/>
+<MetricCard
+title="Programme"
+value="Prêt"
+subtitle="Accès direct à ton parcours"
+/>
+<MetricCard
+title="Nutrition"
+value="Suivi"
+subtitle="Macros, plan journalier et recettes"
+/>
+</div>
+
+<div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 22 }}>
+<Btn onClick={() => navigate(cfg.cta)}>
+Voir mon programme
+</Btn>
+
+<Btn variant="secondary" onClick={() => navigate('/objectif')}>
+Revoir les explications
+</Btn>
+
+<Btn variant="secondary" onClick={() => navigate('/objectif')}>
+Changer d’objectif
+</Btn>
+</div>
+</div>
+</div>
+
+<div
+style={{
+display: 'grid',
+gridTemplateColumns: '1.2fr 1fr 1fr',
+gap: 18,
+marginBottom: 18,
+}}
+>
+<VisualActionCard
+title="Séance du jour"
+subtitle="Accède rapidement à ton entraînement prévu et démarre sans perdre de temps."
+buttonLabel="Commencer"
+onClick={() => navigate('/entrainement/aujourdhui')}
+imageUrl={heroRecipe?.image_url || null}
+glow
+/>
+
+<VisualActionCard
+title="Nutrition"
+subtitle="Suis tes macros, ton plan journalier et adapte tes repas à ton objectif."
+buttonLabel="Ouvrir"
+onClick={() => navigate('/nutrition/macros')}
+imageUrl={featuredRecipe?.image_url || null}
+/>
+
+<VisualActionCard
+title="Progression"
+subtitle="Retrouve tes performances, ton évolution physique et tes indicateurs clés."
+buttonLabel="Consulter"
+onClick={() => navigate('/progression')}
+imageUrl={secondaryRecipe?.image_url || null}
+/>
+</div>
+
+<div
+style={{
+display: 'grid',
+gridTemplateColumns: '1.45fr 1fr',
+gap: 18,
+}}
+>
+<Card
+glow
+style={{
+overflow: 'hidden',
+borderRadius: 26,
+background:
+'linear-gradient(135deg, rgba(22,26,24,0.95), rgba(10,14,12,0.98))',
+border: `1px solid rgba(255,255,255,0.08)`,
+boxShadow: '0 20px 50px rgba(0,0,0,0.22)',
+}}
+>
+<div
+style={{
+display: 'grid',
+gridTemplateColumns: '1.1fr 1fr',
+gap: 18,
+alignItems: 'stretch',
+}}
+>
+<div
+style={{
+minHeight: 280,
+borderRadius: 22,
+overflow: 'hidden',
+background: featuredRecipe?.image_url
+? `linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.55)), url("${featuredRecipe.image_url}") center/cover no-repeat`
+: 'linear-gradient(135deg, rgba(30,40,34,0.96), rgba(10,14,12,0.98))',
+border: `1px solid rgba(255,255,255,0.08)`,
+}}
+/>
+
+<div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+<div
+style={{
+color: T.accentLight,
+fontSize: 12,
+fontWeight: 800,
+letterSpacing: 1,
+textTransform: 'uppercase',
+marginBottom: 10,
+}}
+>
+Recette mise en avant
+</div>
+
+<div
+style={{
+color: T.text,
+fontSize: 30,
+fontWeight: 900,
+lineHeight: 1.05,
+marginBottom: 10,
+}}
+>
+{featuredRecipe?.title || 'Recette recommandée'}
+</div>
+
+<div
+style={{
+color: T.textMid,
+lineHeight: 1.65,
+fontSize: 14,
+marginBottom: 16,
+}}
+>
+{featuredRecipe
+? 'Une recette premium déjà prête dans ton espace. Tu peux l’ouvrir, ajuster les calories et l’ajouter à ta journée.'
+: 'Ajoute des images à tes recettes pour faire apparaître ici des recommandations visuelles premium.'}
+</div>
+
+{featuredRecipe ? (
+<div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+<HighlightPill>{featuredRecipe.calories} kcal</HighlightPill>
+<HighlightPill>P {Number(featuredRecipe.proteins || 0).toFixed(0)}g</HighlightPill>
+<HighlightPill>C {Number(featuredRecipe.carbs || 0).toFixed(0)}g</HighlightPill>
+<HighlightPill>F {Number(featuredRecipe.fats || 0).toFixed(0)}g</HighlightPill>
+</div>
+) : null}
+
+<div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+<Btn
+onClick={() =>
+featuredRecipe
+? navigate(`/nutrition/recette/${featuredRecipe.id}`)
+: navigate('/nutrition/recettes')
+}
+>
+Voir la recette
+</Btn>
+
+<Btn variant="secondary" onClick={() => navigate('/nutrition/recettes')}>
+Voir toutes les recettes
+</Btn>
+</div>
+</div>
+</div>
+</Card>
+
+<Card
+style={{
+borderRadius: 26,
+background:
+'linear-gradient(135deg, rgba(17,20,19,0.96), rgba(9,12,10,0.98))',
+border: `1px solid rgba(255,255,255,0.08)`,
+boxShadow: '0 20px 50px rgba(0,0,0,0.22)',
+}}
+>
+<div
+style={{
+fontSize: 16,
+fontWeight: 800,
+color: T.text,
+marginBottom: 16,
+}}
+>
+Raccourcis rapides
+</div>
+
+<div style={{ display: 'grid', gap: 10 }}>
+<button
+type="button"
+onClick={() => navigate('/entrainement/aujourdhui')}
+style={shortcutStyle}
+>
+Séance du jour
+</button>
+
+<button
+type="button"
+onClick={() => navigate('/nutrition/macros')}
+style={shortcutStyle}
+>
+Suivi macros
+</button>
+
+<button
+type="button"
+onClick={() => navigate('/nutrition/plan')}
+style={shortcutStyle}
+>
+Plan journalier
+</button>
+
+<button
+type="button"
+onClick={() => navigate('/nutrition/recettes')}
+style={shortcutStyle}
+>
+Recettes
+</button>
+
+<button
+type="button"
+onClick={() => navigate('/progression')}
+style={shortcutStyle}
+>
+Progression
+</button>
+</div>
+</Card>
+</div>
+</div>
+</PageWrap>
+)
+}
+
+const shortcutStyle = {
+width: '100%',
+textAlign: 'left',
+background:
+'linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))',
+border: '1px solid rgba(255,255,255,0.08)',
+color: '#E9F1EC',
+borderRadius: 16,
+padding: '13px 14px',
+cursor: 'pointer',
+fontWeight: 700,
+transition: 'all .18s ease',
 }
