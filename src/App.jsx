@@ -15,10 +15,12 @@ import ProgramBuilderPage from './pages/ProgramBuilderPage'
 import RecipesPage from './pages/RecipesPage'
 import RecipeDetailPage from './pages/RecipeDetailPage'
 import MealPlanPage from './pages/MealPlanPage'
+import GoalSelectionPage from './pages/GoalSelectionPage'
+import GoalHomePage from './pages/GoalHomePage'
 import { T } from './lib/data'
 
 function AppShell() {
-  const { user, loading } = useAuth()
+  const { user, loading, profile } = useAuth()
 
   if (loading) {
     return (
@@ -43,12 +45,38 @@ function AppShell() {
 
   if (!user) return <AuthPage />
 
+  const hasGoal = !!profile?.goal_type
+
   return (
     <DirtyProvider>
       <Layout sidebar={<Sidebar />} topbar={<Topbar />}>
         <Routes>
-          {/* redirect principal */}
-          <Route path="/" element={<Navigate to="/entrainement/aujourdhui" replace />} />
+          <Route
+            path="/"
+            element={
+              hasGoal
+                ? <Navigate to="/mon-espace" replace />
+                : <Navigate to="/objectif" replace />
+            }
+          />
+
+          <Route
+            path="/objectif"
+            element={
+              hasGoal
+                ? <Navigate to="/mon-espace" replace />
+                : <GoalSelectionPage />
+            }
+          />
+
+          <Route
+            path="/mon-espace"
+            element={
+              hasGoal
+                ? <GoalHomePage />
+                : <Navigate to="/objectif" replace />
+            }
+          />
 
           {/* compat anciennes routes */}
           <Route path="/aujourd-hui" element={<Navigate to="/entrainement/aujourdhui" replace />} />
@@ -77,8 +105,19 @@ function AppShell() {
           <Route path="/coach" element={<CoachPage />} />
           <Route path="/programmes" element={<ProgramBuilderPage />} />
 
-          {/* fallback */}
-          <Route path="*" element={<Navigate to="/entrainement/aujourdhui" replace />} />
+          {/* PROGRAMMES OBJECTIFS */}
+          <Route path="/programme/bodybuilding" element={<div style={{ padding: 24, color: T.text }}>Programme bodybuilding à brancher</div>} />
+          <Route path="/programme/perte-de-poids" element={<div style={{ padding: 24, color: T.text }}>Programme perte de poids à brancher</div>} />
+          <Route path="/programme/athletique" element={<div style={{ padding: 24, color: T.text }}>Programme athlétique à brancher</div>} />
+
+          <Route
+            path="*"
+            element={
+              hasGoal
+                ? <Navigate to="/mon-espace" replace />
+                : <Navigate to="/objectif" replace />
+            }
+          />
         </Routes>
       </Layout>
     </DirtyProvider>
