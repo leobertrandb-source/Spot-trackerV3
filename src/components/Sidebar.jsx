@@ -44,7 +44,7 @@ function SectionTitle({ children, isOpen, onClick }) {
           fontFamily: T.fontBody,
           fontWeight: 800,
           fontSize: 11,
-          letterSpacing: 1.2,
+          letterSpacing: 1.25,
           textTransform: 'uppercase',
         }}
       >
@@ -56,7 +56,7 @@ function SectionTitle({ children, isOpen, onClick }) {
           fontSize: 12,
           color: T.textDim,
           transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-          transition: 'transform .18s ease',
+          transition: 'transform .2s ease',
         }}
       >
         ▾
@@ -75,23 +75,27 @@ function NavItem({ item, isActive, onClick, nested = false, showDot = false }) {
         display: 'flex',
         alignItems: 'center',
         gap: 10,
-        padding: nested ? '10px 12px 10px 18px' : '11px 12px',
+        padding: nested ? '11px 12px 11px 18px' : '11px 12px',
         marginBottom: 6,
-        borderRadius: 14,
-        border: `1px solid ${isActive ? T.accent + '28' : 'transparent'}`,
-        background: isActive ? T.accentGlowSm : 'transparent',
+        borderRadius: 16,
+        border: `1px solid ${isActive ? T.accent + '32' : 'rgba(255,255,255,0.04)'}`,
+        background: isActive
+          ? 'linear-gradient(135deg, rgba(45,255,155,0.12), rgba(255,255,255,0.02))'
+          : 'transparent',
         color: isActive ? T.text : T.textMid,
         cursor: 'pointer',
         textAlign: 'left',
-        transition: 'all .18s ease',
+        transition: 'all .2s ease',
         position: 'relative',
+        backdropFilter: isActive ? 'blur(10px)' : 'none',
       }}
       onMouseEnter={
         !isActive
           ? (e) => {
-              e.currentTarget.style.background = T.card
-              e.currentTarget.style.borderColor = T.border
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015))'
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
               e.currentTarget.style.color = T.text
+              e.currentTarget.style.transform = 'translateY(-1px)'
             }
           : undefined
       }
@@ -99,8 +103,9 @@ function NavItem({ item, isActive, onClick, nested = false, showDot = false }) {
         !isActive
           ? (e) => {
               e.currentTarget.style.background = 'transparent'
-              e.currentTarget.style.borderColor = 'transparent'
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'
               e.currentTarget.style.color = T.textMid
+              e.currentTarget.style.transform = 'translateY(0px)'
             }
           : undefined
       }
@@ -116,24 +121,25 @@ function NavItem({ item, isActive, onClick, nested = false, showDot = false }) {
             height: 18,
             borderRadius: '0 3px 3px 0',
             background: `linear-gradient(180deg, ${T.accentLight}, ${T.accent})`,
-            boxShadow: `0 0 10px ${T.accentGlowMd}`,
+            boxShadow: `0 0 12px ${T.accentGlowMd}`,
           }}
         />
       ) : null}
 
       <span
         style={{
-          width: 28,
-          height: 28,
-          borderRadius: 10,
+          width: 30,
+          height: 30,
+          borderRadius: 11,
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: isActive ? T.accent + '14' : 'transparent',
-          border: `1px solid ${isActive ? T.accent + '24' : 'transparent'}`,
+          background: isActive ? 'rgba(45,255,155,0.12)' : 'rgba(255,255,255,0.02)',
+          border: `1px solid ${isActive ? T.accent + '26' : 'rgba(255,255,255,0.05)'}`,
           fontSize: 13,
           flexShrink: 0,
-          opacity: isActive ? 1 : 0.75,
+          opacity: 1,
+          boxShadow: isActive ? '0 0 18px rgba(45,255,155,0.08)' : 'none',
         }}
       >
         {item.icon}
@@ -176,9 +182,9 @@ function SectionBlock({ title, items, open, setOpen, pathname, tryNavigate, isDi
 
       <div
         style={{
-          maxHeight: open ? 320 : 0,
+          maxHeight: open ? 340 : 0,
           overflow: 'hidden',
-          transition: 'max-height .22s ease',
+          transition: 'max-height .24s ease',
           paddingLeft: 4,
         }}
       >
@@ -211,28 +217,55 @@ export default function Sidebar() {
   const isCoach = profile?.role === 'coach'
   const initial = (profile?.full_name || profile?.email || '?')[0].toUpperCase()
   const name = profile?.full_name || 'Athlète'
+  const goalLabel =
+    profile?.goal_type === 'mass_gain'
+      ? 'Prise de masse'
+      : profile?.goal_type === 'fat_loss'
+        ? 'Perte de poids'
+        : profile?.goal_type === 'athletic'
+          ? 'Athlétique'
+          : 'Objectif non défini'
 
   return (
     <aside
       style={{
-        width: 258,
+        width: 272,
         flexShrink: 0,
         height: '100vh',
         position: 'sticky',
         top: 0,
         display: 'flex',
         flexDirection: 'column',
-        background: `linear-gradient(180deg, ${T.surface}, ${T.bg})`,
-        borderRight: `1px solid ${T.border}`,
-        backdropFilter: 'blur(16px)',
+        background: `
+          radial-gradient(circle at 18% 10%, rgba(45,255,155,0.10), transparent 28%),
+          radial-gradient(circle at 100% 0%, rgba(255,255,255,0.04), transparent 25%),
+          linear-gradient(180deg, rgba(17,20,19,0.98), rgba(10,13,12,1))
+        `,
+        borderRight: `1px solid rgba(255,255,255,0.08)`,
+        backdropFilter: 'blur(18px)',
         overflow: 'hidden',
+        boxShadow: 'inset -1px 0 0 rgba(255,255,255,0.02)',
       }}
     >
       <div
         style={{
+          position: 'absolute',
+          inset: 0,
+          opacity: 0.05,
+          backgroundImage:
+            'radial-gradient(rgba(255,255,255,0.75) 0.7px, transparent 0.7px)',
+          backgroundSize: '14px 14px',
+          pointerEvents: 'none',
+        }}
+      />
+
+      <div
+        style={{
+          position: 'relative',
           padding: '18px 16px 14px',
-          borderBottom: `1px solid ${T.border}`,
-          background: 'rgba(255,255,255,0.01)',
+          borderBottom: `1px solid rgba(255,255,255,0.07)`,
+          background: 'rgba(255,255,255,0.015)',
+          zIndex: 1,
         }}
       >
         <Logo size="sm" />
@@ -240,9 +273,11 @@ export default function Sidebar() {
 
       <div
         style={{
+          position: 'relative',
           flex: 1,
           overflowY: 'auto',
           padding: '12px 10px 14px',
+          zIndex: 1,
         }}
       >
         <SectionBlock
@@ -303,9 +338,11 @@ export default function Sidebar() {
 
       <div
         style={{
+          position: 'relative',
           padding: 12,
-          borderTop: `1px solid ${T.border}`,
-          background: 'rgba(255,255,255,0.01)',
+          borderTop: `1px solid rgba(255,255,255,0.07)`,
+          background: 'rgba(255,255,255,0.015)',
+          zIndex: 1,
         }}
       >
         <div
@@ -313,28 +350,31 @@ export default function Sidebar() {
             display: 'flex',
             alignItems: 'center',
             gap: 10,
-            padding: '11px 10px',
-            borderRadius: 16,
-            border: `1px solid ${T.border}`,
-            background: T.card,
+            padding: '12px 12px',
+            borderRadius: 18,
+            border: `1px solid rgba(255,255,255,0.08)`,
+            background:
+              'linear-gradient(135deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015))',
             marginBottom: 10,
-            boxShadow: T.shadowCard,
+            boxShadow: '0 16px 30px rgba(0,0,0,0.20)',
+            backdropFilter: 'blur(12px)',
           }}
         >
           <div
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: 12,
+              width: 40,
+              height: 40,
+              borderRadius: 14,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: T.accentGlowSm,
+              background: 'linear-gradient(135deg, rgba(45,255,155,0.16), rgba(255,255,255,0.03))',
               border: `1px solid ${T.accent + '28'}`,
               fontFamily: T.fontBody,
               fontWeight: 900,
               color: T.text,
               flexShrink: 0,
+              boxShadow: '0 0 18px rgba(45,255,155,0.10)',
             }}
           >
             {initial}
@@ -361,10 +401,10 @@ export default function Sidebar() {
                 fontFamily: T.fontBody,
                 fontWeight: 650,
                 fontSize: 12,
-                color: isCoach ? T.accentLight : T.textSub,
+                color: T.textSub,
               }}
             >
-              {isCoach ? '🎯 Coach' : '💪 Athlète'}
+              {goalLabel}
             </div>
           </div>
         </div>
@@ -394,7 +434,7 @@ export default function Sidebar() {
             width: '100%',
             padding: '11px 12px',
             borderRadius: 14,
-            border: `1px solid ${T.border}`,
+            border: `1px solid rgba(255,255,255,0.08)`,
             background: 'transparent',
             color: T.textMid,
             fontFamily: T.fontBody,
@@ -404,7 +444,7 @@ export default function Sidebar() {
             transition: 'all .18s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = T.card
+            e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
             e.currentTarget.style.color = T.text
           }}
           onMouseLeave={(e) => {
@@ -421,13 +461,14 @@ export default function Sidebar() {
 
 const profileBtnStyle = {
   width: '100%',
-  padding: '10px 12px',
+  padding: '11px 12px',
   borderRadius: 14,
   border: '1px solid rgba(255,255,255,0.08)',
-  background: 'transparent',
-  color: '#B8C3BC',
+  background: 'linear-gradient(135deg, rgba(255,255,255,0.035), rgba(255,255,255,0.015))',
+  color: '#D9E5DE',
   fontWeight: 700,
   fontSize: 13,
   cursor: 'pointer',
   textAlign: 'left',
+  transition: 'all .18s ease',
 }
