@@ -1,62 +1,51 @@
-import { useMemo } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import { PageWrap, Card, Btn } from '../components/UI'
 import { T } from '../lib/data'
 
-const GOAL_CONFIG = {
-  mass_gain: {
+const OPTIONS = [
+  {
+    value: 'mass_gain',
     title: 'Prise de masse',
-    badge: 'MASS GAIN',
-    description:
-      'Ton espace est orienté vers le développement musculaire, la progression en charge, le volume d’entraînement et le soutien calorique.',
-    cta: '/programme/bodybuilding',
-    highlights: [
-      'Progression en charge',
-      'Surplus calorique maîtrisé',
-      'Volume d’entraînement structuré',
-    ],
+    subtitle:
+      'Développer la masse musculaire, augmenter les charges et soutenir un surplus calorique structuré.',
+    icon: '⬢',
+    points: ['Volume musculaire', 'Progression en charge', 'Apport énergétique adapté'],
   },
-  fat_loss: {
+  {
+    value: 'fat_loss',
     title: 'Perte de poids',
-    badge: 'FAT LOSS',
-    description:
-      'Ton espace est orienté vers le déficit calorique maîtrisé, l’adhérence, la régularité et la progression de la composition corporelle.',
-    cta: '/programme/perte-de-poids',
-    highlights: [
-      'Déficit calorique durable',
-      'Maintien de la masse maigre',
-      'Suivi de progression simplifié',
-    ],
+    subtitle:
+      'Réduire la masse grasse tout en conservant la masse musculaire et une bonne adhérence au plan.',
+    icon: '◌',
+    points: ['Déficit maîtrisé', 'Adhérence long terme', 'Suivi simple et efficace'],
   },
-  athletic: {
+  {
+    value: 'athletic',
     title: 'Athlétique',
-    badge: 'ATHLETIC',
-    description:
-      'Ton espace est orienté vers la performance globale : force, condition physique, mobilité et qualités athlétiques.',
-    cta: '/programme/athletique',
-    highlights: [
-      'Force & explosivité',
-      'Condition physique',
-      'Mobilité & qualité de mouvement',
-    ],
+    subtitle:
+      'Développer un profil global : force, explosivité, mobilité, condition physique et qualité de mouvement.',
+    icon: '△',
+    points: ['Performance globale', 'Explosivité', 'Condition physique'],
   },
-}
+]
 
-function HighlightPill({ children }) {
+function PointPill({ children, active }) {
   return (
     <div
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        padding: '8px 12px',
+        padding: '7px 10px',
         borderRadius: 999,
-        background: T.card,
-        border: `1px solid ${T.border}`,
-        color: T.text,
+        background: active ? T.accent + '14' : T.card,
+        border: `1px solid ${active ? T.accent + '28' : T.border}`,
+        color: active ? T.accentLight : T.textMid,
         fontSize: 12,
         fontWeight: 800,
-        letterSpacing: 0.4,
+        letterSpacing: 0.3,
       }}
     >
       {children}
@@ -64,25 +53,51 @@ function HighlightPill({ children }) {
   )
 }
 
-export default function GoalHomePage() {
+export default function GoalSelectionPage() {
   const navigate = useNavigate()
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
 
-  const cfg = useMemo(() => {
-    return GOAL_CONFIG[profile?.goal_type] || null
-  }, [profile?.goal_type])
+  const [selected, setSelected] = useState(profile?.goal_type || '')
+  const [saving, setSaving] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
-  if (!cfg) return null
+  async function saveGoal() {
+    setErrorMsg('')
+
+    if (!selected) {
+      setErrorMsg("Choisis d'abord un objectif.")
+      return
+    }
+
+    if (!user?.id) {
+      setErrorMsg('Utilisateur non connecté.')
+      return
+    }
+
+    setSaving(true)
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ goal_type: selected })
+      .eq('id', user.id)
+
+    if (error) {
+      console.error('Erreur update goal_type:', error)
+      setErrorMsg(error.message || "Impossible d'enregistrer l'objectif.")
+      setSaving(false)
+      return
+    }
+
+    navigate('/mon-espace', { replace: true })
+  }
 
   return (
     <PageWrap>
-      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-        <div style={{ marginBottom: 24 }}>
+      <div style={{ maxWidth: 1120, margin: '0 auto' }}>
+        <div style={{ marginBottom: 26 }}>
           <div
             style={{
               display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
               padding: '8px 12px',
               borderRadius: 999,
               border: `1px solid ${T.accent + '28'}`,
@@ -95,7 +110,7 @@ export default function GoalHomePage() {
               marginBottom: 14,
             }}
           >
-            {cfg.badge}
+            Personnalisation
           </div>
 
           <div
@@ -107,7 +122,7 @@ export default function GoalHomePage() {
               lineHeight: 1,
             }}
           >
-            TON ESPACE PERSONNALISÉ
+            CHOISIS TON OBJECTIF
           </div>
 
           <div
@@ -116,197 +131,157 @@ export default function GoalHomePage() {
               marginTop: 10,
               fontSize: 15,
               lineHeight: 1.6,
-              maxWidth: 780,
+              maxWidth: 820,
             }}
           >
-            {cfg.description}
+            Cette sélection permet d’adapter ton espace, ton programme et les priorités mises en avant dans l’application.
           </div>
         </div>
 
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '1.45fr 1fr',
+            gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))',
             gap: 18,
           }}
         >
-          <Card glow style={{ minHeight: 320 }}>
-            <div
-              style={{
-                fontSize: 28,
-                fontWeight: 900,
-                color: T.text,
-                marginBottom: 12,
-              }}
-            >
-              {cfg.title}
-            </div>
+          {OPTIONS.map((option) => {
+            const active = selected === option.value
 
-            <div
-              style={{
-                color: T.textMid,
-                lineHeight: 1.6,
-                fontSize: 15,
-                marginBottom: 18,
-                maxWidth: 640,
-              }}
-            >
-              Retrouve ici ton organisation, tes recommandations nutritionnelles, tes raccourcis prioritaires et l’accès direct à ton programme dédié.
-            </div>
-
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 22 }}>
-              {cfg.highlights.map((item) => (
-                <HighlightPill key={item}>{item}</HighlightPill>
-              ))}
-            </div>
-
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <Btn onClick={() => navigate(cfg.cta)}>
-                Voir mon programme
-              </Btn>
-
-              <Btn variant="secondary" onClick={() => navigate('/objectif')}>
-                Revoir les explications
-              </Btn>
-
-              <Btn variant="secondary" onClick={() => navigate('/objectif')}>
-                Changer d’objectif
-              </Btn>
-            </div>
-          </Card>
-
-          <Card style={{ minHeight: 320 }}>
-            <div
-              style={{
-                fontSize: 15,
-                fontWeight: 800,
-                color: T.text,
-                marginBottom: 16,
-              }}
-            >
-              Raccourcis
-            </div>
-
-            <div style={{ display: 'grid', gap: 10 }}>
+            return (
               <button
+                key={option.value}
                 type="button"
-                onClick={() => navigate('/entrainement/aujourdhui')}
-                style={shortcutStyle}
+                onClick={() => setSelected(option.value)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
               >
-                Séance du jour
-              </button>
+                <Card
+                  glow={active}
+                  style={{
+                    minHeight: 280,
+                    border: `1px solid ${active ? T.accent + '44' : T.border}`,
+                    background: active ? T.accentGlowSm : T.surface,
+                    transition: 'all .18s ease',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 54,
+                      height: 54,
+                      borderRadius: 16,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: active ? T.accent + '18' : T.card,
+                      border: `1px solid ${active ? T.accent + '30' : T.border}`,
+                      fontSize: 22,
+                      marginBottom: 18,
+                      color: T.text,
+                    }}
+                  >
+                    {option.icon}
+                  </div>
 
-              <button
-                type="button"
-                onClick={() => navigate('/nutrition/macros')}
-                style={shortcutStyle}
-              >
-                Suivi macros
-              </button>
+                  <div
+                    style={{
+                      fontSize: 26,
+                      fontWeight: 900,
+                      letterSpacing: 0.4,
+                      color: T.text,
+                      marginBottom: 10,
+                    }}
+                  >
+                    {option.title}
+                  </div>
 
-              <button
-                type="button"
-                onClick={() => navigate('/nutrition/plan')}
-                style={shortcutStyle}
-              >
-                Plan journalier
-              </button>
+                  <div
+                    style={{
+                      color: T.textMid,
+                      lineHeight: 1.6,
+                      fontSize: 14,
+                      marginBottom: 18,
+                    }}
+                  >
+                    {option.subtitle}
+                  </div>
 
-              <button
-                type="button"
-                onClick={() => navigate('/nutrition/recettes')}
-                style={shortcutStyle}
-              >
-                Recettes
-              </button>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {option.points.map((point) => (
+                      <PointPill key={point} active={active}>
+                        {point}
+                      </PointPill>
+                    ))}
+                  </div>
 
-              <button
-                type="button"
-                onClick={() => navigate('/progression')}
-                style={shortcutStyle}
-              >
-                Progression
+                  {active ? (
+                    <div
+                      style={{
+                        marginTop: 18,
+                        display: 'inline-flex',
+                        padding: '6px 10px',
+                        borderRadius: 999,
+                        background: T.accent + '18',
+                        border: `1px solid ${T.accent + '28'}`,
+                        color: T.accentLight,
+                        fontWeight: 800,
+                        fontSize: 12,
+                        letterSpacing: 0.6,
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      Sélectionné
+                    </div>
+                  ) : null}
+                </Card>
               </button>
-            </div>
-          </Card>
+            )
+          })}
         </div>
 
-        <div style={{ height: 18 }} />
-
-        <Card>
+        {errorMsg ? (
           <div
             style={{
-              fontSize: 16,
-              fontWeight: 800,
-              color: T.text,
-              marginBottom: 10,
+              marginTop: 16,
+              color: '#ff7b7b',
+              fontSize: 14,
+              fontWeight: 700,
             }}
           >
-            Comment utiliser ton espace
+            {errorMsg}
           </div>
+        ) : null}
 
+        <div
+          style={{
+            marginTop: 24,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
           <div
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))',
-              gap: 12,
+              color: T.textDim,
+              fontSize: 13,
+              lineHeight: 1.5,
             }}
           >
-            <div style={infoCardStyle}>
-              <div style={infoTitleStyle}>1. Programme</div>
-              <div style={infoTextStyle}>
-                Accède à la logique de ton accompagnement et à la structure du travail adaptée à ton objectif.
-              </div>
-            </div>
-
-            <div style={infoCardStyle}>
-              <div style={infoTitleStyle}>2. Nutrition</div>
-              <div style={infoTextStyle}>
-                Suis tes macros, ton plan journalier et ajuste tes recettes selon tes besoins.
-              </div>
-            </div>
-
-            <div style={infoCardStyle}>
-              <div style={infoTitleStyle}>3. Progression</div>
-              <div style={infoTextStyle}>
-                Observe l’évolution de tes performances, de ton physique et de ton adhérence.
-              </div>
-            </div>
+            Tu pourras revenir ici plus tard pour consulter les explications ou modifier ton choix.
           </div>
-        </Card>
+
+          <Btn onClick={saveGoal} disabled={!selected || saving}>
+            {saving ? 'Enregistrement…' : 'Continuer'}
+          </Btn>
+        </div>
       </div>
     </PageWrap>
   )
-}
-
-const shortcutStyle = {
-  width: '100%',
-  textAlign: 'left',
-  background: 'transparent',
-  border: '1px solid rgba(255,255,255,0.08)',
-  color: '#E9F1EC',
-  borderRadius: 14,
-  padding: '12px 14px',
-  cursor: 'pointer',
-  fontWeight: 700,
-}
-
-const infoCardStyle = {
-  padding: '14px 14px',
-  borderRadius: 16,
-  background: 'rgba(255,255,255,0.02)',
-  border: '1px solid rgba(255,255,255,0.08)',
-}
-
-const infoTitleStyle = {
-  color: '#E9F1EC',
-  fontWeight: 800,
-  fontSize: 14,
-  marginBottom: 8,
-}
-
-const infoTextStyle = {
-  color: '#A8B5AD',
-  lineHeight: 1.55,
-  fontSize: 14,
 }
