@@ -369,6 +369,24 @@ export default function Sidebar() {
           </div>
         </div>
 
+        <div style={{ display: 'grid', gap: 8, marginBottom: 10 }}>
+          <button
+            type="button"
+            onClick={() => tryNavigate('/mon-espace')}
+            style={profileBtnStyle}
+          >
+            Mon espace
+          </button>
+
+          <button
+            type="button"
+            onClick={() => tryNavigate('/objectif')}
+            style={profileBtnStyle}
+          >
+            Mon objectif / changer
+          </button>
+        </div>
+
         <button
           type="button"
           onClick={signOut}
@@ -399,4 +417,17 @@ export default function Sidebar() {
       </div>
     </aside>
   )
+}
+
+const profileBtnStyle = {
+  width: '100%',
+  padding: '10px 12px',
+  borderRadius: 14,
+  border: '1px solid rgba(255,255,255,0.08)',
+  background: 'transparent',
+  color: '#B8C3BC',
+  fontWeight: 700,
+  fontSize: 13,
+  cursor: 'pointer',
+  textAlign: 'left',
 }
