@@ -4,6 +4,7 @@ import { Grain, Layout } from './components/UI'
 import { DirtyProvider } from './components/DirtyContext'
 import Sidebar from './components/Sidebar'
 import Topbar from './components/Topbar'
+
 import AuthPage from './pages/AuthPage'
 import SaisiePage from './pages/SaisiePage'
 import HistoriquePage from './pages/HistoriquePage'
@@ -15,8 +16,13 @@ import ProgramBuilderPage from './pages/ProgramBuilderPage'
 import RecipesPage from './pages/RecipesPage'
 import RecipeDetailPage from './pages/RecipeDetailPage'
 import MealPlanPage from './pages/MealPlanPage'
+
 import GoalSelectionPage from './pages/GoalSelectionPage'
 import GoalHomePage from './pages/GoalHomePage'
+import ProgrammeBodybuildingPage from './pages/ProgrammeBodybuildingPage'
+import ProgrammePerteDePoidsPage from './pages/ProgrammePerteDePoidsPage'
+import ProgrammeAthletiquePage from './pages/ProgrammeAthletiquePage'
+
 import { T } from './lib/data'
 
 function AppShell() {
@@ -53,70 +59,47 @@ function AppShell() {
         <Routes>
           <Route
             path="/"
-            element={
-              hasGoal
-                ? <Navigate to="/mon-espace" replace />
-                : <Navigate to="/objectif" replace />
-            }
+            element={hasGoal ? <Navigate to="/mon-espace" replace /> : <Navigate to="/objectif" replace />}
           />
 
           <Route
             path="/objectif"
-            element={
-              hasGoal
-                ? <Navigate to="/mon-espace" replace />
-                : <GoalSelectionPage />
-            }
+            element={hasGoal ? <Navigate to="/mon-espace" replace /> : <GoalSelectionPage />}
           />
 
           <Route
             path="/mon-espace"
-            element={
-              hasGoal
-                ? <GoalHomePage />
-                : <Navigate to="/objectif" replace />
-            }
+            element={hasGoal ? <GoalHomePage /> : <Navigate to="/objectif" replace />}
           />
 
-          {/* compat anciennes routes */}
           <Route path="/aujourd-hui" element={<Navigate to="/entrainement/aujourdhui" replace />} />
           <Route path="/saisie" element={<Navigate to="/entrainement/libre" replace />} />
           <Route path="/historique" element={<Navigate to="/entrainement/historique" replace />} />
           <Route path="/nutrition" element={<Navigate to="/nutrition/macros" replace />} />
           <Route path="/recettes" element={<Navigate to="/nutrition/recettes" replace />} />
           <Route path="/plan" element={<Navigate to="/nutrition/plan" replace />} />
-          <Route path="/recette/:id" element={<RecipeDetailPage />} />
 
-          {/* ENTRAINEMENT */}
           <Route path="/entrainement/aujourdhui" element={<AujourdhuiPage />} />
           <Route path="/entrainement/libre" element={<SaisiePage />} />
           <Route path="/entrainement/historique" element={<HistoriquePage />} />
 
-          {/* NUTRITION */}
           <Route path="/nutrition/macros" element={<NutritionPage />} />
           <Route path="/nutrition/plan" element={<MealPlanPage />} />
           <Route path="/nutrition/recettes" element={<RecipesPage />} />
           <Route path="/nutrition/recette/:id" element={<RecipeDetailPage />} />
 
-          {/* PROGRESSION */}
           <Route path="/progression" element={<ProgressionPage />} />
 
-          {/* COACH */}
           <Route path="/coach" element={<CoachPage />} />
           <Route path="/programmes" element={<ProgramBuilderPage />} />
 
-          {/* PROGRAMMES OBJECTIFS */}
-          <Route path="/programme/bodybuilding" element={<div style={{ padding: 24, color: T.text }}>Programme bodybuilding à brancher</div>} />
-          <Route path="/programme/perte-de-poids" element={<div style={{ padding: 24, color: T.text }}>Programme perte de poids à brancher</div>} />
-          <Route path="/programme/athletique" element={<div style={{ padding: 24, color: T.text }}>Programme athlétique à brancher</div>} />
+          <Route path="/programme/bodybuilding" element={<ProgrammeBodybuildingPage />} />
+          <Route path="/programme/perte-de-poids" element={<ProgrammePerteDePoidsPage />} />
+          <Route path="/programme/athletique" element={<ProgrammeAthletiquePage />} />
 
           <Route
             path="*"
-            element={
-              hasGoal
-                ? <Navigate to="/mon-espace" replace />
-                : <Navigate to="/objectif" replace />
-            }
+            element={hasGoal ? <Navigate to="/mon-espace" replace /> : <Navigate to="/objectif" replace />}
           />
         </Routes>
       </Layout>
