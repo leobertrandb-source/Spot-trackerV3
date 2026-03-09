@@ -49,7 +49,7 @@ Chargement...
 )
 }
 
-function ProtectedAppRoutes() {
+function PrivateAppShell() {
 const { user, profile, loading } = useAuth()
 const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900)
 const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
@@ -65,12 +65,16 @@ window.addEventListener('resize', handleResize)
 return () => window.removeEventListener('resize', handleResize)
 }, [])
 
-if (loading) {
-return <AppLoadingScreen />
-}
-
+// Très important :
+// si pas d'utilisateur, on affiche la page de connexion immédiatement
 if (!user) {
 return <AuthPage />
+}
+
+// Si l'utilisateur existe mais que le profil n'est pas encore chargé
+// on affiche un loading simple
+if (loading) {
+return <AppLoadingScreen />
 }
 
 const isCoach = profile?.role === 'coach'
@@ -101,7 +105,9 @@ onMenuClick={() => setMobileSidebarOpen((v) => !v)}
 
 <Route
 path="/objectif"
-element={isCoach ? <Navigate to="/coach" replace /> : <GoalSelectionPage />}
+element={
+isCoach ? <Navigate to="/coach" replace /> : <GoalSelectionPage />
+}
 />
 
 <Route
@@ -119,50 +125,156 @@ isCoach ? (
 
 <Route
 path="/aujourdhui"
-element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/entrainement/aujourdhui" replace />}
+element={
+isCoach ? (
+<Navigate to="/coach" replace />
+) : (
+<Navigate to="/entrainement/aujourdhui" replace />
+)
+}
 />
 
 <Route
 path="/saisie"
-element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/entrainement/libre" replace />}
+element={
+isCoach ? (
+<Navigate to="/coach" replace />
+) : (
+<Navigate to="/entrainement/libre" replace />
+)
+}
 />
 
 <Route
 path="/historique"
-element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/entrainement/historique" replace />}
+element={
+isCoach ? (
+<Navigate to="/coach" replace />
+) : (
+<Navigate to="/entrainement/historique" replace />
+)
+}
 />
 
 <Route
 path="/nutrition"
-element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/nutrition/macros" replace />}
+element={
+isCoach ? (
+<Navigate to="/coach" replace />
+) : (
+<Navigate to="/nutrition/macros" replace />
+)
+}
 />
 
 <Route
 path="/recettes"
-element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/nutrition/recettes" replace />}
+element={
+isCoach ? (
+<Navigate to="/coach" replace />
+) : (
+<Navigate to="/nutrition/recettes" replace />
+)
+}
 />
 
 <Route
 path="/plan"
-element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/nutrition/plan" replace />}
+element={
+isCoach ? (
+<Navigate to="/coach" replace />
+) : (
+<Navigate to="/nutrition/plan" replace />
+)
+}
 />
 
-<Route path="/entrainement/aujourdhui" element={isCoach ? <Navigate to="/coach" replace /> : <AujourdhuiPage />} />
-<Route path="/entrainement/libre" element={isCoach ? <Navigate to="/coach" replace /> : <SaisiePage />} />
-<Route path="/entrainement/historique" element={isCoach ? <Navigate to="/coach" replace /> : <HistoriquePage />} />
+<Route
+path="/entrainement/aujourdhui"
+element={isCoach ? <Navigate to="/coach" replace /> : <AujourdhuiPage />}
+/>
 
-<Route path="/nutrition/macros" element={isCoach ? <Navigate to="/coach" replace /> : <NutritionPage />} />
-<Route path="/nutrition/plan" element={isCoach ? <Navigate to="/coach" replace /> : <MealPlanPage />} />
-<Route path="/nutrition/recettes" element={isCoach ? <Navigate to="/coach" replace /> : <RecipesPage />} />
-<Route path="/nutrition/recette/:id" element={isCoach ? <Navigate to="/coach" replace /> : <RecipeDetailPage />} />
+<Route
+path="/entrainement/libre"
+element={isCoach ? <Navigate to="/coach" replace /> : <SaisiePage />}
+/>
 
-<Route path="/progression" element={isCoach ? <Navigate to="/coach" replace /> : <ProgressionPage />} />
-<Route path="/coach" element={isCoach ? <CoachPage /> : <Navigate to={athleteHome} replace />} />
-<Route path="/programmes" element={isCoach ? <ProgramBuilderPage /> : <Navigate to={athleteHome} replace />} />
+<Route
+path="/entrainement/historique"
+element={isCoach ? <Navigate to="/coach" replace /> : <HistoriquePage />}
+/>
 
-<Route path="/programme/bodybuilding" element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammeBodybuildingPage />} />
-<Route path="/programme/perte-de-poids" element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammePerteDePoidsPage />} />
-<Route path="/programme/athletique" element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammeAthletiquePage />} />
+<Route
+path="/nutrition/macros"
+element={isCoach ? <Navigate to="/coach" replace /> : <NutritionPage />}
+/>
+
+<Route
+path="/nutrition/plan"
+element={isCoach ? <Navigate to="/coach" replace /> : <MealPlanPage />}
+/>
+
+<Route
+path="/nutrition/recettes"
+element={isCoach ? <Navigate to="/coach" replace /> : <RecipesPage />}
+/>
+
+<Route
+path="/nutrition/recette/:id"
+element={isCoach ? <Navigate to="/coach" replace /> : <RecipeDetailPage />}
+/>
+
+<Route
+path="/progression"
+element={isCoach ? <Navigate to="/coach" replace /> : <ProgressionPage />}
+/>
+
+<Route
+path="/coach"
+element={
+isCoach ? (
+<CoachPage />
+) : (
+<Navigate to={athleteHome} replace />
+)
+}
+/>
+
+<Route
+path="/programmes"
+element={
+isCoach ? (
+<ProgramBuilderPage />
+) : (
+<Navigate to={athleteHome} replace />
+)
+}
+/>
+
+<Route
+path="/programme/bodybuilding"
+element={
+isCoach ? <Navigate to="/coach" replace /> : <ProgrammeBodybuildingPage />
+}
+/>
+
+<Route
+path="/programme/perte-de-poids"
+element={
+isCoach ? (
+<Navigate to="/coach" replace />
+) : (
+<ProgrammePerteDePoidsPage />
+)
+}
+/>
+
+<Route
+path="/programme/athletique"
+element={
+isCoach ? <Navigate to="/coach" replace /> : <ProgrammeAthletiquePage />
+}
+/>
 
 <Route path="*" element={<Navigate to={defaultRoute} replace />} />
 </Routes>
@@ -171,14 +283,13 @@ element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/nutrition/p
 )
 }
 
-function PublicInviteRoute() {
-const { user, profile, loading } = useAuth()
+function InviteRoute() {
+const { user, profile } = useAuth()
 
-if (loading) {
-return <AppLoadingScreen />
+if (!user) {
+return <InviteAcceptPage />
 }
 
-if (user) {
 const redirectTo =
 profile?.role === 'coach'
 ? '/coach'
@@ -189,14 +300,11 @@ profile?.role === 'coach'
 return <Navigate to={redirectTo} replace />
 }
 
-return <InviteAcceptPage />
-}
-
-function AppRoutes() {
+function RootRouter() {
 return (
 <Routes>
-<Route path="/invite/:token" element={<PublicInviteRoute />} />
-<Route path="*" element={<ProtectedAppRoutes />} />
+<Route path="/invite/:token" element={<InviteRoute />} />
+<Route path="*" element={<PrivateAppShell />} />
 </Routes>
 )
 }
@@ -206,9 +314,8 @@ return (
 <AuthProvider>
 <Grain />
 <BrowserRouter>
-<AppRoutes />
+<RootRouter />
 </BrowserRouter>
 </AuthProvider>
 )
 }
-
