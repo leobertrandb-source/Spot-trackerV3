@@ -1,156 +1,293 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useDirty } from '../components/DirtyContext'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import { Card, Label, Input, Btn, Badge, PageWrap } from '../components/UI'
 import { SEANCE_ICONS, T } from '../lib/data'
 
-// ── Helpers assistant progression ─────────────────────────────────
-function roundToNearestStep(value, step = 2.5) {
-  if (!value || Number.isNaN(Number(value))) return 0
-  return Math.round(Number(value) / step) * step
+// ── Helpers progression ───────────────────────────────────────────
+function roundToStep(value, step = 2.5) {
+  const n = Number(value || 0)
+  if (!n) return 0
+  return Math.round(n / step) * step
 }
 
 function estimate1RM(weight, reps) {
   const w = Number(weight || 0)
   const r = Number(reps || 0)
-
   if (!w || !r) return 0
   return w * (1 + r / 30)
 }
 
-function getSuggestedWeight(lastWeight, repsArray, targetReps) {
-  const weight = Number(lastWeight || 0)
-  const reps = (repsArray || []).map((r) => Number(r || 0)).filter(Boolean)
-  const target = Number(targetReps || 0)
+function formatSessionLine(session) {
+  if (!session) return 'Aucune donnée'
+  const weightLabel = session.mainWeight ? `${session.mainWeight} kg` : 'Poids libre'
+  return `${weightLabel} — ${session.repsArray.join(' / ')}`
+}
 
-  if (!weight || !reps.length || !target) return null
+function getProgressionModel(meta, exerciseName) {
+  const name = (exerciseName || '').toLowerCase()
+  const equipment = (meta?.equipment || '').toLowerCase()
+  const movement = (meta?.movement_type || '').toLowerCase()
 
-  const success = reps.every((r) => r >= target)
-  const successCount = reps.filter((r) => r >= target).length
-  const almost = successCount >= reps.length - 1
-
-  if (success) {
+  if (equipment === 'bodyweight' || name.includes('traction') || name.includes('pull-up') || name.includes('dips')) {
     return {
-      weight: roundToNearestStep(weight + 2.5),
-      status: 'increase',
-      label: 'Progression validée',
+      type: 'bodyweight',
+      repStep: 1,
+      label: 'Progression en reps',
     }
   }
 
-  if (almost) {
+  if (equipment === 'machine' || name.includes('machine') || name.includes('leg press') || name.includes('presse')) {
     return {
-      weight: roundToNearestStep(weight),
-      status: 'repeat',
-      label: 'Encore une validation',
+      type: 'weight',
+      step: 5,
+      label: 'Progression machine',
+    }
+  }
+
+  if (equipment === 'cable' || name.includes('poulie') || name.includes('cable')) {
+    return {
+      type: 'weight',
+      step: movement === 'isolation' ? 1 : 2.5,
+      label: 'Progression câble',
+    }
+  }
+
+  if (equipment === 'dumbbell' || name.includes('haltère') || name.includes('haltères') || name.includes('dumbbell')) {
+    return {
+      type: 'weight',
+      step: movement === 'isolation' ? 1 : 2,
+      label: 'Progression haltères',
     }
   }
 
   return {
-    weight: roundToNearestStep(weight * 0.95),
-    status: 'reduce',
-    label: 'Charge à alléger',
+    type: 'weight',
+    step: movement === 'isolation' ? 1 : 2.5,
+    label: 'Progression charge',
   }
 }
 
-function getPotentialMeta(suggestedWeight, bestWeight) {
-  const suggested = Number(suggestedWeight || 0)
-  const best = Number(bestWeight || 0)
+function groupRowsBySession(rows) {
+  const map = new Map()
 
-  if (!suggested) {
-    return {
-      title: 'Progression en cours',
-      color: T.textSub,
-      textColor: T.text,
-      background: 'rgba(255,255,255,0.03)',
-      border: '1px solid rgba(255,255,255,0.06)',
+  for (const row of rows) {
+    if (!map.has(row.session_id)) {
+      map.set(row.session_id, {
+        sessionId: row.session_id,
+        date: row.sessions?.date || null,
+        sets: [],
+      })
+    }
+
+    map.get(row.session_id).sets.push({
+      reps: Number(row.reps || 0),
+      weight: Number(row.weight || 0),
+      rpe: Number(row.rpe || 0),
+      set_order: Number(row.set_order || 0),
+    })
+  }
+
+  return [...map.values()]
+    .map((session) => {
+      const orderedSets = [...session.sets].sort((a, b) => a.set_order - b.set_order)
+      const repsArray = orderedSets.map((s) => s.reps)
+      const weights = orderedSets.map((s) => s.weight).filter(Boolean)
+      const rpes = orderedSets.map((s) => s.rpe).filter(Boolean)
+      const volume = orderedSets.reduce((sum, s) => sum + Number(s.weight || 0) * Number(s.reps || 0), 0)
+      const best1RM = orderedSets.reduce((max, s) => Math.max(max, estimate1RM(s.weight, s.reps)), 0)
+
+      return {
+        ...session,
+        sets: orderedSets,
+        repsArray,
+        weights,
+        mainWeight: weights[0] || 0,
+        avgRpe: rpes.length ? rpes.reduce((a, b) => a + b, 0) / rpes.length : 0,
+        volume,
+        best1RM,
+      }
+    })
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
+}
+
+function buildExerciseInsight(meta, sessions, targetReps, exerciseName) {
+  if (!sessions.length) return null
+
+  const latest = sessions[0]
+  const previous = sessions[1] || null
+  const recent3 = sessions.slice(0, 3)
+
+  const bestWeight = sessions.reduce((max, s) => Math.max(max, Number(s.mainWeight || 0)), 0)
+  const best1RM = sessions.reduce((max, s) => Math.max(max, Number(s.best1RM || 0)), 0)
+  const bestVolume = sessions.reduce((max, s) => Math.max(max, Number(s.volume || 0)), 0)
+
+  const progressionModel = getProgressionModel(meta, exerciseName)
+  const target = Number(targetReps || 0)
+  const repsArray = latest.repsArray || []
+  const successCount = target ? repsArray.filter((r) => r >= target).length : 0
+  const allSuccess = target ? repsArray.length > 0 && repsArray.every((r) => r >= target) : false
+  const almost = target ? successCount >= Math.max(1, repsArray.length - 1) : false
+
+  const avgRpe = Number(latest.avgRpe || 0)
+  const fatigueHigh = avgRpe >= 9
+  const fatigueVeryHigh = avgRpe >= 9.5
+
+  const stagnation =
+    recent3.length >= 3 &&
+    recent3.every((s) => Number(s.mainWeight || 0) <= Number(latest.mainWeight || 0)) &&
+    recent3.every((s) => {
+      if (!target) return false
+      const okCount = s.repsArray.filter((r) => r >= target).length
+      return okCount < s.repsArray.length
+    })
+
+  let suggestion = null
+
+  if (progressionModel.type === 'bodyweight') {
+    const suggestedReps = allSuccess ? target + progressionModel.repStep : target
+    suggestion = {
+      type: 'reps',
+      reps: suggestedReps,
+      label: allSuccess ? 'Progression en reps possible' : 'Valider les reps actuelles',
+    }
+  } else {
+    const currentWeight = Number(latest.mainWeight || 0)
+
+    if (allSuccess) {
+      suggestion = {
+        type: 'weight',
+        weight: roundToStep(currentWeight + progressionModel.step, progressionModel.step),
+        label: 'Progression validée',
+      }
+    } else if (almost) {
+      suggestion = {
+        type: 'weight',
+        weight: roundToStep(currentWeight, progressionModel.step),
+        label: 'Encore une validation',
+      }
+    } else if (fatigueVeryHigh || successCount <= Math.floor(repsArray.length / 2)) {
+      suggestion = {
+        type: 'weight',
+        weight: roundToStep(currentWeight * 0.95, progressionModel.step),
+        label: 'Charge à alléger',
+      }
+    } else {
+      suggestion = {
+        type: 'weight',
+        weight: roundToStep(currentWeight, progressionModel.step),
+        label: 'Consolider la charge',
+      }
     }
   }
 
-  if (suggested > best) {
-    return {
+  const suggestedWeight = Number(suggestion?.weight || 0)
+
+  let potential = {
+    title: 'Progression en cours',
+    tone: 'neutral',
+  }
+
+  if (suggestion?.type === 'weight' && suggestedWeight > bestWeight) {
+    potential = {
       title: '🏆 Record de charge possible',
-      color: '#FFD76A',
-      textColor: '#FFE7A6',
-      background: 'rgba(255,215,0,0.08)',
-      border: '1px solid rgba(255,215,0,0.28)',
+      tone: 'gold',
+    }
+  } else if (suggestion?.type === 'weight' && suggestedWeight === bestWeight && bestWeight > 0) {
+    potential = {
+      title: 'Validation du niveau actuel',
+      tone: 'accent',
+    }
+  } else if (stagnation || fatigueHigh) {
+    potential = {
+      title: 'Séance de consolidation',
+      tone: 'neutral',
     }
   }
 
-  if (suggested === best) {
+  const statusChips = []
+
+  if (potential.tone === 'gold') {
+    statusChips.push({ text: 'PR potentiel', tone: 'gold' })
+  }
+
+  if (stagnation) {
+    statusChips.push({ text: 'Stagnation', tone: 'warn' })
+  }
+
+  if (fatigueHigh) {
+    statusChips.push({ text: 'Fatigue haute', tone: 'danger' })
+  }
+
+  if (!statusChips.length) {
+    statusChips.push({ text: 'Progression stable', tone: 'accent' })
+  }
+
+  let coachNote = null
+
+  if (stagnation && fatigueHigh) {
+    coachNote = 'Stagnation + fatigue élevée : consolider ou alléger cette semaine.'
+  } else if (stagnation) {
+    coachNote = 'Peu de progression récente : valide la fourchette avant de remonter.'
+  } else if (fatigueHigh) {
+    coachNote = 'RPE élevé sur la dernière séance : garde de la marge aujourd’hui.'
+  } else if (potential.tone === 'gold') {
+    coachNote = 'Conditions réunies pour tenter un nouveau meilleur poids.'
+  }
+
+  return {
+    meta,
+    progressionModel,
+    latest,
+    previous,
+    bestWeight,
+    best1RM,
+    bestVolume,
+    suggestion,
+    potential,
+    statusChips,
+    coachNote,
+  }
+}
+
+function getChipStyle(tone) {
+  if (tone === 'gold') {
     return {
-      title: 'Validation du niveau actuel',
+      background: 'rgba(255,215,0,0.10)',
+      border: '1px solid rgba(255,215,0,0.30)',
+      color: '#FFD76A',
+    }
+  }
+
+  if (tone === 'danger') {
+    return {
+      background: 'rgba(255,110,110,0.10)',
+      border: '1px solid rgba(255,110,110,0.24)',
+      color: '#FF9D9D',
+    }
+  }
+
+  if (tone === 'warn') {
+    return {
+      background: 'rgba(255,180,80,0.10)',
+      border: '1px solid rgba(255,180,80,0.24)',
+      color: '#FFC783',
+    }
+  }
+
+  if (tone === 'accent') {
+    return {
+      background: 'rgba(45,255,155,0.10)',
+      border: `1px solid ${T.accent + '28'}`,
       color: T.accentLight,
-      textColor: T.text,
-      background: 'rgba(45,255,155,0.08)',
-      border: `1px solid ${T.accent + '26'}`,
     }
   }
 
   return {
-    title: 'Séance de consolidation',
-    color: T.textSub,
-    textColor: T.text,
     background: 'rgba(255,255,255,0.03)',
     border: '1px solid rgba(255,255,255,0.06)',
-  }
-}
-
-async function fetchExerciseHistory(supabaseClient, userId, exerciseName) {
-  const { data, error } = await supabaseClient
-    .from('sets')
-    .select(`
-      reps,
-      weight,
-      rpe,
-      set_order,
-      session_id,
-      sessions!inner (
-        id,
-        user_id,
-        date
-      )
-    `)
-    .eq('sessions.user_id', userId)
-    .eq('exercise', exerciseName)
-    .order('date', { foreignTable: 'sessions', ascending: false })
-    .order('set_order', { ascending: true })
-
-  if (error) {
-    console.error(`Erreur récupération historique pour ${exerciseName}:`, error)
-    return null
-  }
-
-  const rows = data || []
-  if (!rows.length) return null
-
-  const latestSessionId = rows[0].session_id
-  const latestRows = rows.filter((row) => row.session_id === latestSessionId)
-
-  const allTimeBestWeight = rows.reduce((max, row) => {
-    const w = Number(row.weight || 0)
-    return w > max ? w : max
-  }, 0)
-
-  const allTimeBest1RM = rows.reduce((max, row) => {
-    const value = estimate1RM(row.weight, row.reps)
-    return value > max ? value : max
-  }, 0)
-
-  const lastWeight = Number(latestRows[0]?.weight || 0)
-  const repsArray = latestRows.map((row) => Number(row.reps || 0))
-  const last1RM = latestRows.reduce((max, row) => {
-    const value = estimate1RM(row.weight, row.reps)
-    return value > max ? value : max
-  }, 0)
-
-  return {
-    date: latestRows[0]?.sessions?.date || null,
-    lastWeight,
-    repsArray,
-    last1RM,
-    allTimeBestWeight,
-    allTimeBest1RM,
+    color: T.textMid,
   }
 }
 
@@ -216,33 +353,15 @@ function ExoLibrary({ onAdd, isMobile = false }) {
         }}
       >
         {loadingLibrary ? (
-          <div
-            style={{
-              padding: '8px 4px',
-              color: T.textDim,
-              fontSize: 12,
-            }}
-          >
+          <div style={{ padding: '8px 4px', color: T.textDim, fontSize: 12 }}>
             Chargement...
           </div>
         ) : libraryError ? (
-          <div
-            style={{
-              padding: '8px 4px',
-              color: T.danger,
-              fontSize: 12,
-            }}
-          >
+          <div style={{ padding: '8px 4px', color: T.danger, fontSize: 12 }}>
             {libraryError}
           </div>
         ) : filtered.length === 0 ? (
-          <div
-            style={{
-              padding: '8px 4px',
-              color: T.textDim,
-              fontSize: 12,
-            }}
-          >
+          <div style={{ padding: '8px 4px', color: T.textDim, fontSize: 12 }}>
             Aucun exercice trouvé.
           </div>
         ) : (
@@ -470,23 +589,20 @@ function ExoLibrary({ onAdd, isMobile = false }) {
   )
 }
 
-// ── Bloc d'un exercice avec assistant ─────────────────────────────
+// ── Bloc exercice compact + détails repliables ────────────────────
 function ExerciseBlock({
   exo,
-  suggestionData,
+  insight,
   onRemove,
   onUpdateSet,
   onAddSet,
   onRemoveSet,
-  onApplySuggestedWeight,
+  onApplySuggestion,
   isMobile = false,
 }) {
+  const [showDetails, setShowDetails] = useState(false)
   const gridColumns = isMobile ? '34px 1fr 1fr 1fr 24px' : '40px 1fr 1fr 1fr 28px'
-  const suggestion = suggestionData?.suggestion || null
-  const history = suggestionData?.history || null
-  const potentialMeta = history
-    ? getPotentialMeta(suggestion?.weight, history.allTimeBestWeight)
-    : null
+  const suggestion = insight?.suggestion || null
 
   return (
     <div
@@ -568,14 +684,8 @@ function ExerciseBlock({
         </button>
       </div>
 
-      {history ? (
-        <div
-          style={{
-            padding: isMobile ? '10px 10px 0' : '10px 14px 0',
-            display: 'grid',
-            gap: 8,
-          }}
-        >
+      {insight ? (
+        <div style={{ padding: isMobile ? '10px 10px 0' : '10px 14px 0', display: 'grid', gap: 8 }}>
           <div
             style={{
               padding: '10px 12px',
@@ -586,174 +696,235 @@ function ExerciseBlock({
           >
             <div
               style={{
-                color: T.textSub,
-                fontSize: 11,
-                fontWeight: 800,
-                letterSpacing: 1,
-                textTransform: 'uppercase',
-                marginBottom: 6,
-              }}
-            >
-              Dernière séance
-            </div>
-
-            <div
-              style={{
-                color: T.textMid,
-                fontSize: 13,
-                lineHeight: 1.55,
-              }}
-            >
-              {history.lastWeight ? `${history.lastWeight} kg` : 'Charge non renseignée'} —{' '}
-              {history.repsArray.join(' / ')}
-              {history.date ? ` • ${history.date}` : ''}
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3, 1fr)',
-              gap: 8,
-            }}
-          >
-            <div
-              style={{
-                padding: '10px 12px',
-                borderRadius: 14,
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.06)',
-              }}
-            >
-              <div
-                style={{
-                  color: T.textSub,
-                  fontSize: 10,
-                  fontWeight: 800,
-                  letterSpacing: 1,
-                  textTransform: 'uppercase',
-                  marginBottom: 5,
-                }}
-              >
-                1RM estimé
-              </div>
-              <div style={{ color: T.text, fontWeight: 900, fontSize: 14 }}>
-                {history.last1RM ? `${history.last1RM.toFixed(1)} kg` : '—'}
-              </div>
-            </div>
-
-            <div
-              style={{
-                padding: '10px 12px',
-                borderRadius: 14,
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.06)',
-              }}
-            >
-              <div
-                style={{
-                  color: T.textSub,
-                  fontSize: 10,
-                  fontWeight: 800,
-                  letterSpacing: 1,
-                  textTransform: 'uppercase',
-                  marginBottom: 5,
-                }}
-              >
-                Record charge
-              </div>
-              <div style={{ color: T.text, fontWeight: 900, fontSize: 14 }}>
-                {history.allTimeBestWeight ? `${history.allTimeBestWeight.toFixed(1)} kg` : '—'}
-              </div>
-            </div>
-
-            <div
-              style={{
-                padding: '10px 12px',
-                borderRadius: 14,
-                background: potentialMeta?.background || 'rgba(255,255,255,0.03)',
-                border: potentialMeta?.border || '1px solid rgba(255,255,255,0.06)',
-                gridColumn: isMobile ? '1 / -1' : 'auto',
-              }}
-            >
-              <div
-                style={{
-                  color: potentialMeta?.color || T.textSub,
-                  fontSize: 10,
-                  fontWeight: 800,
-                  letterSpacing: 1,
-                  textTransform: 'uppercase',
-                  marginBottom: 5,
-                }}
-              >
-                Potentiel
-              </div>
-              <div
-                style={{
-                  color: potentialMeta?.textColor || T.text,
-                  fontWeight: 900,
-                  fontSize: 14,
-                }}
-              >
-                {potentialMeta?.title || 'Progression en cours'}
-              </div>
-            </div>
-          </div>
-
-          {suggestion ? (
-            <div
-              style={{
-                padding: '12px 12px',
-                borderRadius: 14,
-                background: T.accentGlowSm,
-                border: `1px solid ${T.accent + '22'}`,
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center',
                 gap: 10,
+                alignItems: 'flex-start',
                 flexWrap: 'wrap',
               }}
             >
-              <div>
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <div
                   style={{
-                    color: T.accentLight,
-                    fontSize: 11,
+                    color: T.textSub,
+                    fontSize: 10,
                     fontWeight: 800,
                     letterSpacing: 1,
                     textTransform: 'uppercase',
-                    marginBottom: 5,
+                    marginBottom: 6,
                   }}
                 >
-                  Charge conseillée
+                  Assistant
                 </div>
 
-                <div style={{ color: T.text, fontSize: 16, fontWeight: 900 }}>
-                  {suggestion.weight} kg
+                <div
+                  style={{
+                    color: T.text,
+                    fontSize: 14,
+                    fontWeight: 900,
+                    lineHeight: 1.25,
+                  }}
+                >
+                  {suggestion?.type === 'weight'
+                    ? `${suggestion.weight} kg recommandés`
+                    : suggestion?.type === 'reps'
+                      ? `${suggestion.reps} reps recommandées`
+                      : 'Analyse disponible'}
                 </div>
 
-                <div style={{ color: T.textMid, fontSize: 12, marginTop: 4 }}>
-                  {suggestion.label}
+                <div
+                  style={{
+                    color: T.textMid,
+                    fontSize: 12,
+                    marginTop: 5,
+                    lineHeight: 1.55,
+                  }}
+                >
+                  {formatSessionLine(insight.latest)}
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={onApplySuggestedWeight}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {insight.statusChips.map((chip) => (
+                  <div
+                    key={chip.text}
+                    style={{
+                      ...getChipStyle(chip.tone),
+                      padding: '6px 9px',
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      letterSpacing: 0.3,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {chip.text}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)',
+                gap: 8,
+                marginTop: 10,
+              }}
+            >
+              <div
                 style={{
-                  border: `1px solid ${T.accent + '30'}`,
-                  background: 'rgba(45,255,155,0.10)',
-                  color: T.accentLight,
+                  padding: '9px 10px',
                   borderRadius: 12,
-                  padding: '9px 12px',
-                  cursor: 'pointer',
-                  fontWeight: 800,
-                  fontSize: 12,
-                  whiteSpace: 'nowrap',
+                  background: 'rgba(255,255,255,0.025)',
+                  border: '1px solid rgba(255,255,255,0.05)',
                 }}
               >
-                Appliquer la charge
-              </button>
+                <div style={{ color: T.textSub, fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>
+                  Dernier
+                </div>
+                <div style={{ color: T.text, fontSize: 13, fontWeight: 900, marginTop: 4 }}>
+                  {insight.latest.mainWeight ? `${insight.latest.mainWeight} kg` : '—'}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: '9px 10px',
+                  borderRadius: 12,
+                  background: 'rgba(255,255,255,0.025)',
+                  border: '1px solid rgba(255,255,255,0.05)',
+                }}
+              >
+                <div style={{ color: T.textSub, fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>
+                  Record
+                </div>
+                <div style={{ color: T.text, fontSize: 13, fontWeight: 900, marginTop: 4 }}>
+                  {insight.bestWeight ? `${insight.bestWeight.toFixed(1)} kg` : '—'}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: '9px 10px',
+                  borderRadius: 12,
+                  background: 'rgba(255,255,255,0.025)',
+                  border: '1px solid rgba(255,255,255,0.05)',
+                }}
+              >
+                <div style={{ color: T.textSub, fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>
+                  1RM
+                </div>
+                <div style={{ color: T.text, fontSize: 13, fontWeight: 900, marginTop: 4 }}>
+                  {insight.best1RM ? `${insight.best1RM.toFixed(1)} kg` : '—'}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: '9px 10px',
+                  borderRadius: 12,
+                  background: 'rgba(255,255,255,0.025)',
+                  border: '1px solid rgba(255,255,255,0.05)',
+                }}
+              >
+                <div style={{ color: T.textSub, fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>
+                  Volume
+                </div>
+                <div style={{ color: T.text, fontSize: 13, fontWeight: 900, marginTop: 4 }}>
+                  {insight.bestVolume ? `${Math.round(insight.bestVolume)} kg` : '—'}
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: 10,
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                marginTop: 10,
+              }}
+            >
+              <div style={{ color: T.textMid, fontSize: 12, lineHeight: 1.5 }}>
+                {insight.coachNote || insight.suggestion?.label || 'Progression suivie automatiquement.'}
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {suggestion?.type === 'weight' ? (
+                  <button
+                    type="button"
+                    onClick={onApplySuggestion}
+                    style={{
+                      border: `1px solid ${T.accent + '30'}`,
+                      background: 'rgba(45,255,155,0.10)',
+                      color: T.accentLight,
+                      borderRadius: 12,
+                      padding: '9px 12px',
+                      cursor: 'pointer',
+                      fontWeight: 800,
+                      fontSize: 12,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Appliquer
+                  </button>
+                ) : null}
+
+                <button
+                  type="button"
+                  onClick={() => setShowDetails((v) => !v)}
+                  style={{
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    background: 'transparent',
+                    color: T.textMid,
+                    borderRadius: 12,
+                    padding: '9px 12px',
+                    cursor: 'pointer',
+                    fontWeight: 800,
+                    fontSize: 12,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {showDetails ? 'Masquer' : 'Détails'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {showDetails ? (
+            <div
+              style={{
+                padding: '10px 12px',
+                borderRadius: 14,
+                background: 'rgba(255,255,255,0.025)',
+                border: '1px solid rgba(255,255,255,0.05)',
+                display: 'grid',
+                gap: 8,
+              }}
+            >
+              <div style={{ color: T.textSub, fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>
+                Historique rapide
+              </div>
+
+              <div style={{ color: T.textMid, fontSize: 12, lineHeight: 1.6 }}>
+                Dernière séance : {formatSessionLine(insight.latest)}
+              </div>
+
+              {insight.previous ? (
+                <div style={{ color: T.textMid, fontSize: 12, lineHeight: 1.6 }}>
+                  Séance précédente : {formatSessionLine(insight.previous)}
+                </div>
+              ) : null}
+
+              <div style={{ color: T.textMid, fontSize: 12, lineHeight: 1.6 }}>
+                Modèle : {insight.progressionModel.label}
+              </div>
+
+              <div style={{ color: T.textMid, fontSize: 12, lineHeight: 1.6 }}>
+                Potentiel : {insight.potential.title}
+              </div>
             </div>
           ) : null}
         </div>
@@ -824,7 +995,9 @@ function ExerciseBlock({
               onChange={(v) => onUpdateSet(si, 'weight', v)}
               type="number"
               placeholder={
-                suggestion?.weight && !set.weight ? String(suggestion.weight) : '60'
+                insight?.suggestion?.type === 'weight' && insight?.suggestion?.weight && !set.weight
+                  ? String(insight.suggestion.weight)
+                  : '60'
               }
               min="0"
               step="0.5"
@@ -903,11 +1076,16 @@ export default function AujourdhuiPage() {
   const [loading, setLoading] = useState(true)
   const [isDragOver, setIsDragOver] = useState(false)
   const [exercises, setExercises] = useState([])
-  const [exerciseSuggestions, setExerciseSuggestions] = useState({})
+  const [exerciseInsights, setExerciseInsights] = useState({})
   const [notes, setNotes] = useState('')
   const [status, setStatus] = useState(null)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900)
   const { markDirty, markClean } = useDirty()
+
+  const exerciseNamesKey = useMemo(
+    () => exercises.map((e) => e.exercise).join('|'),
+    [exercises]
+  )
 
   useEffect(() => {
     function handleResize() {
@@ -925,13 +1103,13 @@ export default function AujourdhuiPage() {
   }, [user?.id])
 
   useEffect(() => {
-    if (!user?.id || !exercises.length) {
-      setExerciseSuggestions({})
+    if (!user?.id || !exerciseNamesKey) {
+      setExerciseInsights({})
       return
     }
 
-    loadSuggestions()
-  }, [user?.id, exercises])
+    loadExerciseInsights()
+  }, [user?.id, exerciseNamesKey])
 
   async function loadToday() {
     const { data: assigns } = await supabase
@@ -969,30 +1147,62 @@ export default function AujourdhuiPage() {
     setExercises([])
   }
 
-  async function loadSuggestions() {
-    const nextSuggestions = {}
+  async function loadExerciseInsights() {
+    const names = [...new Set(exercises.map((e) => e.exercise).filter(Boolean))]
+    if (!names.length) return
+
+    const { data: metaRows, error: metaError } = await supabase
+      .from('exercises')
+      .select('name, equipment, movement_type')
+      .in('name', names)
+
+    if (metaError) {
+      console.error('Erreur récupération metadata exercices:', metaError)
+    }
+
+    const metaByName = (metaRows || []).reduce((acc, row) => {
+      acc[row.name] = row
+      return acc
+    }, {})
+
+    const nextInsights = {}
 
     for (const exo of exercises) {
-      const history = await fetchExerciseHistory(supabase, user.id, exo.exercise)
+      const { data, error } = await supabase
+        .from('sets')
+        .select(`
+          reps,
+          weight,
+          rpe,
+          set_order,
+          session_id,
+          sessions!inner (
+            id,
+            user_id,
+            date
+          )
+        `)
+        .eq('sessions.user_id', user.id)
+        .eq('exercise', exo.exercise)
+        .order('date', { foreignTable: 'sessions', ascending: false })
+        .order('set_order', { ascending: true })
 
-      if (!history) {
-        nextSuggestions[exo.exercise] = null
+      if (error) {
+        console.error(`Erreur récupération historique pour ${exo.exercise}:`, error)
+        nextInsights[exo.exercise] = null
         continue
       }
 
-      const suggestion = getSuggestedWeight(
-        history.lastWeight,
-        history.repsArray,
-        exo.reps_target
+      const sessions = groupRowsBySession(data || [])
+      nextInsights[exo.exercise] = buildExerciseInsight(
+        metaByName[exo.exercise] || null,
+        sessions,
+        exo.reps_target,
+        exo.exercise
       )
-
-      nextSuggestions[exo.exercise] = {
-        history,
-        suggestion,
-      }
     }
 
-    setExerciseSuggestions(nextSuggestions)
+    setExerciseInsights(nextInsights)
   }
 
   function addExercise(name) {
@@ -1057,11 +1267,12 @@ export default function AujourdhuiPage() {
     )
   }
 
-  function applySuggestedWeight(exoIdx) {
+  function applySuggestion(exoIdx) {
     const exo = exercises[exoIdx]
-    const suggestion = exerciseSuggestions[exo.exercise]?.suggestion
+    const insight = exerciseInsights[exo.exercise]
+    const suggestion = insight?.suggestion
 
-    if (!suggestion?.weight) return
+    if (!suggestion || suggestion.type !== 'weight' || !suggestion.weight) return
 
     markDirty()
 
@@ -1358,12 +1569,12 @@ export default function AujourdhuiPage() {
                 <ExerciseBlock
                   key={`${exo.exercise}-${i}`}
                   exo={exo}
-                  suggestionData={exerciseSuggestions[exo.exercise] || null}
+                  insight={exerciseInsights[exo.exercise] || null}
                   onRemove={() => removeExercise(i)}
                   onUpdateSet={(si, f, v) => updateSet(i, si, f, v)}
                   onAddSet={() => addSet(i)}
                   onRemoveSet={(si) => removeSet(i, si)}
-                  onApplySuggestedWeight={() => applySuggestedWeight(i)}
+                  onApplySuggestion={() => applySuggestion(i)}
                   isMobile={isMobile}
                 />
               ))
