@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-import { PageWrap, Card, Btn } from '../components/UI'
+import { PageWrap, Btn } from '../components/UI'
 import { T } from '../lib/data'
+import { UI_ASSETS } from '../config/ui-assets.generated'
 
 const OPTIONS = [
   {
@@ -14,6 +15,7 @@ const OPTIONS = [
     icon: '⬢',
     points: ['Volume musculaire', 'Progression en charge', 'Apport énergétique adapté'],
     gradient: 'linear-gradient(135deg, rgba(31,42,36,0.94), rgba(10,14,12,0.96))',
+    imageUrl: UI_ASSETS?.goalSelection?.strength || null,
   },
   {
     value: 'fat_loss',
@@ -23,6 +25,7 @@ const OPTIONS = [
     icon: '◌',
     points: ['Déficit maîtrisé', 'Adhérence long terme', 'Suivi simple et efficace'],
     gradient: 'linear-gradient(135deg, rgba(26,32,30,0.94), rgba(10,14,12,0.96))',
+    imageUrl: UI_ASSETS?.goalSelection?.weightLoss || null,
   },
   {
     value: 'athletic',
@@ -32,6 +35,7 @@ const OPTIONS = [
     icon: '△',
     points: ['Performance globale', 'Explosivité', 'Condition physique'],
     gradient: 'linear-gradient(135deg, rgba(25,34,36,0.94), rgba(10,14,12,0.96))',
+    imageUrl: UI_ASSETS?.goalSelection?.mobility || null,
   },
 ]
 
@@ -184,12 +188,14 @@ export default function GoalSelectionPage() {
                 <div
                   style={{
                     position: 'relative',
-                    minHeight: 300,
+                    minHeight: 320,
                     borderRadius: 26,
                     padding: 22,
                     overflow: 'hidden',
                     border: `1px solid ${active ? T.accent + '44' : 'rgba(255,255,255,0.08)'}`,
-                    background: option.gradient,
+                    background: option.imageUrl
+                      ? `linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.82)), url("${option.imageUrl}") center/cover no-repeat`
+                      : option.gradient,
                     boxShadow: active
                       ? '0 0 40px rgba(45,255,155,0.12)'
                       : '0 18px 40px rgba(0,0,0,0.22)',
@@ -201,7 +207,17 @@ export default function GoalSelectionPage() {
                     style={{
                       position: 'absolute',
                       inset: 0,
-                      opacity: 0.08,
+                      background: option.imageUrl
+                        ? 'linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.78))'
+                        : 'transparent',
+                    }}
+                  />
+
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      opacity: option.imageUrl ? 0.04 : 0.08,
                       backgroundImage:
                         'radial-gradient(rgba(255,255,255,0.7) 0.6px, transparent 0.6px)',
                       backgroundSize: '14px 14px',
@@ -234,7 +250,7 @@ export default function GoalSelectionPage() {
                         fontSize: 28,
                         fontWeight: 900,
                         letterSpacing: 0.4,
-                        color: T.text,
+                        color: '#fff',
                         marginBottom: 10,
                       }}
                     >
@@ -243,7 +259,7 @@ export default function GoalSelectionPage() {
 
                     <div
                       style={{
-                        color: T.textMid,
+                        color: 'rgba(255,255,255,0.78)',
                         lineHeight: 1.65,
                         fontSize: 14,
                         marginBottom: 20,
