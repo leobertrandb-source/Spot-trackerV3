@@ -11,6 +11,7 @@ function ExoLibrary({ onAdd }) {
   const [libraryExercises, setLibraryExercises] = useState([])
   const [loadingLibrary, setLoadingLibrary] = useState(true)
   const [libraryError, setLibraryError] = useState('')
+  const [selectedExercise, setSelectedExercise] = useState(null)
 
   useEffect(() => {
     loadExercises()
@@ -33,7 +34,11 @@ function ExoLibrary({ onAdd }) {
       return
     }
 
-    setLibraryExercises(data || [])
+    const loaded = data || []
+    setLibraryExercises(loaded)
+    if (loaded.length && !selectedExercise) {
+      setSelectedExercise(loaded[0])
+    }
     setLoadingLibrary(false)
   }
 
@@ -55,7 +60,7 @@ function ExoLibrary({ onAdd }) {
           display: 'flex',
           flexDirection: 'column',
           gap: 6,
-          maxHeight: 340,
+          maxHeight: 320,
           overflowY: 'auto',
         }}
       >
@@ -90,82 +95,226 @@ function ExoLibrary({ onAdd }) {
             Aucun exercice trouvé.
           </div>
         ) : (
-          filtered.map((exo) => (
-            <div
-              key={exo.id}
-              draggable
-              onDragStart={(e) => e.dataTransfer.setData('exercise', exo.name)}
-              onClick={() => onAdd(exo.name)}
-              style={{
-                padding: '8px 10px',
-                background: T.surface,
-                border: `1px solid ${T.border}`,
-                borderRadius: T.radiusSm,
-                fontSize: 12,
-                color: T.textMid,
-                cursor: 'grab',
-                userSelect: 'none',
-                transition: 'all .15s',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = T.accent
-                e.currentTarget.style.color = T.text
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = T.border
-                e.currentTarget.style.color = T.textMid
-              }}
-            >
+          filtered.map((exo) => {
+            const isSelected = selectedExercise?.id === exo.id
+
+            return (
               <div
+                key={exo.id}
+                draggable
+                onDragStart={(e) => e.dataTransfer.setData('exercise', exo.name)}
+                onClick={() => setSelectedExercise(exo)}
                 style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 10,
-                  flexShrink: 0,
-                  background: exo.image_url
-                    ? `url("${exo.image_url}") center/cover no-repeat`
-                    : 'linear-gradient(135deg, rgba(30,40,34,0.96), rgba(10,14,12,0.98))',
-                  border: `1px solid ${T.border}`,
+                  padding: '8px 10px',
+                  background: isSelected ? T.accentGlow : T.surface,
+                  border: `1px solid ${isSelected ? T.accent : T.border}`,
+                  borderRadius: T.radiusSm,
+                  fontSize: 12,
+                  color: T.textMid,
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  transition: 'all .15s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
                 }}
-              />
-
-              <div style={{ minWidth: 0, flex: 1 }}>
+                onMouseEnter={(e) => {
+                  if (!isSelected) {
+                    e.currentTarget.style.borderColor = T.accent
+                    e.currentTarget.style.color = T.text
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) {
+                    e.currentTarget.style.borderColor = T.border
+                    e.currentTarget.style.color = T.textMid
+                  }
+                }}
+              >
                 <div
                   style={{
-                    color: T.text,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    lineHeight: 1.3,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
+                    width: 42,
+                    height: 42,
+                    borderRadius: 10,
+                    flexShrink: 0,
+                    background: exo.image_url
+                      ? `url("${exo.image_url}") center/cover no-repeat`
+                      : 'linear-gradient(135deg, rgba(30,40,34,0.96), rgba(10,14,12,0.98))',
+                    border: `1px solid ${T.border}`,
                   }}
-                >
-                  {exo.name}
+                />
+
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div
+                    style={{
+                      color: T.text,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      lineHeight: 1.3,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {exo.name}
+                  </div>
+
+                  <div
+                    style={{
+                      color: T.textDim,
+                      fontSize: 11,
+                      marginTop: 3,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {exo.muscle_group || '—'} • {exo.equipment || '—'}
+                  </div>
                 </div>
 
-                <div
-                  style={{
-                    color: T.textDim,
-                    fontSize: 11,
-                    marginTop: 3,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onAdd(exo.name)
                   }}
+                  style={{
+                    background: T.accent,
+                    border: 'none',
+                    borderRadius: 8,
+                    width: 24,
+                    height: 24,
+                    color: '#fff',
+                    fontWeight: 900,
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                  }}
+                  title="Ajouter à la séance"
                 >
-                  {exo.muscle_group || '—'} • {exo.equipment || '—'}
-                </div>
+                  +
+                </button>
               </div>
-
-              <span style={{ color: T.accentDim, fontSize: 10 }}>⠿</span>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
+
+      {selectedExercise && (
+        <Card style={{ marginTop: 12, padding: 14 }}>
+          <div
+            style={{
+              height: 150,
+              borderRadius: 12,
+              marginBottom: 12,
+              background: selectedExercise.image_url
+                ? `url("${selectedExercise.image_url}") center/cover no-repeat`
+                : 'linear-gradient(135deg, rgba(30,40,34,0.96), rgba(10,14,12,0.98))',
+              border: `1px solid ${T.border}`,
+            }}
+          />
+
+          <div
+            style={{
+              color: T.text,
+              fontWeight: 800,
+              fontSize: 16,
+              lineHeight: 1.3,
+            }}
+          >
+            {selectedExercise.name}
+          </div>
+
+          <div
+            style={{
+              fontSize: 12,
+              color: T.textDim,
+              marginTop: 5,
+              lineHeight: 1.5,
+            }}
+          >
+            {selectedExercise.muscle_group || '—'} • {selectedExercise.equipment || '—'} •{' '}
+            {selectedExercise.level || '—'}
+          </div>
+
+          {selectedExercise.description && (
+            <div
+              style={{
+                fontSize: 13,
+                marginTop: 12,
+                color: T.textMid,
+                lineHeight: 1.65,
+              }}
+            >
+              {selectedExercise.description}
+            </div>
+          )}
+
+          {selectedExercise.instructions?.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div
+                style={{
+                  color: T.text,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  marginBottom: 6,
+                }}
+              >
+                Exécution
+              </div>
+
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: 18,
+                  color: T.textMid,
+                  fontSize: 13,
+                  lineHeight: 1.65,
+                }}
+              >
+                {selectedExercise.instructions.map((step, i) => (
+                  <li key={i}>{step}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {selectedExercise.tips?.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div
+                style={{
+                  color: T.text,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  marginBottom: 6,
+                }}
+              >
+                Conseils
+              </div>
+
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: 18,
+                  color: T.textMid,
+                  fontSize: 13,
+                  lineHeight: 1.65,
+                }}
+              >
+                {selectedExercise.tips.map((tip, i) => (
+                  <li key={i}>{tip}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div style={{ marginTop: 14 }}>
+            <Btn onClick={() => onAdd(selectedExercise.name)}>
+              Ajouter à la séance
+            </Btn>
+          </div>
+        </Card>
+      )}
     </div>
   )
 }
@@ -686,7 +835,7 @@ export default function AujourdhuiPage() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 260px',
+          gridTemplateColumns: '1fr 320px',
           gap: 20,
         }}
       >
@@ -726,7 +875,7 @@ export default function AujourdhuiPage() {
               >
                 {isDragOver
                   ? '↓ Relâche ici'
-                  : 'Glisse des exercices depuis la liste ou clique dessus →'}
+                  : 'Glisse des exercices depuis la liste ou clique sur + →'}
               </div>
             ) : (
               exercises.map((exo, i) => (
