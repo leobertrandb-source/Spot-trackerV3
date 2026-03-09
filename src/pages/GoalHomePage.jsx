@@ -1,640 +1,1017 @@
-import { useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useDirty } from '../components/DirtyContext'
+import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-import { PageWrap, Card, Btn } from '../components/UI'
-import { T } from '../lib/data'
-import { UI_ASSETS } from '../config/ui-assets.generated'
+import { Card, Label, Input, Btn, Badge, PageWrap } from '../components/UI'
+import { SEANCE_ICONS, T } from '../lib/data'
 
-const GOAL_CONFIG = {
-  mass_gain: {
-    title: 'Prise de masse',
-    badge: 'MASS GAIN',
-    description:
-      'Ton espace est orienté vers le développement musculaire, la progression en charge, le volume d’entraînement et le soutien calorique.',
-    cta: '/programme/bodybuilding',
-    highlights: [
-      'Progression en charge',
-      'Surplus calorique maîtrisé',
-      'Volume d’entraînement structuré',
-    ],
-    gradient:
-      'linear-gradient(135deg, rgba(32,44,38,0.94), rgba(10,14,12,0.96))',
-    accentGlow:
-      'radial-gradient(circle at 15% 20%, rgba(45,255,155,0.18), transparent 35%)',
-  },
-  fat_loss: {
-    title: 'Perte de poids',
-    badge: 'FAT LOSS',
-    description:
-      'Ton espace est orienté vers le déficit calorique maîtrisé, l’adhérence, la régularité et la progression de la composition corporelle.',
-    cta: '/programme/perte-de-poids',
-    highlights: [
-      'Déficit calorique durable',
-      'Maintien de la masse maigre',
-      'Suivi de progression simplifié',
-    ],
-    gradient:
-      'linear-gradient(135deg, rgba(28,34,32,0.94), rgba(10,14,12,0.96))',
-    accentGlow:
-      'radial-gradient(circle at 15% 20%, rgba(35,210,140,0.14), transparent 35%)',
-  },
-  athletic: {
-    title: 'Athlétique',
-    badge: 'ATHLETIC',
-    description:
-      'Ton espace est orienté vers la performance globale : force, condition physique, mobilité et qualités athlétiques.',
-    cta: '/programme/athletique',
-    highlights: [
-      'Force & explosivité',
-      'Condition physique',
-      'Mobilité & qualité de mouvement',
-    ],
-    gradient:
-      'linear-gradient(135deg, rgba(26,34,37,0.94), rgba(10,14,12,0.96))',
-    accentGlow:
-      'radial-gradient(circle at 15% 20%, rgba(60,255,170,0.16), transparent 35%)',
-  },
-}
+// ── Bibliothèque latérale pour l'athlète ──────────────────────────
+function ExoLibrary({ onAdd, isMobile = false }) {
+  const [search, setSearch] = useState('')
+  const [libraryExercises, setLibraryExercises] = useState([])
+  const [loadingLibrary, setLoadingLibrary] = useState(true)
+  const [libraryError, setLibraryError] = useState('')
+  const [selectedExercise, setSelectedExercise] = useState(null)
 
-function HighlightPill({ children }) {
-  return (
-    <div
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: '8px 12px',
-        borderRadius: 999,
-        background: 'rgba(255,255,255,0.05)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        color: T.text,
-        fontSize: 12,
-        fontWeight: 800,
-        letterSpacing: 0.4,
-        backdropFilter: 'blur(8px)',
-      }}
-    >
-      {children}
-    </div>
+  useEffect(() => {
+    loadExercises()
+  }, [])
+
+  async function loadExercises() {
+    setLoadingLibrary(true)
+    setLibraryError('')
+
+    const { data, error } = await supabase
+      .from('exercises')
+      .select('*')
+      .eq('is_active', true)
+      .order('name', { ascending: true })
+
+    if (error) {
+      console.error('Erreur chargement exercices:', error)
+      setLibraryError("Impossible de charger les exercices.")
+      setLoadingLibrary(false)
+      return
+    }
+
+    const loaded = data || []
+    setLibraryExercises(loaded)
+
+    if (loaded.length && !selectedExercise) {
+      setSelectedExercise(loaded[0])
+    }
+
+    setLoadingLibrary(false)
+  }
+
+  const filtered = libraryExercises.filter((e) =>
+    e.name?.toLowerCase().includes(search.toLowerCase())
   )
-}
-
-function MetricCard({ title, value, subtitle }) {
-  return (
-    <div
-      style={{
-        padding: '16px 16px',
-        borderRadius: 20,
-        background:
-          'linear-gradient(135deg, rgba(255,255,255,0.035), rgba(255,255,255,0.015))',
-        border: '1px solid rgba(255,255,255,0.08)',
-        backdropFilter: 'blur(10px)',
-      }}
-    >
-      <div
-        style={{
-          color: T.textSub,
-          fontSize: 11,
-          fontWeight: 800,
-          letterSpacing: 1.1,
-          textTransform: 'uppercase',
-          marginBottom: 8,
-        }}
-      >
-        {title}
-      </div>
-
-      <div
-        style={{
-          color: T.text,
-          fontSize: 26,
-          fontWeight: 900,
-          lineHeight: 1,
-        }}
-      >
-        {value}
-      </div>
-
-      <div
-        style={{
-          color: T.textMid,
-          fontSize: 13,
-          marginTop: 8,
-          lineHeight: 1.5,
-        }}
-      >
-        {subtitle}
-      </div>
-    </div>
-  )
-}
-
-function VisualActionCard({
-  title,
-  subtitle,
-  buttonLabel,
-  onClick,
-  imageUrl,
-  glow = false,
-}) {
-  const fallback =
-    'linear-gradient(135deg, rgba(24,30,27,0.96), rgba(10,14,12,0.98))'
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        width: '100%',
-        background: 'transparent',
-        border: 'none',
-        padding: 0,
-        textAlign: 'left',
-        cursor: 'pointer',
-      }}
-    >
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <Input
+        label="Ajouter un exercice"
+        value={search}
+        onChange={setSearch}
+        placeholder="Rechercher..."
+      />
+
       <div
         style={{
-          position: 'relative',
-          minHeight: 250,
-          overflow: 'hidden',
-          borderRadius: 26,
-          border: `1px solid ${glow ? T.accent + '30' : 'rgba(255,255,255,0.08)'}`,
-          background: imageUrl
-            ? `linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.82)), url("${imageUrl}") center/cover no-repeat`
-            : fallback,
-          boxShadow: glow
-            ? '0 0 40px rgba(45,255,155,0.10)'
-            : '0 18px 40px rgba(0,0,0,0.22)',
-          transition:
-            'transform .22s ease, box-shadow .22s ease, border-color .22s ease',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-4px)'
-          e.currentTarget.style.boxShadow = glow
-            ? '0 0 50px rgba(45,255,155,0.16)'
-            : '0 22px 46px rgba(0,0,0,0.28)'
-          e.currentTarget.style.borderColor = 'rgba(45,255,155,0.22)'
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'translateY(0px)'
-          e.currentTarget.style.boxShadow = glow
-            ? '0 0 40px rgba(45,255,155,0.10)'
-            : '0 18px 40px rgba(0,0,0,0.22)'
-          e.currentTarget.style.borderColor = glow
-            ? T.accent + '30'
-            : 'rgba(255,255,255,0.08)'
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+          maxHeight: isMobile ? 260 : 320,
+          overflowY: 'auto',
         }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: imageUrl
-              ? 'linear-gradient(180deg, rgba(0,0,0,0.00), rgba(0,0,0,0.82))'
-              : 'radial-gradient(circle at 15% 10%, rgba(45,255,155,0.14), transparent 35%)',
-          }}
-        />
-
-        {!imageUrl ? (
+        {loadingLibrary ? (
           <div
             style={{
-              position: 'absolute',
-              inset: 0,
-              opacity: 0.08,
-              backgroundImage:
-                'radial-gradient(rgba(255,255,255,0.7) 0.6px, transparent 0.6px)',
-              backgroundSize: '14px 14px',
+              padding: '8px 4px',
+              color: T.textDim,
+              fontSize: 12,
+            }}
+          >
+            Chargement...
+          </div>
+        ) : libraryError ? (
+          <div
+            style={{
+              padding: '8px 4px',
+              color: T.danger,
+              fontSize: 12,
+            }}
+          >
+            {libraryError}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div
+            style={{
+              padding: '8px 4px',
+              color: T.textDim,
+              fontSize: 12,
+            }}
+          >
+            Aucun exercice trouvé.
+          </div>
+        ) : (
+          filtered.map((exo) => {
+            const isSelected = selectedExercise?.id === exo.id
+
+            return (
+              <div
+                key={exo.id}
+                draggable={!isMobile}
+                onDragStart={(e) => e.dataTransfer.setData('exercise', exo.name)}
+                onClick={() => setSelectedExercise(exo)}
+                style={{
+                  padding: isMobile ? '9px 10px' : '8px 10px',
+                  background: isSelected ? T.accentGlow : T.surface,
+                  border: `1px solid ${isSelected ? T.accent : T.border}`,
+                  borderRadius: T.radiusSm,
+                  fontSize: 12,
+                  color: T.textMid,
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  transition: 'all .15s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected) {
+                    e.currentTarget.style.borderColor = T.accent
+                    e.currentTarget.style.color = T.text
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected) {
+                    e.currentTarget.style.borderColor = T.border
+                    e.currentTarget.style.color = T.textMid
+                  }
+                }}
+              >
+                <div
+                  style={{
+                    width: isMobile ? 46 : 42,
+                    height: isMobile ? 46 : 42,
+                    borderRadius: 10,
+                    flexShrink: 0,
+                    background: exo.image_url
+                      ? `url("${exo.image_url}") center/cover no-repeat`
+                      : 'linear-gradient(135deg, rgba(30,40,34,0.96), rgba(10,14,12,0.98))',
+                    border: `1px solid ${T.border}`,
+                  }}
+                />
+
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div
+                    style={{
+                      color: T.text,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      lineHeight: 1.3,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {exo.name}
+                  </div>
+
+                  <div
+                    style={{
+                      color: T.textDim,
+                      fontSize: 11,
+                      marginTop: 3,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {exo.muscle_group || '—'} • {exo.equipment || '—'}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onAdd(exo.name)
+                  }}
+                  style={{
+                    background: T.accent,
+                    border: 'none',
+                    borderRadius: 8,
+                    width: isMobile ? 28 : 24,
+                    height: isMobile ? 28 : 24,
+                    color: '#fff',
+                    fontWeight: 900,
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                  }}
+                  title="Ajouter à la séance"
+                >
+                  +
+                </button>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {selectedExercise && (
+        <Card style={{ marginTop: 12, padding: isMobile ? 12 : 14 }}>
+          <div
+            style={{
+              height: isMobile ? 130 : 150,
+              borderRadius: 12,
+              marginBottom: 12,
+              background: selectedExercise.image_url
+                ? `url("${selectedExercise.image_url}") center/cover no-repeat`
+                : 'linear-gradient(135deg, rgba(30,40,34,0.96), rgba(10,14,12,0.98))',
+              border: `1px solid ${T.border}`,
             }}
           />
-        ) : null}
-
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            padding: 18,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'flex-end',
-          }}
-        >
-          <div
-            style={{
-              fontSize: 28,
-              fontWeight: 900,
-              color: '#fff',
-              marginBottom: 8,
-              letterSpacing: 0.4,
-              lineHeight: 1.05,
-            }}
-          >
-            {title}
-          </div>
 
           <div
             style={{
-              color: 'rgba(255,255,255,0.78)',
-              fontSize: 14,
-              lineHeight: 1.55,
-              maxWidth: 360,
-              marginBottom: 14,
-            }}
-          >
-            {subtitle}
-          </div>
-
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              width: 'fit-content',
-              padding: '9px 12px',
-              borderRadius: 999,
-              background: 'rgba(255,255,255,0.08)',
-              border: '1px solid rgba(255,255,255,0.10)',
-              color: '#fff',
-              fontSize: 12,
+              color: T.text,
               fontWeight: 800,
-              letterSpacing: 0.5,
-              textTransform: 'uppercase',
-              backdropFilter: 'blur(10px)',
+              fontSize: isMobile ? 15 : 16,
+              lineHeight: 1.3,
             }}
           >
-            {buttonLabel}
+            {selectedExercise.name}
           </div>
-        </div>
-      </div>
-    </button>
+
+          <div
+            style={{
+              fontSize: 12,
+              color: T.textDim,
+              marginTop: 5,
+              lineHeight: 1.5,
+            }}
+          >
+            {selectedExercise.muscle_group || '—'} • {selectedExercise.equipment || '—'} •{' '}
+            {selectedExercise.level || '—'}
+          </div>
+
+          {selectedExercise.description && (
+            <div
+              style={{
+                fontSize: 13,
+                marginTop: 12,
+                color: T.textMid,
+                lineHeight: 1.65,
+              }}
+            >
+              {selectedExercise.description}
+            </div>
+          )}
+
+          {selectedExercise.instructions?.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div
+                style={{
+                  color: T.text,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  marginBottom: 6,
+                }}
+              >
+                Exécution
+              </div>
+
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: 18,
+                  color: T.textMid,
+                  fontSize: 13,
+                  lineHeight: 1.65,
+                }}
+              >
+                {selectedExercise.instructions.map((step, i) => (
+                  <li key={i}>{step}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {selectedExercise.tips?.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div
+                style={{
+                  color: T.text,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  marginBottom: 6,
+                }}
+              >
+                Conseils
+              </div>
+
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: 18,
+                  color: T.textMid,
+                  fontSize: 13,
+                  lineHeight: 1.65,
+                }}
+              >
+                {selectedExercise.tips.map((tip, i) => (
+                  <li key={i}>{tip}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div style={{ marginTop: 14 }}>
+            <Btn onClick={() => onAdd(selectedExercise.name)}>
+              Ajouter à la séance
+            </Btn>
+          </div>
+        </Card>
+      )}
+    </div>
   )
 }
 
-export default function GoalHomePage() {
-  const navigate = useNavigate()
-  const { profile } = useAuth()
+// ── Bloc d'un exercice avec saisie de séries ──────────────────────
+function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet, isMobile = false }) {
+  const gridColumns = isMobile ? '34px 1fr 1fr 1fr 24px' : '40px 1fr 1fr 1fr 28px'
 
-  const cfg = useMemo(() => {
-    return GOAL_CONFIG[profile?.goal_type] || null
-  }, [profile?.goal_type])
+  return (
+    <div
+      style={{
+        background: T.surface,
+        border: `1px solid ${T.border}`,
+        borderRadius: T.radiusSm,
+        overflow: 'hidden',
+        transition: 'border-color .2s',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = T.borderHi
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = T.border
+      }}
+    >
+      <div
+        style={{
+          padding: isMobile ? '10px 12px' : '11px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+          borderBottom: `1px solid ${T.border}`,
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            minWidth: 0,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ color: T.accent, fontSize: 10 }}>▸</span>
 
-  if (!cfg) return null
+          <div
+            style={{
+              fontFamily: T.fontDisplay,
+              fontWeight: 800,
+              fontSize: isMobile ? 13 : 14,
+              color: T.text,
+              minWidth: 0,
+            }}
+          >
+            {exo.exercise}
+          </div>
+
+          {exo.sets_target && (
+            <Badge color={T.accent}>
+              {exo.sets_target}×{exo.reps_target || '?'}
+              {exo.rpe_target ? ` @RPE${exo.rpe_target}` : ''}
+            </Badge>
+          )}
+        </div>
+
+        <button
+          onClick={onRemove}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: T.textDim,
+            cursor: 'pointer',
+            fontSize: 16,
+            lineHeight: 1,
+            padding: '2px 6px',
+            flexShrink: 0,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = T.danger
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = T.textDim
+          }}
+        >
+          ×
+        </button>
+      </div>
+
+      <div style={{ padding: isMobile ? '10px 10px 12px' : '10px 14px 14px' }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: gridColumns,
+            gap: 8,
+            marginBottom: 8,
+          }}
+        >
+          {['Série', 'Rép.', 'Charge kg', 'RPE'].map((h) => (
+            <div
+              key={h}
+              style={{
+                fontFamily: T.fontDisplay,
+                fontWeight: 700,
+                fontSize: isMobile ? 8 : 9,
+                letterSpacing: 1.3,
+                color: T.textDim,
+                textTransform: 'uppercase',
+              }}
+            >
+              {h}
+            </div>
+          ))}
+          <div />
+        </div>
+
+        {exo.sets.map((set, si) => (
+          <div
+            key={si}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: gridColumns,
+              gap: 8,
+              marginBottom: 7,
+              alignItems: 'center',
+            }}
+          >
+            <div
+              style={{
+                fontFamily: T.fontDisplay,
+                fontWeight: 900,
+                fontSize: isMobile ? 14 : 16,
+                color: T.accentDim,
+                textAlign: 'center',
+              }}
+            >
+              {si + 1}
+            </div>
+
+            <Input
+              label=""
+              value={set.reps}
+              onChange={(v) => onUpdateSet(si, 'reps', v)}
+              type="number"
+              placeholder={exo.reps_target || '10'}
+              min="0"
+            />
+
+            <Input
+              label=""
+              value={set.weight}
+              onChange={(v) => onUpdateSet(si, 'weight', v)}
+              type="number"
+              placeholder="60"
+              min="0"
+              step="0.5"
+            />
+
+            <Input
+              label=""
+              value={set.rpe}
+              onChange={(v) => onUpdateSet(si, 'rpe', v)}
+              type="number"
+              placeholder={exo.rpe_target || '8'}
+              min="1"
+              step="0.5"
+            />
+
+            <button
+              onClick={() => onRemoveSet(si)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: T.textDim,
+                cursor: 'pointer',
+                fontSize: isMobile ? 13 : 14,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = T.danger
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = T.textDim
+              }}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+
+        <button
+          onClick={onAddSet}
+          style={{
+            background: 'transparent',
+            border: `1px dashed ${T.accent}33`,
+            borderRadius: T.radiusSm,
+            color: T.accentDim,
+            padding: isMobile ? '7px 12px' : '6px 14px',
+            fontFamily: T.fontDisplay,
+            fontWeight: 700,
+            fontSize: 11,
+            letterSpacing: 1,
+            textTransform: 'uppercase',
+            cursor: 'pointer',
+            marginTop: 4,
+            transition: 'all .2s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = T.accent
+            e.currentTarget.style.color = T.accent
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = T.accent + '33'
+            e.currentTarget.style.color = T.accentDim
+          }}
+        >
+          + Série
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Page principale ────────────────────────────────────────────────
+export default function AujourdhuiPage() {
+  const { user } = useAuth()
+  const today = new Date().toISOString().split('T')[0]
+
+  const [assignment, setAssignment] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const [exercises, setExercises] = useState([])
+  const [notes, setNotes] = useState('')
+  const [status, setStatus] = useState(null)
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900)
+  const { markDirty, markClean } = useDirty()
+
+  useEffect(() => {
+    function handleResize() {
+      setIsMobile(window.innerWidth < 900)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  useEffect(() => {
+    if (user?.id) {
+      loadToday()
+    }
+  }, [user?.id])
+
+  async function loadToday() {
+    const { data: assigns } = await supabase
+      .from('assignments')
+      .select('*, programs(name, seance_type, program_exercises(*))')
+      .eq('athlete_id', user.id)
+      .eq('assigned_date', today)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    setLoading(false)
+
+    if (assigns?.length) {
+      const a = assigns[0]
+      setAssignment(a)
+
+      const exos = (a.programs?.program_exercises || [])
+        .sort((x, y) => x.exercise_order - y.exercise_order)
+        .map((e) => ({
+          exercise: e.exercise,
+          sets_target: e.sets_target,
+          reps_target: e.reps_target,
+          rpe_target: e.rpe_target,
+          sets: Array.from({ length: e.sets_target || 1 }, () => ({
+            reps: '',
+            weight: '',
+            rpe: '',
+          })),
+        }))
+
+      setExercises(exos)
+    }
+  }
+
+  function addExercise(name) {
+    markDirty()
+    setExercises((p) => [
+      ...p,
+      {
+        exercise: name,
+        sets_target: null,
+        reps_target: null,
+        rpe_target: null,
+        sets: [{ reps: '', weight: '', rpe: '' }],
+      },
+    ])
+  }
+
+  function removeExercise(i) {
+    setExercises((p) => p.filter((_, idx) => idx !== i))
+  }
+
+  function updateSet(exoIdx, setIdx, field, val) {
+    markDirty()
+    setExercises((p) =>
+      p.map((e, ei) =>
+        ei !== exoIdx
+          ? e
+          : {
+              ...e,
+              sets: e.sets.map((s, si) =>
+                si !== setIdx ? s : { ...s, [field]: val }
+              ),
+            }
+      )
+    )
+  }
+
+  function addSet(exoIdx) {
+    setExercises((p) =>
+      p.map((e, ei) =>
+        ei !== exoIdx
+          ? e
+          : {
+              ...e,
+              sets: [...e.sets, { reps: '', weight: '', rpe: '' }],
+            }
+      )
+    )
+  }
+
+  function removeSet(exoIdx, setIdx) {
+    setExercises((p) =>
+      p.map((e, ei) =>
+        ei !== exoIdx
+          ? e
+          : {
+              ...e,
+              sets: e.sets.filter((_, si) => si !== setIdx),
+            }
+      )
+    )
+  }
+
+  function handleDrop(e) {
+    if (isMobile) return
+    e.preventDefault()
+    setIsDragOver(false)
+    const name = e.dataTransfer.getData('exercise')
+    if (name) addExercise(name)
+  }
+
+  async function handleSave() {
+    const allSets = exercises.flatMap((e) =>
+      e.sets.filter((s) => s.reps || s.weight)
+    )
+
+    if (!allSets.length) {
+      return alert('Saisis au moins une série.')
+    }
+
+    setStatus('saving')
+
+    const seanceType = assignment?.programs?.seance_type || 'Séance libre'
+
+    const { data: session, error } = await supabase
+      .from('sessions')
+      .insert({
+        user_id: user.id,
+        date: today,
+        seance_type: seanceType,
+        notes,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      setStatus('error')
+      return
+    }
+
+    const setsToInsert = []
+
+    exercises.forEach((e) => {
+      e.sets.forEach((s) => {
+        if (s.reps || s.weight) {
+          setsToInsert.push({
+            session_id: session.id,
+            exercise: e.exercise,
+            reps: s.reps ? parseInt(s.reps) : null,
+            weight: s.weight ? parseFloat(s.weight) : null,
+            rpe: s.rpe ? parseFloat(s.rpe) : null,
+            set_order: setsToInsert.length,
+          })
+        }
+      })
+    })
+
+    const { error: e2 } = await supabase.from('sets').insert(setsToInsert)
+
+    if (e2) {
+      setStatus('error')
+      return
+    }
+
+    setStatus('saved')
+    markClean()
+    setTimeout(() => setStatus(null), 4000)
+  }
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: 300,
+          color: T.textDim,
+          fontFamily: T.fontDisplay,
+          fontSize: 12,
+          letterSpacing: 2,
+        }}
+      >
+        Chargement...
+      </div>
+    )
+  }
+
+  const dateLabel = new Date().toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
 
   return (
     <PageWrap>
-      <div
-        style={{
-          maxWidth: 1180,
-          margin: '0 auto',
-          position: 'relative',
-        }}
-      >
+      <div style={{ marginBottom: 8 }}>
         <div
           style={{
-            position: 'absolute',
-            inset: '-60px -30px auto -30px',
-            height: 420,
-            background: cfg.accentGlow,
-            pointerEvents: 'none',
-            filter: 'blur(8px)',
-          }}
-        />
-
-        <div
-          style={{
-            position: 'relative',
-            overflow: 'hidden',
-            borderRadius: 30,
-            padding: '26px 26px 28px',
-            background: UI_ASSETS?.goalHome?.workout
-              ? `${cfg.gradient}, linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.65)), url("${UI_ASSETS.goalHome.workout}") center/cover no-repeat`
-              : `${cfg.gradient}, radial-gradient(circle at 85% 10%, rgba(255,255,255,0.06), transparent 30%)`,
-            border: '1px solid rgba(255,255,255,0.08)',
-            boxShadow: '0 24px 60px rgba(0,0,0,0.26)',
-            marginBottom: 20,
+            fontFamily: T.fontDisplay,
+            fontWeight: 900,
+            fontSize: isMobile ? 28 : 36,
+            letterSpacing: isMobile ? 1.2 : 2,
+            color: T.text,
+            lineHeight: 1,
           }}
         >
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.62))',
-            }}
-          />
+          AUJOURD'HUI
+        </div>
 
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              opacity: 0.07,
-              backgroundImage:
-                'radial-gradient(rgba(255,255,255,0.7) 0.6px, transparent 0.6px)',
-              backgroundSize: '14px 14px',
-              pointerEvents: 'none',
-            }}
-          />
+        <div
+          style={{
+            fontSize: isMobile ? 13 : 14,
+            color: T.textMid,
+            marginTop: 6,
+            textTransform: 'capitalize',
+          }}
+        >
+          {dateLabel}
+        </div>
+      </div>
 
-          <div style={{ position: 'relative', zIndex: 1 }}>
+      {assignment ? (
+        <div
+          style={{
+            background: `linear-gradient(135deg, ${T.accentGlow}, transparent)`,
+            border: `1px solid ${T.accent}44`,
+            borderRadius: T.radiusLg,
+            padding: isMobile ? '12px 14px' : '14px 20px',
+            display: 'flex',
+            alignItems: isMobile ? 'flex-start' : 'center',
+            gap: 14,
+            flexWrap: isMobile ? 'wrap' : 'nowrap',
+          }}
+        >
+          <div style={{ fontSize: isMobile ? 22 : 26 }}>
+            {SEANCE_ICONS[assignment.programs?.seance_type] || '💪'}
+          </div>
+
+          <div style={{ minWidth: 0 }}>
             <div
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '8px 12px',
-                borderRadius: 999,
-                border: `1px solid ${T.accent + '28'}`,
-                background: 'rgba(45,255,155,0.10)',
-                color: T.accentLight,
+                fontFamily: T.fontDisplay,
                 fontWeight: 800,
+                fontSize: isMobile ? 15 : 16,
+                color: T.accent,
+              }}
+            >
+              {assignment.programs?.name}
+            </div>
+
+            <div
+              style={{
                 fontSize: 12,
-                letterSpacing: 1,
-                textTransform: 'uppercase',
-                marginBottom: 14,
-                backdropFilter: 'blur(10px)',
+                color: T.textMid,
+                marginTop: 2,
+                lineHeight: 1.5,
               }}
             >
-              {cfg.badge}
-            </div>
-
-            <div
-              style={{
-                fontSize: 46,
-                fontWeight: 900,
-                letterSpacing: 1.6,
-                color: '#fff',
-                lineHeight: 0.95,
-                maxWidth: 700,
-              }}
-            >
-              TON ESPACE
-              <br />
-              AUJOURD’HUI
-            </div>
-
-            <div
-              style={{
-                color: 'rgba(255,255,255,0.74)',
-                marginTop: 14,
-                fontSize: 15,
-                lineHeight: 1.65,
-                maxWidth: 760,
-              }}
-            >
-              {cfg.description}
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                gap: 10,
-                flexWrap: 'wrap',
-                marginTop: 18,
-              }}
-            >
-              {cfg.highlights.map((item) => (
-                <HighlightPill key={item}>{item}</HighlightPill>
-              ))}
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))',
-                gap: 14,
-                marginTop: 24,
-              }}
-            >
-              <MetricCard
-                title="Objectif"
-                value={cfg.title}
-                subtitle="Profil actif pour ton accompagnement"
-              />
-              <MetricCard
-                title="Programme"
-                value="Prêt"
-                subtitle="Accès direct à ton parcours"
-              />
-              <MetricCard
-                title="Nutrition"
-                value="Suivi"
-                subtitle="Macros, plan journalier et recettes"
-              />
-            </div>
-
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 22 }}>
-              <Btn onClick={() => navigate(cfg.cta)}>Voir mon programme</Btn>
-
-              <Btn variant="secondary" onClick={() => navigate('/objectif')}>
-                Revoir les explications
-              </Btn>
-
-              <Btn variant="secondary" onClick={() => navigate('/objectif')}>
-                Changer d’objectif
-              </Btn>
+              {assignment.programs?.seance_type}
+              {assignment.note && (
+                <span
+                  style={{
+                    marginLeft: 10,
+                    fontStyle: 'italic',
+                    color: T.textDim,
+                  }}
+                >
+                  "{assignment.note}"
+                </span>
+              )}
             </div>
           </div>
-        </div>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1.2fr 1fr 1fr',
-            gap: 18,
-            marginBottom: 18,
-          }}
-        >
-          <VisualActionCard
-            title="Séance du jour"
-            subtitle="Accède rapidement à ton entraînement prévu et démarre sans perdre de temps."
-            buttonLabel="Commencer"
-            onClick={() => navigate('/entrainement/aujourdhui')}
-            imageUrl={UI_ASSETS?.goalHome?.workout || null}
-            glow
-          />
-
-          <VisualActionCard
-            title="Nutrition"
-            subtitle="Suis tes macros, ton plan journalier et adapte tes repas à ton objectif."
-            buttonLabel="Ouvrir"
-            onClick={() => navigate('/nutrition/macros')}
-            imageUrl={UI_ASSETS?.goalHome?.nutrition || null}
-          />
-
-          <VisualActionCard
-            title="Progression"
-            subtitle="Retrouve tes performances, ton évolution physique et tes indicateurs clés."
-            buttonLabel="Consulter"
-            onClick={() => navigate('/progression')}
-            imageUrl={UI_ASSETS?.goalHome?.progress || null}
-          />
-        </div>
-
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1.45fr 1fr',
-            gap: 18,
-          }}
-        >
-          <Card
-            glow
-            style={{
-              overflow: 'hidden',
-              borderRadius: 26,
-              background:
-                'linear-gradient(135deg, rgba(22,26,24,0.95), rgba(10,14,12,0.98))',
-              border: '1px solid rgba(255,255,255,0.08)',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.22)',
-            }}
-          >
+          {!isMobile ? (
             <div
               style={{
-                display: 'grid',
-                gridTemplateColumns: '1.1fr 1fr',
-                gap: 18,
-                alignItems: 'stretch',
+                marginLeft: 'auto',
+                fontFamily: T.fontDisplay,
+                fontSize: 11,
+                color: T.textDim,
+                letterSpacing: 1,
               }}
             >
+              Programme assigné par ton coach
+            </div>
+          ) : (
+            <div
+              style={{
+                width: '100%',
+                fontFamily: T.fontDisplay,
+                fontSize: 10,
+                color: T.textDim,
+                letterSpacing: 1,
+              }}
+            >
+              Programme assigné par ton coach
+            </div>
+          )}
+        </div>
+      ) : (
+        <div
+          style={{
+            background: T.card,
+            border: `1px dashed ${T.border}`,
+            borderRadius: T.radiusLg,
+            padding: isMobile ? '14px 14px' : '16px 20px',
+            fontFamily: T.fontDisplay,
+            fontSize: 12,
+            color: T.textDim,
+            letterSpacing: 1,
+            textAlign: 'center',
+            lineHeight: 1.6,
+          }}
+        >
+          Aucune séance assignée pour aujourd'hui — crée ta propre séance ci-dessous
+        </div>
+      )}
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr' : '1fr 320px',
+          gap: isMobile ? 16 : 20,
+          marginTop: 16,
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div
+            onDragOver={
+              isMobile
+                ? undefined
+                : (e) => {
+                    e.preventDefault()
+                    setIsDragOver(true)
+                  }
+            }
+            onDragLeave={isMobile ? undefined : () => setIsDragOver(false)}
+            onDrop={handleDrop}
+            style={{
+              minHeight: exercises.length ? 'auto' : isMobile ? 84 : 100,
+              border: exercises.length
+                ? 'none'
+                : `2px dashed ${isDragOver ? T.accent : T.border}`,
+              borderRadius: T.radiusSm,
+              padding: exercises.length ? 0 : isMobile ? '20px 14px' : '28px 20px',
+              background:
+                isDragOver && !exercises.length ? T.accentGlow : 'transparent',
+              transition: 'all .2s',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}
+          >
+            {exercises.length === 0 ? (
               <div
                 style={{
-                  minHeight: 280,
-                  borderRadius: 22,
-                  overflow: 'hidden',
-                  background: UI_ASSETS?.goalHome?.nutrition
-                    ? `linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.55)), url("${UI_ASSETS.goalHome.nutrition}") center/cover no-repeat`
-                    : 'linear-gradient(135deg, rgba(30,40,34,0.96), rgba(10,14,12,0.98))',
-                  border: '1px solid rgba(255,255,255,0.08)',
+                  textAlign: 'center',
+                  color: T.textDim,
+                  fontFamily: T.fontDisplay,
+                  fontSize: isMobile ? 10 : 11,
+                  letterSpacing: isMobile ? 1.2 : 2,
+                  textTransform: 'uppercase',
+                  lineHeight: 1.6,
                 }}
+              >
+                {isMobile
+                  ? 'Ajoute des exercices depuis la bibliothèque ci-dessous'
+                  : isDragOver
+                    ? '↓ Relâche ici'
+                    : 'Glisse des exercices depuis la liste ou clique sur + →'}
+              </div>
+            ) : (
+              exercises.map((exo, i) => (
+                <ExerciseBlock
+                  key={i}
+                  exo={exo}
+                  onRemove={() => removeExercise(i)}
+                  onUpdateSet={(si, f, v) => updateSet(i, si, f, v)}
+                  onAddSet={() => addSet(i)}
+                  onRemoveSet={(si) => removeSet(i, si)}
+                  isMobile={isMobile}
+                />
+              ))
+            )}
+          </div>
+
+          {exercises.length > 0 && (
+            <Card style={{ padding: isMobile ? '14px 14px' : '16px 20px' }}>
+              <Input
+                label="Notes de séance"
+                value={notes}
+                onChange={setNotes}
+                placeholder="Ressenti, douleurs, contexte..."
               />
 
-              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                <div
-                  style={{
-                    color: T.accentLight,
-                    fontSize: 12,
-                    fontWeight: 800,
-                    letterSpacing: 1,
-                    textTransform: 'uppercase',
-                    marginBottom: 10,
-                  }}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  marginTop: 14,
+                  gap: 14,
+                  alignItems: isMobile ? 'stretch' : 'center',
+                  flexDirection: isMobile ? 'column' : 'row',
+                }}
+              >
+                {status === 'saved' && (
+                  <div
+                    style={{
+                      color: T.accent,
+                      fontFamily: T.fontDisplay,
+                      fontWeight: 700,
+                      fontSize: 13,
+                      letterSpacing: 1,
+                    }}
+                  >
+                    ✓ Séance enregistrée !
+                  </div>
+                )}
+
+                {status === 'error' && (
+                  <div
+                    style={{
+                      color: T.danger,
+                      fontFamily: T.fontDisplay,
+                      fontSize: 12,
+                    }}
+                  >
+                    Erreur — vérifie ta connexion
+                  </div>
+                )}
+
+                <Btn
+                  onClick={handleSave}
+                  disabled={status === 'saving' || status === 'saved'}
                 >
-                  Mise en avant
-                </div>
-
-                <div
-                  style={{
-                    color: T.text,
-                    fontSize: 30,
-                    fontWeight: 900,
-                    lineHeight: 1.05,
-                    marginBottom: 10,
-                  }}
-                >
-                  Nutrition premium
-                </div>
-
-                <div
-                  style={{
-                    color: T.textMid,
-                    lineHeight: 1.65,
-                    fontSize: 14,
-                    marginBottom: 16,
-                  }}
-                >
-                  Accède à ton suivi nutritionnel, ajuste tes macros, consulte ton plan
-                  journalier et garde une vue claire sur ton objectif.
-                </div>
-
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <Btn onClick={() => navigate('/nutrition/macros')}>
-                    Ouvrir la nutrition
-                  </Btn>
-
-                  <Btn variant="secondary" onClick={() => navigate('/nutrition/recettes')}>
-                    Voir les recettes
-                  </Btn>
-                </div>
+                  {status === 'saving' ? 'Enregistrement...' : 'Terminer la séance'}
+                </Btn>
               </div>
-            </div>
-          </Card>
-
-          <Card
-            style={{
-              borderRadius: 26,
-              background:
-                'linear-gradient(135deg, rgba(17,20,19,0.96), rgba(9,12,10,0.98))',
-              border: '1px solid rgba(255,255,255,0.08)',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.22)',
-            }}
-          >
-            <div
-              style={{
-                fontSize: 16,
-                fontWeight: 800,
-                color: T.text,
-                marginBottom: 16,
-              }}
-            >
-              Raccourcis rapides
-            </div>
-
-            <div style={{ display: 'grid', gap: 10 }}>
-              <button
-                type="button"
-                onClick={() => navigate('/entrainement/aujourdhui')}
-                style={shortcutStyle}
-              >
-                Séance du jour
-              </button>
-
-              <button
-                type="button"
-                onClick={() => navigate('/nutrition/macros')}
-                style={shortcutStyle}
-              >
-                Suivi macros
-              </button>
-
-              <button
-                type="button"
-                onClick={() => navigate('/nutrition/plan')}
-                style={shortcutStyle}
-              >
-                Plan journalier
-              </button>
-
-              <button
-                type="button"
-                onClick={() => navigate('/nutrition/recettes')}
-                style={shortcutStyle}
-              >
-                Recettes
-              </button>
-
-              <button
-                type="button"
-                onClick={() => navigate('/progression')}
-                style={shortcutStyle}
-              >
-                Progression
-              </button>
-            </div>
-          </Card>
+            </Card>
+          )}
         </div>
+
+        <Card
+          style={{
+            padding: isMobile ? '14px 12px' : '18px 16px',
+            alignSelf: 'start',
+            position: isMobile ? 'static' : 'sticky',
+            top: isMobile ? 'auto' : 20,
+          }}
+        >
+          <Label style={{ marginBottom: 12 }}>Exercices</Label>
+          <ExoLibrary onAdd={addExercise} isMobile={isMobile} />
+        </Card>
       </div>
     </PageWrap>
   )
-}
-
-const shortcutStyle = {
-  width: '100%',
-  textAlign: 'left',
-  background:
-    'linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))',
-  border: '1px solid rgba(255,255,255,0.08)',
-  color: '#E9F1EC',
-  borderRadius: 16,
-  padding: '13px 14px',
-  cursor: 'pointer',
-  fontWeight: 700,
-  transition: 'all .18s ease',
 }
