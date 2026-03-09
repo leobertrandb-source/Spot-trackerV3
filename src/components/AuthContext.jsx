@@ -22,7 +22,7 @@ const { data, error } = await supabase
 .maybeSingle()
 
 if (error) {
-console.error('Erreur chargement profile:', error)
+console.error('Erreur fetchProfile:', error)
 setProfile(null)
 return null
 }
@@ -30,23 +30,23 @@ return null
 setProfile(data || null)
 return data || null
 } catch (error) {
-console.error('Erreur inattendue profile:', error)
+console.error('Erreur inattendue fetchProfile:', error)
 setProfile(null)
 return null
 }
 }
 
 useEffect(() => {
-let isMounted = true
+let mounted = true
 
-async function initAuth() {
+async function bootstrap() {
 try {
 const {
 data: { session },
 error,
 } = await supabase.auth.getSession()
 
-if (!isMounted) return
+if (!mounted) return
 
 if (error) {
 console.error('Erreur getSession:', error)
@@ -56,39 +56,39 @@ setLoading(false)
 return
 }
 
-const sessionUser = session?.user || null
-setUser(sessionUser)
+const currentUser = session?.user ?? null
+setUser(currentUser)
 
-if (sessionUser?.id) {
-await fetchProfile(sessionUser.id)
+if (currentUser?.id) {
+await fetchProfile(currentUser.id)
 } else {
 setProfile(null)
 }
 } catch (error) {
-console.error('Erreur init auth:', error)
-if (!isMounted) return
+console.error('Erreur bootstrap auth:', error)
+if (!mounted) return
 setUser(null)
 setProfile(null)
 } finally {
-if (isMounted) {
+if (mounted) {
 setLoading(false)
 }
 }
 }
 
-initAuth()
+bootstrap()
 
 const {
 data: { subscription },
 } = supabase.auth.onAuthStateChange(async (_event, session) => {
-if (!isMounted) return
-
-const sessionUser = session?.user || null
-setUser(sessionUser)
+if (!mounted) return
 
 try {
-if (sessionUser?.id) {
-await fetchProfile(sessionUser.id)
+const currentUser = session?.user ?? null
+setUser(currentUser)
+
+if (currentUser?.id) {
+await fetchProfile(currentUser.id)
 } else {
 setProfile(null)
 }
@@ -96,14 +96,14 @@ setProfile(null)
 console.error('Erreur onAuthStateChange:', error)
 setProfile(null)
 } finally {
-if (isMounted) {
+if (mounted) {
 setLoading(false)
 }
 }
 })
 
 return () => {
-isMounted = false
+mounted = false
 subscription.unsubscribe()
 }
 }, [])
@@ -112,7 +112,7 @@ async function signOut() {
 const { error } = await supabase.auth.signOut()
 
 if (error) {
-console.error('Erreur logout:', error)
+console.error('Erreur signOut:', error)
 return { error }
 }
 
@@ -145,3 +145,4 @@ throw new Error('useAuth must be used within an AuthProvider')
 
 return context
 }
+
