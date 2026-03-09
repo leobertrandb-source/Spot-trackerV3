@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Logo } from './UI'
 import { useAuth } from './AuthContext'
@@ -6,7 +6,7 @@ import { useDirty } from './DirtyContext'
 import { T } from '../lib/data'
 
 const TRAINING_ITEMS = [
-  { to: '/entrainement/aujourdhui', icon: '◈', label: "Séance du jour" },
+  { to: '/entrainement/aujourdhui', icon: '◈', label: 'Séance du jour' },
   { to: '/entrainement/libre', icon: '✦', label: 'Séance libre' },
   { to: '/entrainement/historique', icon: '▦', label: 'Historique' },
 ]
@@ -92,7 +92,8 @@ function NavItem({ item, isActive, onClick, nested = false, showDot = false }) {
       onMouseEnter={
         !isActive
           ? (e) => {
-              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015))'
+              e.currentTarget.style.background =
+                'linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015))'
               e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
               e.currentTarget.style.color = T.text
               e.currentTarget.style.transform = 'translateY(-1px)'
@@ -138,7 +139,6 @@ function NavItem({ item, isActive, onClick, nested = false, showDot = false }) {
           border: `1px solid ${isActive ? T.accent + '26' : 'rgba(255,255,255,0.05)'}`,
           fontSize: 13,
           flexShrink: 0,
-          opacity: 1,
           boxShadow: isActive ? '0 0 18px rgba(45,255,155,0.08)' : 'none',
         }}
       >
@@ -173,7 +173,7 @@ function NavItem({ item, isActive, onClick, nested = false, showDot = false }) {
   )
 }
 
-function SectionBlock({ title, items, open, setOpen, pathname, tryNavigate, isDirty }) {
+function SectionBlock({ title, items, open, setOpen, pathname, tryNavigate, isDirty, onClose }) {
   return (
     <div style={{ marginBottom: 10 }}>
       <SectionTitle isOpen={open} onClick={() => setOpen(!open)}>
@@ -194,7 +194,10 @@ function SectionBlock({ title, items, open, setOpen, pathname, tryNavigate, isDi
             item={item}
             nested
             isActive={pathname === item.to}
-            onClick={() => tryNavigate(item.to)}
+            onClick={() => {
+              tryNavigate(item.to)
+              onClose?.()
+            }}
             showDot={isDirty && pathname === item.to}
           />
         ))}
@@ -203,7 +206,11 @@ function SectionBlock({ title, items, open, setOpen, pathname, tryNavigate, isDi
   )
 }
 
-export default function Sidebar() {
+export default function Sidebar({
+  isMobile = false,
+  mobileOpen = false,
+  onClose,
+}) {
   const location = useLocation()
   const pathname = location.pathname
 
@@ -213,6 +220,24 @@ export default function Sidebar() {
   const [openTraining, setOpenTraining] = useState(true)
   const [openNutrition, setOpenNutrition] = useState(true)
   const [openCoach, setOpenCoach] = useState(true)
+
+  useEffect(() => {
+    if (isMobile && mobileOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isMobile, mobileOpen])
+
+  useEffect(() => {
+    if (isMobile && mobileOpen) {
+      onClose?.()
+    }
+  }, [pathname])
 
   const isCoach = profile?.role === 'coach'
   const initial = (profile?.full_name || profile?.email || '?')[0].toUpperCase()
@@ -226,14 +251,19 @@ export default function Sidebar() {
           ? 'Athlétique'
           : 'Objectif non défini'
 
-  return (
+  const aside = (
     <aside
       style={{
-        width: 272,
+        width: isMobile ? 290 : 272,
+        maxWidth: '86vw',
         flexShrink: 0,
         height: '100vh',
-        position: 'sticky',
+        position: isMobile ? 'fixed' : 'sticky',
+        left: 0,
         top: 0,
+        zIndex: isMobile ? 60 : 'auto',
+        transform: isMobile ? (mobileOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none',
+        transition: 'transform .28s ease',
         display: 'flex',
         flexDirection: 'column',
         background: `
@@ -241,7 +271,7 @@ export default function Sidebar() {
           radial-gradient(circle at 100% 0%, rgba(255,255,255,0.04), transparent 25%),
           linear-gradient(180deg, rgba(17,20,19,0.98), rgba(10,13,12,1))
         `,
-        borderRight: `1px solid rgba(255,255,255,0.08)`,
+        borderRight: '1px solid rgba(255,255,255,0.08)',
         backdropFilter: 'blur(18px)',
         overflow: 'hidden',
         boxShadow: 'inset -1px 0 0 rgba(255,255,255,0.02)',
@@ -252,8 +282,7 @@ export default function Sidebar() {
           position: 'absolute',
           inset: 0,
           opacity: 0.05,
-          backgroundImage:
-            'radial-gradient(rgba(255,255,255,0.75) 0.7px, transparent 0.7px)',
+          backgroundImage: 'radial-gradient(rgba(255,255,255,0.75) 0.7px, transparent 0.7px)',
           backgroundSize: '14px 14px',
           pointerEvents: 'none',
         }}
@@ -263,12 +292,37 @@ export default function Sidebar() {
         style={{
           position: 'relative',
           padding: '18px 16px 14px',
-          borderBottom: `1px solid rgba(255,255,255,0.07)`,
+          borderBottom: '1px solid rgba(255,255,255,0.07)',
           background: 'rgba(255,255,255,0.015)',
           zIndex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
         }}
       >
         <Logo size="sm" />
+
+        {isMobile ? (
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 12,
+              border: '1px solid rgba(255,255,255,0.08)',
+              background: 'rgba(255,255,255,0.04)',
+              color: T.text,
+              fontSize: 18,
+              cursor: 'pointer',
+              flexShrink: 0,
+            }}
+            aria-label="Fermer le menu"
+          >
+            ×
+          </button>
+        ) : null}
       </div>
 
       <div
@@ -288,6 +342,7 @@ export default function Sidebar() {
           pathname={pathname}
           tryNavigate={tryNavigate}
           isDirty={isDirty}
+          onClose={onClose}
         />
 
         <SectionBlock
@@ -298,6 +353,7 @@ export default function Sidebar() {
           pathname={pathname}
           tryNavigate={tryNavigate}
           isDirty={isDirty}
+          onClose={onClose}
         />
 
         <div style={{ marginTop: 4, marginBottom: 14 }}>
@@ -318,7 +374,10 @@ export default function Sidebar() {
           <NavItem
             item={{ to: '/progression', icon: '◎', label: 'Progression' }}
             isActive={pathname === '/progression'}
-            onClick={() => tryNavigate('/progression')}
+            onClick={() => {
+              tryNavigate('/progression')
+              onClose?.()
+            }}
             showDot={isDirty && pathname === '/progression'}
           />
         </div>
@@ -332,6 +391,7 @@ export default function Sidebar() {
             pathname={pathname}
             tryNavigate={tryNavigate}
             isDirty={false}
+            onClose={onClose}
           />
         ) : null}
       </div>
@@ -340,7 +400,7 @@ export default function Sidebar() {
         style={{
           position: 'relative',
           padding: 12,
-          borderTop: `1px solid rgba(255,255,255,0.07)`,
+          borderTop: '1px solid rgba(255,255,255,0.07)',
           background: 'rgba(255,255,255,0.015)',
           zIndex: 1,
         }}
@@ -352,7 +412,7 @@ export default function Sidebar() {
             gap: 10,
             padding: '12px 12px',
             borderRadius: 18,
-            border: `1px solid rgba(255,255,255,0.08)`,
+            border: '1px solid rgba(255,255,255,0.08)',
             background:
               'linear-gradient(135deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015))',
             marginBottom: 10,
@@ -412,7 +472,10 @@ export default function Sidebar() {
         <div style={{ display: 'grid', gap: 8, marginBottom: 10 }}>
           <button
             type="button"
-            onClick={() => tryNavigate('/mon-espace')}
+            onClick={() => {
+              tryNavigate('/mon-espace')
+              onClose?.()
+            }}
             style={profileBtnStyle}
           >
             Mon espace
@@ -420,7 +483,10 @@ export default function Sidebar() {
 
           <button
             type="button"
-            onClick={() => tryNavigate('/objectif')}
+            onClick={() => {
+              tryNavigate('/objectif')
+              onClose?.()
+            }}
             style={profileBtnStyle}
           >
             Mon objectif / changer
@@ -429,12 +495,15 @@ export default function Sidebar() {
 
         <button
           type="button"
-          onClick={signOut}
+          onClick={() => {
+            onClose?.()
+            signOut()
+          }}
           style={{
             width: '100%',
             padding: '11px 12px',
             borderRadius: 14,
-            border: `1px solid rgba(255,255,255,0.08)`,
+            border: '1px solid rgba(255,255,255,0.08)',
             background: 'transparent',
             color: T.textMid,
             fontFamily: T.fontBody,
@@ -456,6 +525,28 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
+  )
+
+  if (!isMobile) {
+    return aside
+  }
+
+  return (
+    <>
+      {mobileOpen ? (
+        <div
+          onClick={onClose}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.48)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 50,
+          }}
+        />
+      ) : null}
+      {aside}
+    </>
   )
 }
 
