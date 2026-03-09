@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { AuthProvider, useAuth } from './components/AuthContext'
 import { Grain, Layout } from './components/UI'
 import { DirtyProvider } from './components/DirtyContext'
@@ -27,6 +28,22 @@ import { T } from './lib/data'
 
 function AppShell() {
   const { user, loading, profile } = useAuth()
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+
+  useEffect(() => {
+    function handleResize() {
+      const mobile = window.innerWidth < 900
+      setIsMobile(mobile)
+
+      if (!mobile) {
+        setMobileSidebarOpen(false)
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   if (loading) {
     return (
@@ -55,14 +72,33 @@ function AppShell() {
 
   return (
     <DirtyProvider>
-      <Layout sidebar={<Sidebar />} topbar={<Topbar />}>
+      <Layout
+        sidebar={
+          <Sidebar
+            isMobile={isMobile}
+            mobileOpen={mobileSidebarOpen}
+            onClose={() => setMobileSidebarOpen(false)}
+          />
+        }
+        topbar={
+          <Topbar
+            isMobile={isMobile}
+            onMenuClick={() => setMobileSidebarOpen((v) => !v)}
+          />
+        }
+      >
         <Routes>
           <Route
             path="/"
-            element={hasGoal ? <Navigate to="/mon-espace" replace /> : <Navigate to="/objectif" replace />}
+            element={
+              hasGoal ? (
+                <Navigate to="/mon-espace" replace />
+              ) : (
+                <Navigate to="/objectif" replace />
+              )
+            }
           />
 
-          {/* IMPORTANT : on laisse toujours accessible /objectif */}
           <Route path="/objectif" element={<GoalSelectionPage />} />
 
           <Route
@@ -70,9 +106,15 @@ function AppShell() {
             element={hasGoal ? <GoalHomePage /> : <Navigate to="/objectif" replace />}
           />
 
-          <Route path="/aujourd-hui" element={<Navigate to="/entrainement/aujourdhui" replace />} />
+          <Route
+            path="/aujourd-hui"
+            element={<Navigate to="/entrainement/aujourdhui" replace />}
+          />
           <Route path="/saisie" element={<Navigate to="/entrainement/libre" replace />} />
-          <Route path="/historique" element={<Navigate to="/entrainement/historique" replace />} />
+          <Route
+            path="/historique"
+            element={<Navigate to="/entrainement/historique" replace />}
+          />
           <Route path="/nutrition" element={<Navigate to="/nutrition/macros" replace />} />
           <Route path="/recettes" element={<Navigate to="/nutrition/recettes" replace />} />
           <Route path="/plan" element={<Navigate to="/nutrition/plan" replace />} />
@@ -92,12 +134,21 @@ function AppShell() {
           <Route path="/programmes" element={<ProgramBuilderPage />} />
 
           <Route path="/programme/bodybuilding" element={<ProgrammeBodybuildingPage />} />
-          <Route path="/programme/perte-de-poids" element={<ProgrammePerteDePoidsPage />} />
+          <Route
+            path="/programme/perte-de-poids"
+            element={<ProgrammePerteDePoidsPage />}
+          />
           <Route path="/programme/athletique" element={<ProgrammeAthletiquePage />} />
 
           <Route
             path="*"
-            element={hasGoal ? <Navigate to="/mon-espace" replace /> : <Navigate to="/objectif" replace />}
+            element={
+              hasGoal ? (
+                <Navigate to="/mon-espace" replace />
+              ) : (
+                <Navigate to="/objectif" replace />
+              )
+            }
           />
         </Routes>
       </Layout>
