@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
@@ -39,18 +39,18 @@ const OPTIONS = [
   },
 ]
 
-function PointPill({ children, active }) {
+function PointPill({ children, active, isMobile }) {
   return (
     <div
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        padding: '7px 10px',
+        padding: isMobile ? '6px 9px' : '7px 10px',
         borderRadius: 999,
         background: active ? T.accent + '14' : 'rgba(255,255,255,0.04)',
         border: `1px solid ${active ? T.accent + '28' : 'rgba(255,255,255,0.08)'}`,
         color: active ? T.accentLight : T.textMid,
-        fontSize: 12,
+        fontSize: isMobile ? 11 : 12,
         fontWeight: 800,
         letterSpacing: 0.3,
         backdropFilter: 'blur(8px)',
@@ -68,6 +68,16 @@ export default function GoalSelectionPage() {
   const [selected, setSelected] = useState(profile?.goal_type || '')
   const [saving, setSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900)
+
+  useEffect(() => {
+    function handleResize() {
+      setIsMobile(window.innerWidth < 900)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   async function saveGoal() {
     setErrorMsg('')
@@ -108,8 +118,8 @@ export default function GoalSelectionPage() {
         <div
           style={{
             position: 'absolute',
-            inset: '-40px -20px auto -20px',
-            height: 280,
+            inset: isMobile ? '-24px -10px auto -10px' : '-40px -20px auto -20px',
+            height: isMobile ? 180 : 280,
             background:
               'radial-gradient(circle at 20% 20%, rgba(45,255,155,0.14), transparent 30%), radial-gradient(circle at 80% 0%, rgba(45,255,155,0.08), transparent 28%)',
             pointerEvents: 'none',
@@ -117,11 +127,11 @@ export default function GoalSelectionPage() {
           }}
         />
 
-        <div style={{ position: 'relative', marginBottom: 26 }}>
+        <div style={{ position: 'relative', marginBottom: isMobile ? 20 : 26 }}>
           <div
             style={{
               display: 'inline-flex',
-              padding: '8px 12px',
+              padding: isMobile ? '7px 10px' : '8px 12px',
               borderRadius: 999,
               border: `1px solid ${T.accent + '28'}`,
               background: T.accentGlowSm,
@@ -138,9 +148,9 @@ export default function GoalSelectionPage() {
 
           <div
             style={{
-              fontSize: 42,
+              fontSize: isMobile ? 30 : 42,
               fontWeight: 900,
-              letterSpacing: 1.5,
+              letterSpacing: isMobile ? 1 : 1.5,
               color: T.text,
               lineHeight: 1,
               maxWidth: 760,
@@ -155,7 +165,7 @@ export default function GoalSelectionPage() {
             style={{
               color: T.textMid,
               marginTop: 12,
-              fontSize: 15,
+              fontSize: isMobile ? 14 : 15,
               lineHeight: 1.7,
               maxWidth: 860,
             }}
@@ -169,7 +179,7 @@ export default function GoalSelectionPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))',
+            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit,minmax(320px,1fr))',
             gap: 18,
           }}
         >
@@ -192,9 +202,9 @@ export default function GoalSelectionPage() {
                 <div
                   style={{
                     position: 'relative',
-                    minHeight: 320,
-                    borderRadius: 26,
-                    padding: 22,
+                    minHeight: isMobile ? 270 : 320,
+                    borderRadius: isMobile ? 22 : 26,
+                    padding: isMobile ? 16 : 22,
                     overflow: 'hidden',
                     border: `1px solid ${active ? T.accent + '44' : 'rgba(255,255,255,0.08)'}`,
                     background: option.imageUrl
@@ -232,15 +242,15 @@ export default function GoalSelectionPage() {
                   <div style={{ position: 'relative', zIndex: 1 }}>
                     <div
                       style={{
-                        width: 56,
-                        height: 56,
+                        width: isMobile ? 50 : 56,
+                        height: isMobile ? 50 : 56,
                         borderRadius: 18,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         background: active ? T.accent + '18' : 'rgba(255,255,255,0.04)',
                         border: `1px solid ${active ? T.accent + '30' : 'rgba(255,255,255,0.08)'}`,
-                        fontSize: 22,
+                        fontSize: isMobile ? 20 : 22,
                         marginBottom: 18,
                         color: T.text,
                         backdropFilter: 'blur(8px)',
@@ -251,7 +261,7 @@ export default function GoalSelectionPage() {
 
                     <div
                       style={{
-                        fontSize: 28,
+                        fontSize: isMobile ? 24 : 28,
                         fontWeight: 900,
                         letterSpacing: 0.4,
                         color: '#fff',
@@ -265,7 +275,7 @@ export default function GoalSelectionPage() {
                       style={{
                         color: 'rgba(255,255,255,0.78)',
                         lineHeight: 1.65,
-                        fontSize: 14,
+                        fontSize: isMobile ? 13 : 14,
                         marginBottom: 20,
                         maxWidth: 340,
                       }}
@@ -275,7 +285,7 @@ export default function GoalSelectionPage() {
 
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       {option.points.map((point) => (
-                        <PointPill key={point} active={active}>
+                        <PointPill key={point} active={active} isMobile={isMobile}>
                           {point}
                         </PointPill>
                       ))}
@@ -325,9 +335,10 @@ export default function GoalSelectionPage() {
             marginTop: 24,
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center',
+            alignItems: isMobile ? 'stretch' : 'center',
             gap: 12,
             flexWrap: 'wrap',
+            flexDirection: isMobile ? 'column' : 'row',
           }}
         >
           <div
