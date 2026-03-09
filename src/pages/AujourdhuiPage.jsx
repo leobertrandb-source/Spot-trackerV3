@@ -54,8 +54,8 @@ function ExoLibrary({ onAdd }) {
         style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: 5,
-          maxHeight: 300,
+          gap: 6,
+          maxHeight: 340,
           overflowY: 'auto',
         }}
       >
@@ -97,7 +97,7 @@ function ExoLibrary({ onAdd }) {
               onDragStart={(e) => e.dataTransfer.setData('exercise', exo.name)}
               onClick={() => onAdd(exo.name)}
               style={{
-                padding: '8px 11px',
+                padding: '8px 10px',
                 background: T.surface,
                 border: `1px solid ${T.border}`,
                 borderRadius: T.radiusSm,
@@ -108,7 +108,7 @@ function ExoLibrary({ onAdd }) {
                 transition: 'all .15s',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 7,
+                gap: 10,
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.borderColor = T.accent
@@ -119,8 +119,49 @@ function ExoLibrary({ onAdd }) {
                 e.currentTarget.style.color = T.textMid
               }}
             >
+              <div
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 10,
+                  flexShrink: 0,
+                  background: exo.image_url
+                    ? `url("${exo.image_url}") center/cover no-repeat`
+                    : 'linear-gradient(135deg, rgba(30,40,34,0.96), rgba(10,14,12,0.98))',
+                  border: `1px solid ${T.border}`,
+                }}
+              />
+
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div
+                  style={{
+                    color: T.text,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    lineHeight: 1.3,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {exo.name}
+                </div>
+
+                <div
+                  style={{
+                    color: T.textDim,
+                    fontSize: 11,
+                    marginTop: 3,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {exo.muscle_group || '—'} • {exo.equipment || '—'}
+                </div>
+              </div>
+
               <span style={{ color: T.accentDim, fontSize: 10 }}>⠿</span>
-              {exo.name}
             </div>
           ))
         )}
@@ -140,8 +181,12 @@ function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet }) {
         overflow: 'hidden',
         transition: 'border-color .2s',
       }}
-      onMouseEnter={(e) => (e.currentTarget.style.borderColor = T.borderHi)}
-      onMouseLeave={(e) => (e.currentTarget.style.borderColor = T.border)}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = T.borderHi
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = T.border
+      }}
     >
       <div
         style={{
@@ -164,6 +209,7 @@ function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet }) {
           >
             {exo.exercise}
           </div>
+
           {exo.sets_target && (
             <Badge color={T.accent}>
               {exo.sets_target}×{exo.reps_target || '?'}
@@ -183,8 +229,12 @@ function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet }) {
             lineHeight: 1,
             padding: '2px 6px',
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = T.danger)}
-          onMouseLeave={(e) => (e.currentTarget.style.color = T.textDim)}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = T.danger
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = T.textDim
+          }}
         >
           ×
         </button>
@@ -278,8 +328,12 @@ function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet }) {
                 cursor: 'pointer',
                 fontSize: 14,
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = T.danger)}
-              onMouseLeave={(e) => (e.currentTarget.style.color = T.textDim)}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = T.danger
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = T.textDim
+              }}
             >
               ×
             </button>
@@ -443,7 +497,9 @@ export default function AujourdhuiPage() {
       e.sets.filter((s) => s.reps || s.weight)
     )
 
-    if (!allSets.length) return alert('Saisis au moins une série.')
+    if (!allSets.length) {
+      return alert('Saisis au moins une série.')
+    }
 
     setStatus('saving')
 
@@ -649,7 +705,8 @@ export default function AujourdhuiPage() {
                 : `2px dashed ${isDragOver ? T.accent : T.border}`,
               borderRadius: T.radiusSm,
               padding: exercises.length ? 0 : '28px 20px',
-              background: isDragOver && !exercises.length ? T.accentGlow : 'transparent',
+              background:
+                isDragOver && !exercises.length ? T.accentGlow : 'transparent',
               transition: 'all .2s',
               display: 'flex',
               flexDirection: 'column',
