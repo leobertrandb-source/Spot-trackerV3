@@ -53,6 +53,49 @@ function getSuggestedWeight(lastWeight, repsArray, targetReps) {
   }
 }
 
+function getPotentialMeta(suggestedWeight, bestWeight) {
+  const suggested = Number(suggestedWeight || 0)
+  const best = Number(bestWeight || 0)
+
+  if (!suggested) {
+    return {
+      title: 'Progression en cours',
+      color: T.textSub,
+      textColor: T.text,
+      background: 'rgba(255,255,255,0.03)',
+      border: '1px solid rgba(255,255,255,0.06)',
+    }
+  }
+
+  if (suggested > best) {
+    return {
+      title: '🏆 Record de charge possible',
+      color: '#FFD76A',
+      textColor: '#FFE7A6',
+      background: 'rgba(255,215,0,0.08)',
+      border: '1px solid rgba(255,215,0,0.28)',
+    }
+  }
+
+  if (suggested === best) {
+    return {
+      title: 'Validation du niveau actuel',
+      color: T.accentLight,
+      textColor: T.text,
+      background: 'rgba(45,255,155,0.08)',
+      border: `1px solid ${T.accent + '26'}`,
+    }
+  }
+
+  return {
+    title: 'Séance de consolidation',
+    color: T.textSub,
+    textColor: T.text,
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.06)',
+  }
+}
+
 async function fetchExerciseHistory(supabaseClient, userId, exerciseName) {
   const { data, error } = await supabaseClient
     .from('sets')
@@ -441,6 +484,9 @@ function ExerciseBlock({
   const gridColumns = isMobile ? '34px 1fr 1fr 1fr 24px' : '40px 1fr 1fr 1fr 28px'
   const suggestion = suggestionData?.suggestion || null
   const history = suggestionData?.history || null
+  const potentialMeta = history
+    ? getPotentialMeta(suggestion?.weight, history.allTimeBestWeight)
+    : null
 
   return (
     <div
@@ -625,18 +671,14 @@ function ExerciseBlock({
               style={{
                 padding: '10px 12px',
                 borderRadius: 14,
-                background: history.hasPotentialPR
-                  ? 'rgba(255,215,0,0.08)'
-                  : 'rgba(255,255,255,0.03)',
-                border: history.hasPotentialPR
-                  ? '1px solid rgba(255,215,0,0.28)'
-                  : '1px solid rgba(255,255,255,0.06)',
+                background: potentialMeta?.background || 'rgba(255,255,255,0.03)',
+                border: potentialMeta?.border || '1px solid rgba(255,255,255,0.06)',
                 gridColumn: isMobile ? '1 / -1' : 'auto',
               }}
             >
               <div
                 style={{
-                  color: history.hasPotentialPR ? '#FFD76A' : T.textSub,
+                  color: potentialMeta?.color || T.textSub,
                   fontSize: 10,
                   fontWeight: 800,
                   letterSpacing: 1,
@@ -648,12 +690,12 @@ function ExerciseBlock({
               </div>
               <div
                 style={{
-                  color: history.hasPotentialPR ? '#FFE7A6' : T.text,
+                  color: potentialMeta?.textColor || T.text,
                   fontWeight: 900,
                   fontSize: 14,
                 }}
               >
-                {history.hasPotentialPR ? '🏆 Record possible' : 'Progression standard'}
+                {potentialMeta?.title || 'Progression en cours'}
               </div>
             </div>
           </div>
@@ -945,11 +987,7 @@ export default function AujourdhuiPage() {
       )
 
       nextSuggestions[exo.exercise] = {
-        history: {
-          ...history,
-          hasPotentialPR:
-            !!suggestion?.weight && Number(suggestion.weight) > Number(history.allTimeBestWeight || 0),
-        },
+        history,
         suggestion,
       }
     }
