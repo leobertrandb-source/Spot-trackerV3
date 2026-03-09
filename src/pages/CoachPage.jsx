@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { AuthProvider, useAuth } from './components/AuthContext'
+import { AuthProvider, useAuth } from '../components/AuthContext'
 import { Grain, Layout } from './components/UI'
 import { DirtyProvider } from './components/DirtyContext'
 import Sidebar from './components/Sidebar'
