@@ -24,7 +24,7 @@ import ProgrammeBodybuildingPage from '../pages/ProgrammeBodybuildingPage'
 import ProgrammePerteDePoidsPage from '../pages/ProgrammePerteDePoidsPage'
 import ProgrammeAthletiquePage from '../pages/ProgrammeAthletiquePage'
 
-import { T } from './lib/data'
+import { T } from '../lib/data'
 
 function AppShell() {
   const { user, loading, profile } = useAuth()
