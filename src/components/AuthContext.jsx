@@ -3,6 +3,15 @@ import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext(null)
 
+function withTimeout(promise, ms = 4000) {
+return Promise.race([
+promise,
+new Promise((_, reject) =>
+setTimeout(() => reject(new Error('Timeout')), ms)
+),
+])
+}
+
 export function AuthProvider({ children }) {
 const [user, setUser] = useState(null)
 const [profile, setProfile] = useState(null)
@@ -15,11 +24,14 @@ return null
 }
 
 try {
-const { data, error } = await supabase
+const { data, error } = await withTimeout(
+supabase
 .from('profiles')
 .select('*')
 .eq('id', userId)
-.maybeSingle()
+.maybeSingle(),
+4000
+)
 
 if (error) {
 console.error('Erreur fetchProfile:', error)
@@ -30,7 +42,7 @@ return null
 setProfile(data || null)
 return data || null
 } catch (error) {
-console.error('Erreur inattendue fetchProfile:', error)
+console.error('Erreur fetchProfile / timeout:', error)
 setProfile(null)
 return null
 }
@@ -44,7 +56,7 @@ try {
 const {
 data: { session },
 error,
-} = await supabase.auth.getSession()
+} = await withTimeout(supabase.auth.getSession(), 4000)
 
 if (!mounted) return
 
@@ -78,6 +90,12 @@ setLoading(false)
 
 bootstrap()
 
+const hardStop = setTimeout(() => {
+if (mounted) {
+setLoading(false)
+}
+}, 5000)
+
 const {
 data: { subscription },
 } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -104,6 +122,7 @@ setLoading(false)
 
 return () => {
 mounted = false
+clearTimeout(hardStop)
 subscription.unsubscribe()
 }
 }, [])
