@@ -6,7 +6,7 @@ import { Card, Label, Input, Btn, Badge, PageWrap } from '../components/UI'
 import { SEANCE_ICONS, T } from '../lib/data'
 
 // ── Bibliothèque latérale pour l'athlète ──────────────────────────
-function ExoLibrary({ onAdd }) {
+function ExoLibrary({ onAdd, isMobile = false }) {
   const [search, setSearch] = useState('')
   const [libraryExercises, setLibraryExercises] = useState([])
   const [loadingLibrary, setLoadingLibrary] = useState(true)
@@ -36,9 +36,11 @@ function ExoLibrary({ onAdd }) {
 
     const loaded = data || []
     setLibraryExercises(loaded)
+
     if (loaded.length && !selectedExercise) {
       setSelectedExercise(loaded[0])
     }
+
     setLoadingLibrary(false)
   }
 
@@ -60,7 +62,7 @@ function ExoLibrary({ onAdd }) {
           display: 'flex',
           flexDirection: 'column',
           gap: 6,
-          maxHeight: 320,
+          maxHeight: isMobile ? 260 : 320,
           overflowY: 'auto',
         }}
       >
@@ -101,11 +103,11 @@ function ExoLibrary({ onAdd }) {
             return (
               <div
                 key={exo.id}
-                draggable
+                draggable={!isMobile}
                 onDragStart={(e) => e.dataTransfer.setData('exercise', exo.name)}
                 onClick={() => setSelectedExercise(exo)}
                 style={{
-                  padding: '8px 10px',
+                  padding: isMobile ? '9px 10px' : '8px 10px',
                   background: isSelected ? T.accentGlow : T.surface,
                   border: `1px solid ${isSelected ? T.accent : T.border}`,
                   borderRadius: T.radiusSm,
@@ -133,8 +135,8 @@ function ExoLibrary({ onAdd }) {
               >
                 <div
                   style={{
-                    width: 42,
-                    height: 42,
+                    width: isMobile ? 46 : 42,
+                    height: isMobile ? 46 : 42,
                     borderRadius: 10,
                     flexShrink: 0,
                     background: exo.image_url
@@ -183,8 +185,8 @@ function ExoLibrary({ onAdd }) {
                     background: T.accent,
                     border: 'none',
                     borderRadius: 8,
-                    width: 24,
-                    height: 24,
+                    width: isMobile ? 28 : 24,
+                    height: isMobile ? 28 : 24,
                     color: '#fff',
                     fontWeight: 900,
                     cursor: 'pointer',
@@ -201,10 +203,10 @@ function ExoLibrary({ onAdd }) {
       </div>
 
       {selectedExercise && (
-        <Card style={{ marginTop: 12, padding: 14 }}>
+        <Card style={{ marginTop: 12, padding: isMobile ? 12 : 14 }}>
           <div
             style={{
-              height: 150,
+              height: isMobile ? 130 : 150,
               borderRadius: 12,
               marginBottom: 12,
               background: selectedExercise.image_url
@@ -218,7 +220,7 @@ function ExoLibrary({ onAdd }) {
             style={{
               color: T.text,
               fontWeight: 800,
-              fontSize: 16,
+              fontSize: isMobile ? 15 : 16,
               lineHeight: 1.3,
             }}
           >
@@ -320,7 +322,9 @@ function ExoLibrary({ onAdd }) {
 }
 
 // ── Bloc d'un exercice avec saisie de séries ──────────────────────
-function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet }) {
+function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet, isMobile = false }) {
+  const gridColumns = isMobile ? '34px 1fr 1fr 1fr 24px' : '40px 1fr 1fr 1fr 28px'
+
   return (
     <div
       style={{
@@ -339,21 +343,32 @@ function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet }) {
     >
       <div
         style={{
-          padding: '11px 14px',
+          padding: isMobile ? '10px 12px' : '11px 14px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          gap: 10,
           borderBottom: `1px solid ${T.border}`,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            minWidth: 0,
+            flexWrap: 'wrap',
+          }}
+        >
           <span style={{ color: T.accent, fontSize: 10 }}>▸</span>
+
           <div
             style={{
               fontFamily: T.fontDisplay,
               fontWeight: 800,
-              fontSize: 14,
+              fontSize: isMobile ? 13 : 14,
               color: T.text,
+              minWidth: 0,
             }}
           >
             {exo.exercise}
@@ -377,6 +392,7 @@ function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet }) {
             fontSize: 16,
             lineHeight: 1,
             padding: '2px 6px',
+            flexShrink: 0,
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.color = T.danger
@@ -389,11 +405,11 @@ function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet }) {
         </button>
       </div>
 
-      <div style={{ padding: '10px 14px 14px' }}>
+      <div style={{ padding: isMobile ? '10px 10px 12px' : '10px 14px 14px' }}>
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '40px 1fr 1fr 1fr 28px',
+            gridTemplateColumns: gridColumns,
             gap: 8,
             marginBottom: 8,
           }}
@@ -404,8 +420,8 @@ function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet }) {
               style={{
                 fontFamily: T.fontDisplay,
                 fontWeight: 700,
-                fontSize: 9,
-                letterSpacing: 1.5,
+                fontSize: isMobile ? 8 : 9,
+                letterSpacing: 1.3,
                 color: T.textDim,
                 textTransform: 'uppercase',
               }}
@@ -421,7 +437,7 @@ function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet }) {
             key={si}
             style={{
               display: 'grid',
-              gridTemplateColumns: '40px 1fr 1fr 1fr 28px',
+              gridTemplateColumns: gridColumns,
               gap: 8,
               marginBottom: 7,
               alignItems: 'center',
@@ -431,7 +447,7 @@ function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet }) {
               style={{
                 fontFamily: T.fontDisplay,
                 fontWeight: 900,
-                fontSize: 16,
+                fontSize: isMobile ? 14 : 16,
                 color: T.accentDim,
                 textAlign: 'center',
               }}
@@ -475,7 +491,7 @@ function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet }) {
                 border: 'none',
                 color: T.textDim,
                 cursor: 'pointer',
-                fontSize: 14,
+                fontSize: isMobile ? 13 : 14,
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.color = T.danger
@@ -496,7 +512,7 @@ function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet }) {
             border: `1px dashed ${T.accent}33`,
             borderRadius: T.radiusSm,
             color: T.accentDim,
-            padding: '6px 14px',
+            padding: isMobile ? '7px 12px' : '6px 14px',
             fontFamily: T.fontDisplay,
             fontWeight: 700,
             fontSize: 11,
@@ -533,7 +549,17 @@ export default function AujourdhuiPage() {
   const [exercises, setExercises] = useState([])
   const [notes, setNotes] = useState('')
   const [status, setStatus] = useState(null)
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900)
   const { markDirty, markClean } = useDirty()
+
+  useEffect(() => {
+    function handleResize() {
+      setIsMobile(window.innerWidth < 900)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   useEffect(() => {
     if (user?.id) {
@@ -635,6 +661,7 @@ export default function AujourdhuiPage() {
   }
 
   function handleDrop(e) {
+    if (isMobile) return
     e.preventDefault()
     setIsDragOver(false)
     const name = e.dataTransfer.getData('exercise')
@@ -731,8 +758,8 @@ export default function AujourdhuiPage() {
           style={{
             fontFamily: T.fontDisplay,
             fontWeight: 900,
-            fontSize: 36,
-            letterSpacing: 2,
+            fontSize: isMobile ? 28 : 36,
+            letterSpacing: isMobile ? 1.2 : 2,
             color: T.text,
             lineHeight: 1,
           }}
@@ -742,7 +769,7 @@ export default function AujourdhuiPage() {
 
         <div
           style={{
-            fontSize: 14,
+            fontSize: isMobile ? 13 : 14,
             color: T.textMid,
             marginTop: 6,
             textTransform: 'capitalize',
@@ -758,22 +785,23 @@ export default function AujourdhuiPage() {
             background: `linear-gradient(135deg, ${T.accentGlow}, transparent)`,
             border: `1px solid ${T.accent}44`,
             borderRadius: T.radiusLg,
-            padding: '14px 20px',
+            padding: isMobile ? '12px 14px' : '14px 20px',
             display: 'flex',
-            alignItems: 'center',
-            gap: 16,
+            alignItems: isMobile ? 'flex-start' : 'center',
+            gap: 14,
+            flexWrap: isMobile ? 'wrap' : 'nowrap',
           }}
         >
-          <div style={{ fontSize: 26 }}>
+          <div style={{ fontSize: isMobile ? 22 : 26 }}>
             {SEANCE_ICONS[assignment.programs?.seance_type] || '💪'}
           </div>
 
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div
               style={{
                 fontFamily: T.fontDisplay,
                 fontWeight: 800,
-                fontSize: 16,
+                fontSize: isMobile ? 15 : 16,
                 color: T.accent,
               }}
             >
@@ -785,6 +813,7 @@ export default function AujourdhuiPage() {
                 fontSize: 12,
                 color: T.textMid,
                 marginTop: 2,
+                lineHeight: 1.5,
               }}
             >
               {assignment.programs?.seance_type}
@@ -802,17 +831,31 @@ export default function AujourdhuiPage() {
             </div>
           </div>
 
-          <div
-            style={{
-              marginLeft: 'auto',
-              fontFamily: T.fontDisplay,
-              fontSize: 11,
-              color: T.textDim,
-              letterSpacing: 1,
-            }}
-          >
-            Programme assigné par ton coach
-          </div>
+          {!isMobile ? (
+            <div
+              style={{
+                marginLeft: 'auto',
+                fontFamily: T.fontDisplay,
+                fontSize: 11,
+                color: T.textDim,
+                letterSpacing: 1,
+              }}
+            >
+              Programme assigné par ton coach
+            </div>
+          ) : (
+            <div
+              style={{
+                width: '100%',
+                fontFamily: T.fontDisplay,
+                fontSize: 10,
+                color: T.textDim,
+                letterSpacing: 1,
+              }}
+            >
+              Programme assigné par ton coach
+            </div>
+          )}
         </div>
       ) : (
         <div
@@ -820,12 +863,13 @@ export default function AujourdhuiPage() {
             background: T.card,
             border: `1px dashed ${T.border}`,
             borderRadius: T.radiusLg,
-            padding: '16px 20px',
+            padding: isMobile ? '14px 14px' : '16px 20px',
             fontFamily: T.fontDisplay,
             fontSize: 12,
             color: T.textDim,
             letterSpacing: 1,
             textAlign: 'center',
+            lineHeight: 1.6,
           }}
         >
           Aucune séance assignée pour aujourd'hui — crée ta propre séance ci-dessous
@@ -835,25 +879,30 @@ export default function AujourdhuiPage() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 320px',
-          gap: 20,
+          gridTemplateColumns: isMobile ? '1fr' : '1fr 320px',
+          gap: isMobile ? 16 : 20,
+          marginTop: 16,
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div
-            onDragOver={(e) => {
-              e.preventDefault()
-              setIsDragOver(true)
-            }}
-            onDragLeave={() => setIsDragOver(false)}
+            onDragOver={
+              isMobile
+                ? undefined
+                : (e) => {
+                    e.preventDefault()
+                    setIsDragOver(true)
+                  }
+            }
+            onDragLeave={isMobile ? undefined : () => setIsDragOver(false)}
             onDrop={handleDrop}
             style={{
-              minHeight: exercises.length ? 'auto' : 100,
+              minHeight: exercises.length ? 'auto' : isMobile ? 84 : 100,
               border: exercises.length
                 ? 'none'
                 : `2px dashed ${isDragOver ? T.accent : T.border}`,
               borderRadius: T.radiusSm,
-              padding: exercises.length ? 0 : '28px 20px',
+              padding: exercises.length ? 0 : isMobile ? '20px 14px' : '28px 20px',
               background:
                 isDragOver && !exercises.length ? T.accentGlow : 'transparent',
               transition: 'all .2s',
@@ -868,14 +917,17 @@ export default function AujourdhuiPage() {
                   textAlign: 'center',
                   color: T.textDim,
                   fontFamily: T.fontDisplay,
-                  fontSize: 11,
-                  letterSpacing: 2,
+                  fontSize: isMobile ? 10 : 11,
+                  letterSpacing: isMobile ? 1.2 : 2,
                   textTransform: 'uppercase',
+                  lineHeight: 1.6,
                 }}
               >
-                {isDragOver
-                  ? '↓ Relâche ici'
-                  : 'Glisse des exercices depuis la liste ou clique sur + →'}
+                {isMobile
+                  ? 'Ajoute des exercices depuis la bibliothèque ci-dessous'
+                  : isDragOver
+                    ? '↓ Relâche ici'
+                    : 'Glisse des exercices depuis la liste ou clique sur + →'}
               </div>
             ) : (
               exercises.map((exo, i) => (
@@ -886,13 +938,14 @@ export default function AujourdhuiPage() {
                   onUpdateSet={(si, f, v) => updateSet(i, si, f, v)}
                   onAddSet={() => addSet(i)}
                   onRemoveSet={(si) => removeSet(i, si)}
+                  isMobile={isMobile}
                 />
               ))
             )}
           </div>
 
           {exercises.length > 0 && (
-            <Card style={{ padding: '16px 20px' }}>
+            <Card style={{ padding: isMobile ? '14px 14px' : '16px 20px' }}>
               <Input
                 label="Notes de séance"
                 value={notes}
@@ -906,7 +959,8 @@ export default function AujourdhuiPage() {
                   justifyContent: 'flex-end',
                   marginTop: 14,
                   gap: 14,
-                  alignItems: 'center',
+                  alignItems: isMobile ? 'stretch' : 'center',
+                  flexDirection: isMobile ? 'column' : 'row',
                 }}
               >
                 {status === 'saved' && (
@@ -948,14 +1002,14 @@ export default function AujourdhuiPage() {
 
         <Card
           style={{
-            padding: '18px 16px',
+            padding: isMobile ? '14px 12px' : '18px 16px',
             alignSelf: 'start',
-            position: 'sticky',
-            top: 20,
+            position: isMobile ? 'static' : 'sticky',
+            top: isMobile ? 'auto' : 20,
           }}
         >
           <Label style={{ marginBottom: 12 }}>Exercices</Label>
-          <ExoLibrary onAdd={addExercise} />
+          <ExoLibrary onAdd={addExercise} isMobile={isMobile} />
         </Card>
       </div>
     </PageWrap>
