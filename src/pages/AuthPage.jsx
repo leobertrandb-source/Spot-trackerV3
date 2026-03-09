@@ -149,22 +149,16 @@ if (!createdUser?.id) {
 throw new Error("Le compte n'a pas pu être créé.")
 }
 
-const { error: profileError } = await supabase.from('profiles').upsert({
-id: createdUser.id,
-full_name: fullName.trim(),
-email: normalizedEmail,
-role,
-})
-
-if (profileError) throw profileError
-
 setSuccessMsg(
 role === 'coach'
 ? 'Compte coach créé avec succès.'
 : 'Compte athlète créé avec succès.'
 )
 
-await redirectUser(createdUser.id)
+if (data?.session?.user?.id) {
+await redirectUser(data.session.user.id)
+}
+
 return
 }
 
