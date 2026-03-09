@@ -14,6 +14,7 @@ setProfile(null)
 return null
 }
 
+try {
 const { data, error } = await supabase
 .from('profiles')
 .select('*')
@@ -28,18 +29,27 @@ return null
 
 setProfile(data || null)
 return data || null
+} catch (error) {
+console.error('Erreur inattendue profile:', error)
+setProfile(null)
+return null
+}
 }
 
-async function hydrateSession() {
-setLoading(true)
+useEffect(() => {
+let isMounted = true
 
+async function initAuth() {
+try {
 const {
 data: { session },
 error,
 } = await supabase.auth.getSession()
 
+if (!isMounted) return
+
 if (error) {
-console.error('Erreur session:', error)
+console.error('Erreur getSession:', error)
 setUser(null)
 setProfile(null)
 setLoading(false)
@@ -54,34 +64,42 @@ await fetchProfile(sessionUser.id)
 } else {
 setProfile(null)
 }
-
+} catch (error) {
+console.error('Erreur init auth:', error)
+if (!isMounted) return
+setUser(null)
+setProfile(null)
+} finally {
+if (isMounted) {
 setLoading(false)
 }
-
-useEffect(() => {
-let isMounted = true
-
-async function init() {
-if (!isMounted) return
-await hydrateSession()
+}
 }
 
-init()
+initAuth()
 
 const {
 data: { subscription },
 } = supabase.auth.onAuthStateChange(async (_event, session) => {
-const sessionUser = session?.user || null
+if (!isMounted) return
 
+const sessionUser = session?.user || null
 setUser(sessionUser)
 
+try {
 if (sessionUser?.id) {
 await fetchProfile(sessionUser.id)
 } else {
 setProfile(null)
 }
-
+} catch (error) {
+console.error('Erreur onAuthStateChange:', error)
+setProfile(null)
+} finally {
+if (isMounted) {
 setLoading(false)
+}
+}
 })
 
 return () => {
