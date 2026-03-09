@@ -5,6 +5,112 @@ import { useAuth } from '../components/AuthContext'
 import { Card, Label, Input, Btn, Badge, PageWrap } from '../components/UI'
 import { SEANCE_ICONS, T } from '../lib/data'
 
+// ── Helpers assistant progression ─────────────────────────────────
+function roundToNearestStep(value, step = 2.5) {
+  if (!value || Number.isNaN(Number(value))) return 0
+  return Math.round(Number(value) / step) * step
+}
+
+function estimate1RM(weight, reps) {
+  const w = Number(weight || 0)
+  const r = Number(reps || 0)
+
+  if (!w || !r) return 0
+  return w * (1 + r / 30)
+}
+
+function getSuggestedWeight(lastWeight, repsArray, targetReps) {
+  const weight = Number(lastWeight || 0)
+  const reps = (repsArray || []).map((r) => Number(r || 0)).filter(Boolean)
+  const target = Number(targetReps || 0)
+
+  if (!weight || !reps.length || !target) return null
+
+  const success = reps.every((r) => r >= target)
+  const successCount = reps.filter((r) => r >= target).length
+  const almost = successCount >= reps.length - 1
+
+  if (success) {
+    return {
+      weight: roundToNearestStep(weight + 2.5),
+      status: 'increase',
+      label: 'Progression validée',
+    }
+  }
+
+  if (almost) {
+    return {
+      weight: roundToNearestStep(weight),
+      status: 'repeat',
+      label: 'Encore une validation',
+    }
+  }
+
+  return {
+    weight: roundToNearestStep(weight * 0.95),
+    status: 'reduce',
+    label: 'Charge à alléger',
+  }
+}
+
+async function fetchExerciseHistory(supabaseClient, userId, exerciseName) {
+  const { data, error } = await supabaseClient
+    .from('sets')
+    .select(`
+      reps,
+      weight,
+      rpe,
+      set_order,
+      session_id,
+      sessions!inner (
+        id,
+        user_id,
+        date
+      )
+    `)
+    .eq('sessions.user_id', userId)
+    .eq('exercise', exerciseName)
+    .order('date', { foreignTable: 'sessions', ascending: false })
+    .order('set_order', { ascending: true })
+
+  if (error) {
+    console.error(`Erreur récupération historique pour ${exerciseName}:`, error)
+    return null
+  }
+
+  const rows = data || []
+  if (!rows.length) return null
+
+  const latestSessionId = rows[0].session_id
+  const latestRows = rows.filter((row) => row.session_id === latestSessionId)
+
+  const allTimeBestWeight = rows.reduce((max, row) => {
+    const w = Number(row.weight || 0)
+    return w > max ? w : max
+  }, 0)
+
+  const allTimeBest1RM = rows.reduce((max, row) => {
+    const value = estimate1RM(row.weight, row.reps)
+    return value > max ? value : max
+  }, 0)
+
+  const lastWeight = Number(latestRows[0]?.weight || 0)
+  const repsArray = latestRows.map((row) => Number(row.reps || 0))
+  const last1RM = latestRows.reduce((max, row) => {
+    const value = estimate1RM(row.weight, row.reps)
+    return value > max ? value : max
+  }, 0)
+
+  return {
+    date: latestRows[0]?.sessions?.date || null,
+    lastWeight,
+    repsArray,
+    last1RM,
+    allTimeBestWeight,
+    allTimeBest1RM,
+  }
+}
+
 // ── Bibliothèque latérale pour l'athlète ──────────────────────────
 function ExoLibrary({ onAdd, isMobile = false }) {
   const [search, setSearch] = useState('')
@@ -321,9 +427,20 @@ function ExoLibrary({ onAdd, isMobile = false }) {
   )
 }
 
-// ── Bloc d'un exercice avec saisie de séries ──────────────────────
-function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet, isMobile = false }) {
+// ── Bloc d'un exercice avec assistant ─────────────────────────────
+function ExerciseBlock({
+  exo,
+  suggestionData,
+  onRemove,
+  onUpdateSet,
+  onAddSet,
+  onRemoveSet,
+  onApplySuggestedWeight,
+  isMobile = false,
+}) {
   const gridColumns = isMobile ? '34px 1fr 1fr 1fr 24px' : '40px 1fr 1fr 1fr 28px'
+  const suggestion = suggestionData?.suggestion || null
+  const history = suggestionData?.history || null
 
   return (
     <div
@@ -405,6 +522,201 @@ function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet, isMo
         </button>
       </div>
 
+      {history ? (
+        <div
+          style={{
+            padding: isMobile ? '10px 10px 0' : '10px 14px 0',
+            display: 'grid',
+            gap: 8,
+          }}
+        >
+          <div
+            style={{
+              padding: '10px 12px',
+              borderRadius: 14,
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.06)',
+            }}
+          >
+            <div
+              style={{
+                color: T.textSub,
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: 1,
+                textTransform: 'uppercase',
+                marginBottom: 6,
+              }}
+            >
+              Dernière séance
+            </div>
+
+            <div
+              style={{
+                color: T.textMid,
+                fontSize: 13,
+                lineHeight: 1.55,
+              }}
+            >
+              {history.lastWeight ? `${history.lastWeight} kg` : 'Charge non renseignée'} —{' '}
+              {history.repsArray.join(' / ')}
+              {history.date ? ` • ${history.date}` : ''}
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3, 1fr)',
+              gap: 8,
+            }}
+          >
+            <div
+              style={{
+                padding: '10px 12px',
+                borderRadius: 14,
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              <div
+                style={{
+                  color: T.textSub,
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: 1,
+                  textTransform: 'uppercase',
+                  marginBottom: 5,
+                }}
+              >
+                1RM estimé
+              </div>
+              <div style={{ color: T.text, fontWeight: 900, fontSize: 14 }}>
+                {history.last1RM ? `${history.last1RM.toFixed(1)} kg` : '—'}
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: '10px 12px',
+                borderRadius: 14,
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+              }}
+            >
+              <div
+                style={{
+                  color: T.textSub,
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: 1,
+                  textTransform: 'uppercase',
+                  marginBottom: 5,
+                }}
+              >
+                Record charge
+              </div>
+              <div style={{ color: T.text, fontWeight: 900, fontSize: 14 }}>
+                {history.allTimeBestWeight ? `${history.allTimeBestWeight.toFixed(1)} kg` : '—'}
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: '10px 12px',
+                borderRadius: 14,
+                background: history.hasPotentialPR
+                  ? 'rgba(255,215,0,0.08)'
+                  : 'rgba(255,255,255,0.03)',
+                border: history.hasPotentialPR
+                  ? '1px solid rgba(255,215,0,0.28)'
+                  : '1px solid rgba(255,255,255,0.06)',
+                gridColumn: isMobile ? '1 / -1' : 'auto',
+              }}
+            >
+              <div
+                style={{
+                  color: history.hasPotentialPR ? '#FFD76A' : T.textSub,
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: 1,
+                  textTransform: 'uppercase',
+                  marginBottom: 5,
+                }}
+              >
+                Potentiel
+              </div>
+              <div
+                style={{
+                  color: history.hasPotentialPR ? '#FFE7A6' : T.text,
+                  fontWeight: 900,
+                  fontSize: 14,
+                }}
+              >
+                {history.hasPotentialPR ? '🏆 Record possible' : 'Progression standard'}
+              </div>
+            </div>
+          </div>
+
+          {suggestion ? (
+            <div
+              style={{
+                padding: '12px 12px',
+                borderRadius: 14,
+                background: T.accentGlowSm,
+                border: `1px solid ${T.accent + '22'}`,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 10,
+                flexWrap: 'wrap',
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    color: T.accentLight,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    letterSpacing: 1,
+                    textTransform: 'uppercase',
+                    marginBottom: 5,
+                  }}
+                >
+                  Charge conseillée
+                </div>
+
+                <div style={{ color: T.text, fontSize: 16, fontWeight: 900 }}>
+                  {suggestion.weight} kg
+                </div>
+
+                <div style={{ color: T.textMid, fontSize: 12, marginTop: 4 }}>
+                  {suggestion.label}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={onApplySuggestedWeight}
+                style={{
+                  border: `1px solid ${T.accent + '30'}`,
+                  background: 'rgba(45,255,155,0.10)',
+                  color: T.accentLight,
+                  borderRadius: 12,
+                  padding: '9px 12px',
+                  cursor: 'pointer',
+                  fontWeight: 800,
+                  fontSize: 12,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Appliquer la charge
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <div style={{ padding: isMobile ? '10px 10px 12px' : '10px 14px 14px' }}>
         <div
           style={{
@@ -469,7 +781,9 @@ function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet, isMo
               value={set.weight}
               onChange={(v) => onUpdateSet(si, 'weight', v)}
               type="number"
-              placeholder="60"
+              placeholder={
+                suggestion?.weight && !set.weight ? String(suggestion.weight) : '60'
+              }
               min="0"
               step="0.5"
             />
@@ -547,6 +861,7 @@ export default function AujourdhuiPage() {
   const [loading, setLoading] = useState(true)
   const [isDragOver, setIsDragOver] = useState(false)
   const [exercises, setExercises] = useState([])
+  const [exerciseSuggestions, setExerciseSuggestions] = useState({})
   const [notes, setNotes] = useState('')
   const [status, setStatus] = useState(null)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900)
@@ -566,6 +881,15 @@ export default function AujourdhuiPage() {
       loadToday()
     }
   }, [user?.id])
+
+  useEffect(() => {
+    if (!user?.id || !exercises.length) {
+      setExerciseSuggestions({})
+      return
+    }
+
+    loadSuggestions()
+  }, [user?.id, exercises])
 
   async function loadToday() {
     const { data: assigns } = await supabase
@@ -597,7 +921,40 @@ export default function AujourdhuiPage() {
         }))
 
       setExercises(exos)
+      return
     }
+
+    setExercises([])
+  }
+
+  async function loadSuggestions() {
+    const nextSuggestions = {}
+
+    for (const exo of exercises) {
+      const history = await fetchExerciseHistory(supabase, user.id, exo.exercise)
+
+      if (!history) {
+        nextSuggestions[exo.exercise] = null
+        continue
+      }
+
+      const suggestion = getSuggestedWeight(
+        history.lastWeight,
+        history.repsArray,
+        exo.reps_target
+      )
+
+      nextSuggestions[exo.exercise] = {
+        history: {
+          ...history,
+          hasPotentialPR:
+            !!suggestion?.weight && Number(suggestion.weight) > Number(history.allTimeBestWeight || 0),
+        },
+        suggestion,
+      }
+    }
+
+    setExerciseSuggestions(nextSuggestions)
   }
 
   function addExercise(name) {
@@ -635,6 +992,7 @@ export default function AujourdhuiPage() {
   }
 
   function addSet(exoIdx) {
+    markDirty()
     setExercises((p) =>
       p.map((e, ei) =>
         ei !== exoIdx
@@ -648,6 +1006,7 @@ export default function AujourdhuiPage() {
   }
 
   function removeSet(exoIdx, setIdx) {
+    markDirty()
     setExercises((p) =>
       p.map((e, ei) =>
         ei !== exoIdx
@@ -655,6 +1014,29 @@ export default function AujourdhuiPage() {
           : {
               ...e,
               sets: e.sets.filter((_, si) => si !== setIdx),
+            }
+      )
+    )
+  }
+
+  function applySuggestedWeight(exoIdx) {
+    const exo = exercises[exoIdx]
+    const suggestion = exerciseSuggestions[exo.exercise]?.suggestion
+
+    if (!suggestion?.weight) return
+
+    markDirty()
+
+    setExercises((prev) =>
+      prev.map((item, index) =>
+        index !== exoIdx
+          ? item
+          : {
+              ...item,
+              sets: item.sets.map((set) => ({
+                ...set,
+                weight: String(suggestion.weight),
+              })),
             }
       )
     )
@@ -693,10 +1075,12 @@ export default function AujourdhuiPage() {
       .single()
 
     if (error) {
+      console.error(error)
       setStatus('error')
       return
     }
 
+    let setOrderCounter = 0
     const setsToInsert = []
 
     exercises.forEach((e) => {
@@ -705,18 +1089,20 @@ export default function AujourdhuiPage() {
           setsToInsert.push({
             session_id: session.id,
             exercise: e.exercise,
-            reps: s.reps ? parseInt(s.reps) : null,
+            reps: s.reps ? parseInt(s.reps, 10) : null,
             weight: s.weight ? parseFloat(s.weight) : null,
             rpe: s.rpe ? parseFloat(s.rpe) : null,
-            set_order: setsToInsert.length,
+            set_order: setOrderCounter,
           })
+          setOrderCounter += 1
         }
       })
     })
 
-    const { error: e2 } = await supabase.from('sets').insert(setsToInsert)
+    const { error: setsError } = await supabase.from('sets').insert(setsToInsert)
 
-    if (e2) {
+    if (setsError) {
+      console.error(setsError)
       setStatus('error')
       return
     }
@@ -932,12 +1318,14 @@ export default function AujourdhuiPage() {
             ) : (
               exercises.map((exo, i) => (
                 <ExerciseBlock
-                  key={i}
+                  key={`${exo.exercise}-${i}`}
                   exo={exo}
+                  suggestionData={exerciseSuggestions[exo.exercise] || null}
                   onRemove={() => removeExercise(i)}
                   onUpdateSet={(si, f, v) => updateSet(i, si, f, v)}
                   onAddSet={() => addSet(i)}
                   onRemoveSet={(si) => removeSet(i, si)}
+                  onApplySuggestedWeight={() => applySuggestedWeight(i)}
                   isMobile={isMobile}
                 />
               ))
