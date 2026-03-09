@@ -702,11 +702,11 @@ export default function NutritionPage() {
       .single()
 
     if (logError) {
-      console.error(logError)
-      alert("Impossible d'ajouter cet aliment.")
-      setAddFoodLoading(false)
-      return
-    }
+  console.error('Erreur nutrition_logs insert:', logError)
+  alert(logError.message || JSON.stringify(logError) || "Impossible d'ajouter cet aliment.")
+  setAddFoodLoading(false)
+  return
+}
 
     const { error: itemError } = await supabase.from('nutrition_log_items').insert({
       nutrition_log_id: createdLog.id,
@@ -722,9 +722,9 @@ export default function NutritionPage() {
     })
 
     if (itemError) {
-      console.error(itemError)
-      alert("Le repas a été créé, mais l'aliment n'a pas pu être détaillé.")
-    }
+  console.error('Erreur nutrition_log_items insert:', itemError)
+  alert(itemError.message || JSON.stringify(itemError) || "Le repas a été créé, mais l'aliment n'a pas pu être détaillé.")
+}
 
     setSelectedFood(null)
     setFoodSearch('')
