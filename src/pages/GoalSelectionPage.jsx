@@ -63,7 +63,7 @@ function PointPill({ children, active }) {
 
 export default function GoalSelectionPage() {
   const navigate = useNavigate()
-  const { user, profile } = useAuth()
+  const { user, profile, fetchProfile } = useAuth()
 
   const [selected, setSelected] = useState(profile?.goal_type || '')
   const [saving, setSaving] = useState(false)
@@ -96,6 +96,9 @@ export default function GoalSelectionPage() {
       return
     }
 
+    await fetchProfile(user.id)
+
+    setSaving(false)
     navigate('/mon-espace', { replace: true })
   }
 
@@ -157,8 +160,9 @@ export default function GoalSelectionPage() {
               maxWidth: 860,
             }}
           >
-            Cette sélection personnalise ton espace, ton programme et les priorités affichées dans l’application.
-            Tu pourras toujours revenir ici pour consulter les explications ou modifier ton choix.
+            Cette sélection personnalise ton espace, ton programme et les priorités affichées dans
+            l’application. Tu pourras toujours revenir ici pour consulter les explications ou
+            modifier ton choix.
           </div>
         </div>
 
