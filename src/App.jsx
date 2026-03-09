@@ -28,26 +28,7 @@ import ProgrammeAthletiquePage from './pages/ProgrammeAthletiquePage'
 
 import { T } from './lib/data'
 
-function ProtectedApp() {
-const { user, loading, profile } = useAuth()
-const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900)
-const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
-
-useEffect(() => {
-function handleResize() {
-const mobile = window.innerWidth < 900
-setIsMobile(mobile)
-
-if (!mobile) {
-setMobileSidebarOpen(false)
-}
-}
-
-window.addEventListener('resize', handleResize)
-return () => window.removeEventListener('resize', handleResize)
-}, [])
-
-if (loading) {
+function AppLoadingScreen() {
 return (
 <div
 style={{
@@ -68,6 +49,29 @@ Chargement...
 )
 }
 
+function ProtectedAppRoutes() {
+const { user, profile, loading } = useAuth()
+const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900)
+const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+
+useEffect(() => {
+function handleResize() {
+const mobile = window.innerWidth < 900
+setIsMobile(mobile)
+
+if (!mobile) {
+setMobileSidebarOpen(false)
+}
+}
+
+window.addEventListener('resize', handleResize)
+return () => window.removeEventListener('resize', handleResize)
+}, [])
+
+if (loading) {
+return <AppLoadingScreen />
+}
+
 if (!user) {
 return <AuthPage />
 }
@@ -75,14 +79,12 @@ return <AuthPage />
 const isCoach = profile?.role === 'coach'
 const hasGoal = !!profile?.goal_type
 
-function getDefaultAthleteRoute() {
-if (hasGoal) return '/mon-espace'
-return '/objectif'
+function getAthleteHomeRoute() {
+return hasGoal ? '/mon-espace' : '/objectif'
 }
 
 function getDefaultRoute() {
-if (isCoach) return '/coach'
-return getDefaultAthleteRoute()
+return isCoach ? '/coach' : getAthleteHomeRoute()
 }
 
 return (
@@ -107,7 +109,9 @@ onMenuClick={() => setMobileSidebarOpen((v) => !v)}
 
 <Route
 path="/objectif"
-element={isCoach ? <Navigate to="/coach" replace /> : <GoalSelectionPage />}
+element={
+isCoach ? <Navigate to="/coach" replace /> : <GoalSelectionPage />
+}
 />
 
 <Route
@@ -229,26 +233,51 @@ path="/progression"
 element={isCoach ? <Navigate to="/coach" replace /> : <ProgressionPage />}
 />
 
-<Route path="/coach" element={isCoach ? <CoachPage /> : <Navigate to={getDefaultAthleteRoute()} replace />} />
+<Route
+path="/coach"
+element={
+isCoach ? (
+<CoachPage />
+) : (
+<Navigate to={getAthleteHomeRoute()} replace />
+)
+}
+/>
 
 <Route
 path="/programmes"
-element={isCoach ? <ProgramBuilderPage /> : <Navigate to={getDefaultAthleteRoute()} replace />}
+element={
+isCoach ? (
+<ProgramBuilderPage />
+) : (
+<Navigate to={getAthleteHomeRoute()} replace />
+)
+}
 />
 
 <Route
 path="/programme/bodybuilding"
-element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammeBodybuildingPage />}
+element={
+isCoach ? <Navigate to="/coach" replace /> : <ProgrammeBodybuildingPage />
+}
 />
 
 <Route
 path="/programme/perte-de-poids"
-element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammePerteDePoidsPage />}
+element={
+isCoach ? (
+<Navigate to="/coach" replace />
+) : (
+<ProgrammePerteDePoidsPage />
+)
+}
 />
 
 <Route
 path="/programme/athletique"
-element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammeAthletiquePage />}
+element={
+isCoach ? <Navigate to="/coach" replace /> : <ProgrammeAthletiquePage />
+}
 />
 
 <Route path="*" element={<Navigate to={getDefaultRoute()} replace />} />
@@ -259,70 +288,37 @@ element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammeAthletiquePage /
 }
 
 function PublicInviteRoute() {
-const { user, loading, profile } = useAuth()
+const { user, profile, loading } = useAuth()
 
 if (loading) {
-return (
-<div
-style={{
-minHeight: '100vh',
-background: T.bg,
-display: 'flex',
-alignItems: 'center',
-justifyContent: 'center',
-fontFamily: T.fontDisplay,
-fontSize: 11,
-letterSpacing: 3,
-color: T.textDim,
-textTransform: 'uppercase',
-}}
->
-Chargement...
-</div>
-)
+return <AppLoadingScreen />
 }
 
 if (user) {
-const target = profile?.role === 'coach'
+const redirectTo =
+profile?.role === 'coach'
 ? '/coach'
 : profile?.goal_type
 ? '/mon-espace'
 : '/objectif'
 
-return <Navigate to={target} replace />
+return <Navigate to={redirectTo} replace />
 }
 
 return <InviteAcceptPage />
 }
 
-function AppRouter() {
+function AppRoutes() {
 const { loading } = useAuth()
 
 if (loading) {
-return (
-<div
-style={{
-minHeight: '100vh',
-background: T.bg,
-display: 'flex',
-alignItems: 'center',
-justifyContent: 'center',
-fontFamily: T.fontDisplay,
-fontSize: 11,
-letterSpacing: 3,
-color: T.textDim,
-textTransform: 'uppercase',
-}}
->
-Chargement...
-</div>
-)
+return <AppLoadingScreen />
 }
 
 return (
 <Routes>
 <Route path="/invite/:token" element={<PublicInviteRoute />} />
-<Route path="*" element={<ProtectedApp />} />
+<Route path="*" element={<ProtectedAppRoutes />} />
 </Routes>
 )
 }
@@ -332,8 +328,9 @@ return (
 <AuthProvider>
 <Grain />
 <BrowserRouter>
-<AppRouter />
+<AppRoutes />
 </BrowserRouter>
 </AuthProvider>
 )
 }
+
