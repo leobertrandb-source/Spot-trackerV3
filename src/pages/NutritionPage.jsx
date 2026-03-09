@@ -78,8 +78,284 @@ function ProgressBar({ label, value, goal, suffix = '', isMobile = false }) {
   )
 }
 
+function MiniMetric({ label, value, isMobile = false }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        gap: 12,
+        alignItems: 'center',
+        padding: '10px 12px',
+        borderRadius: 14,
+        background: 'rgba(255,255,255,0.03)',
+        border: '1px solid rgba(255,255,255,0.06)',
+      }}
+    >
+      <div
+        style={{
+          color: T.textMid,
+          fontSize: isMobile ? 12 : 13,
+          fontWeight: 700,
+        }}
+      >
+        {label}
+      </div>
+
+      <div
+        style={{
+          color: T.text,
+          fontSize: isMobile ? 13 : 14,
+          fontWeight: 900,
+        }}
+      >
+        {value}
+      </div>
+    </div>
+  )
+}
+
+function FoodSearchResult({ food, onSelect }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(food)}
+      style={{
+        width: '100%',
+        textAlign: 'left',
+        background: 'rgba(255,255,255,0.03)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        borderRadius: 14,
+        padding: '10px 12px',
+        color: T.text,
+        cursor: 'pointer',
+      }}
+    >
+      <div
+        style={{
+          fontSize: 14,
+          fontWeight: 800,
+          marginBottom: 4,
+        }}
+      >
+        {food.name}
+      </div>
+
+      <div
+        style={{
+          color: T.textDim,
+          fontSize: 12,
+          lineHeight: 1.5,
+        }}
+      >
+        {food.reference_quantity}
+        {food.unit} • {Number(food.calories || 0).toFixed(0)} kcal • P{' '}
+        {Number(food.proteins || 0).toFixed(1)} • C {Number(food.carbs || 0).toFixed(1)} • F{' '}
+        {Number(food.fats || 0).toFixed(1)}
+      </div>
+    </button>
+  )
+}
+
+function FoodQuickAddCard({
+  foodSearch,
+  setFoodSearch,
+  searchResults,
+  searchLoading,
+  selectedFood,
+  setSelectedFood,
+  quantity,
+  setQuantity,
+  addFoodLoading,
+  onAddFood,
+  isMobile = false,
+}) {
+  const preview = useMemo(() => {
+    if (!selectedFood) return null
+
+    const referenceQty = Number(selectedFood.reference_quantity || 100)
+    const safeQuantity = Number(quantity || 0)
+    const ratio = referenceQty > 0 ? safeQuantity / referenceQty : 0
+
+    return {
+      calories: Number(selectedFood.calories || 0) * ratio,
+      proteins: Number(selectedFood.proteins || 0) * ratio,
+      carbs: Number(selectedFood.carbs || 0) * ratio,
+      fats: Number(selectedFood.fats || 0) * ratio,
+      fiber: Number(selectedFood.fiber || 0) * ratio,
+    }
+  }, [selectedFood, quantity])
+
+  return (
+    <div
+      style={{
+        padding: isMobile ? '16px 14px' : '20px 20px',
+        borderRadius: 26,
+        background:
+          'linear-gradient(135deg, rgba(18,21,19,0.96), rgba(9,12,10,0.98))',
+        border: '1px solid rgba(255,255,255,0.08)',
+        boxShadow: '0 20px 50px rgba(0,0,0,0.22)',
+      }}
+    >
+      <div
+        style={{
+          fontSize: 14,
+          fontWeight: 800,
+          letterSpacing: 1,
+          textTransform: 'uppercase',
+          color: T.textSub,
+          marginBottom: 12,
+        }}
+      >
+        Ajouter un aliment
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gap: 12,
+        }}
+      >
+        <Input
+          label="Rechercher un aliment"
+          value={foodSearch}
+          onChange={setFoodSearch}
+          placeholder="Ex : banane, riz, poulet, skyr..."
+        />
+
+        {selectedFood ? (
+          <div
+            style={{
+              padding: '12px 12px',
+              borderRadius: 16,
+              background: 'rgba(45,255,155,0.08)',
+              border: `1px solid ${T.accent + '26'}`,
+            }}
+          >
+            <div
+              style={{
+                color: T.text,
+                fontSize: 15,
+                fontWeight: 800,
+              }}
+            >
+              {selectedFood.name}
+            </div>
+
+            <div
+              style={{
+                marginTop: 6,
+                color: T.textMid,
+                fontSize: 12,
+                lineHeight: 1.55,
+              }}
+            >
+              Référence : {selectedFood.reference_quantity}
+              {selectedFood.unit} • {Number(selectedFood.calories || 0).toFixed(0)} kcal • P{' '}
+              {Number(selectedFood.proteins || 0).toFixed(1)} • C{' '}
+              {Number(selectedFood.carbs || 0).toFixed(1)} • F{' '}
+              {Number(selectedFood.fats || 0).toFixed(1)}
+            </div>
+
+            <div style={{ marginTop: 10 }}>
+              <button
+                type="button"
+                onClick={() => setSelectedFood(null)}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.10)',
+                  color: T.textMid,
+                  borderRadius: 10,
+                  padding: '6px 10px',
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                Changer d’aliment
+              </button>
+            </div>
+          </div>
+        ) : foodSearch.trim().length >= 2 ? (
+          <div
+            style={{
+              display: 'grid',
+              gap: 8,
+              maxHeight: 260,
+              overflowY: 'auto',
+            }}
+          >
+            {searchLoading ? (
+              <div style={{ color: T.textDim, fontSize: 13 }}>Recherche...</div>
+            ) : searchResults.length ? (
+              searchResults.map((food) => (
+                <FoodSearchResult key={food.id} food={food} onSelect={setSelectedFood} />
+              ))
+            ) : (
+              <div style={{ color: T.textDim, fontSize: 13 }}>
+                Aucun aliment trouvé.
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        <Input
+          label={`Quantité${selectedFood ? ` (${selectedFood.unit || 'g'})` : ''}`}
+          value={quantity}
+          onChange={setQuantity}
+          type="number"
+          placeholder={selectedFood?.reference_quantity ? String(selectedFood.reference_quantity) : '100'}
+        />
+
+        {preview ? (
+          <div
+            style={{
+              padding: '12px 12px',
+              borderRadius: 16,
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.06)',
+            }}
+          >
+            <div
+              style={{
+                color: T.text,
+                fontWeight: 800,
+                fontSize: 13,
+                marginBottom: 8,
+                textTransform: 'uppercase',
+                letterSpacing: 0.8,
+              }}
+            >
+              Aperçu nutritionnel
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)',
+                gap: 8,
+              }}
+            >
+              <MiniMetric label="Calories" value={`${preview.calories.toFixed(0)} kcal`} isMobile={isMobile} />
+              <MiniMetric label="Prot" value={`${preview.proteins.toFixed(1)} g`} isMobile={isMobile} />
+              <MiniMetric label="Gluc" value={`${preview.carbs.toFixed(1)} g`} isMobile={isMobile} />
+              <MiniMetric label="Lip" value={`${preview.fats.toFixed(1)} g`} isMobile={isMobile} />
+            </div>
+          </div>
+        ) : null}
+
+        <Btn onClick={onAddFood} disabled={!selectedFood || !quantity || addFoodLoading}>
+          {addFoodLoading ? 'Ajout...' : 'Ajouter cet aliment'}
+        </Btn>
+      </div>
+    </div>
+  )
+}
+
 function MealCard({ meal, onDelete, isMobile = false }) {
-  const ingredients = meal.recipe_details?.ingredients || []
+  const items = meal.items || []
+  const recipeIngredients = meal.recipe_details?.ingredients || []
+  const hasFoodItems = items.length > 0
 
   return (
     <div
@@ -126,8 +402,8 @@ function MealCard({ meal, onDelete, isMobile = false }) {
                 lineHeight: 1.6,
               }}
             >
-              {meal.calories} kcal • P {Number(meal.proteins || 0).toFixed(0)}g • C{' '}
-              {Number(meal.carbs || 0).toFixed(0)}g • F {Number(meal.fats || 0).toFixed(0)}g
+              {Number(meal.calories || 0).toFixed(0)} kcal • P {Number(meal.proteins || 0).toFixed(1)}g • C{' '}
+              {Number(meal.carbs || 0).toFixed(1)}g • F {Number(meal.fats || 0).toFixed(1)}g
             </div>
           </div>
 
@@ -189,12 +465,44 @@ function MealCard({ meal, onDelete, isMobile = false }) {
             marginBottom: 10,
           }}
         >
-          Ingrédients
+          {hasFoodItems ? 'Aliments' : 'Ingrédients'}
         </div>
 
-        {ingredients.length ? (
+        {hasFoodItems ? (
           <div style={{ display: 'grid', gap: 8 }}>
-            {ingredients.map((ing, idx) => (
+            {items.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  padding: '10px 12px',
+                  borderRadius: 14,
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <div>
+                  <div style={{ color: T.text, fontWeight: 700 }}>
+                    {item.custom_name || item.food_name || 'Aliment'}
+                  </div>
+                  <div style={{ color: T.textDim, fontSize: 12, marginTop: 4 }}>
+                    P {Number(item.proteins || 0).toFixed(1)} • C {Number(item.carbs || 0).toFixed(1)} • F{' '}
+                    {Number(item.fats || 0).toFixed(1)}
+                  </div>
+                </div>
+
+                <div style={{ color: T.textMid, fontWeight: 800 }}>
+                  {Number(item.quantity || 0).toFixed(0)} {item.unit || 'g'}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : recipeIngredients.length ? (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {recipeIngredients.map((ing, idx) => (
               <div
                 key={idx}
                 style={{
@@ -217,7 +525,7 @@ function MealCard({ meal, onDelete, isMobile = false }) {
           </div>
         ) : (
           <div style={{ color: T.textDim, fontSize: 14 }}>
-            Aucun détail de recette enregistré pour ce repas.
+            Aucun détail enregistré pour ce repas.
           </div>
         )}
       </div>
@@ -225,50 +533,21 @@ function MealCard({ meal, onDelete, isMobile = false }) {
   )
 }
 
-function MiniMetric({ label, value, isMobile = false }) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        gap: 12,
-        alignItems: 'center',
-        padding: '10px 12px',
-        borderRadius: 14,
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.06)',
-      }}
-    >
-      <div
-        style={{
-          color: T.textMid,
-          fontSize: isMobile ? 12 : 13,
-          fontWeight: 700,
-        }}
-      >
-        {label}
-      </div>
-
-      <div
-        style={{
-          color: T.text,
-          fontSize: isMobile ? 13 : 14,
-          fontWeight: 900,
-        }}
-      >
-        {value}
-      </div>
-    </div>
-  )
-}
-
 export default function NutritionPage() {
   const { user } = useAuth()
+
   const [goals, setGoals] = useState(null)
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900)
+
+  const [foodSearch, setFoodSearch] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [selectedFood, setSelectedFood] = useState(null)
+  const [quantity, setQuantity] = useState('100')
+  const [addFoodLoading, setAddFoodLoading] = useState(false)
 
   useEffect(() => {
     function handleResize() {
@@ -278,6 +557,18 @@ export default function NutritionPage() {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  useEffect(() => {
+    loadNutrition()
+  }, [user?.id, logDate])
+
+  useEffect(() => {
+    const delay = setTimeout(() => {
+      searchFoods()
+    }, 250)
+
+    return () => clearTimeout(delay)
+  }, [foodSearch, user?.id])
 
   async function loadNutrition() {
     if (!user?.id) return
@@ -298,6 +589,30 @@ export default function NutritionPage() {
     if (goalsErr) console.error(goalsErr)
     if (logsErr) console.error(logsErr)
 
+    const baseLogs = logsData || []
+
+    let itemsMap = {}
+
+    if (baseLogs.length) {
+      const logIds = baseLogs.map((log) => log.id)
+
+      const { data: itemsData, error: itemsErr } = await supabase
+        .from('nutrition_log_items')
+        .select('id, nutrition_log_id, food_id, custom_name, quantity, unit, calories, proteins, carbs, fats, fiber')
+        .in('nutrition_log_id', logIds)
+        .order('created_at', { ascending: true })
+
+      if (itemsErr) {
+        console.error(itemsErr)
+      } else {
+        itemsMap = (itemsData || []).reduce((acc, item) => {
+          if (!acc[item.nutrition_log_id]) acc[item.nutrition_log_id] = []
+          acc[item.nutrition_log_id].push(item)
+          return acc
+        }, {})
+      }
+    }
+
     setGoals(
       goalsData || {
         calories: 2500,
@@ -307,13 +622,121 @@ export default function NutritionPage() {
         water: 2500,
       }
     )
-    setLogs(logsData || [])
+
+    setLogs(
+      baseLogs.map((log) => ({
+        ...log,
+        items: itemsMap[log.id] || [],
+      }))
+    )
+
     setLoading(false)
+  }
+
+  async function searchFoods() {
+    if (!user?.id) return
+
+    if (foodSearch.trim().length < 2) {
+      setSearchResults([])
+      setSearchLoading(false)
+      return
+    }
+
+    setSearchLoading(true)
+
+    const { data, error } = await supabase
+      .from('food_library')
+      .select('*')
+      .eq('is_active', true)
+      .ilike('name', `%${foodSearch.trim()}%`)
+      .order('name', { ascending: true })
+      .limit(12)
+
+    if (error) {
+      console.error(error)
+      setSearchResults([])
+      setSearchLoading(false)
+      return
+    }
+
+    setSearchResults(data || [])
+    setSearchLoading(false)
+  }
+
+  async function addFoodToLog() {
+    if (!user?.id || !selectedFood) return
+
+    const safeQuantity = Number(quantity || 0)
+    if (!safeQuantity || safeQuantity <= 0) {
+      alert('Entre une quantité valide.')
+      return
+    }
+
+    setAddFoodLoading(true)
+
+    const referenceQuantity = Number(selectedFood.reference_quantity || 100)
+    const ratio = referenceQuantity > 0 ? safeQuantity / referenceQuantity : 0
+
+    const calculated = {
+      calories: Number(selectedFood.calories || 0) * ratio,
+      proteins: Number(selectedFood.proteins || 0) * ratio,
+      carbs: Number(selectedFood.carbs || 0) * ratio,
+      fats: Number(selectedFood.fats || 0) * ratio,
+      fiber: Number(selectedFood.fiber || 0) * ratio,
+    }
+
+    const { data: createdLog, error: logError } = await supabase
+      .from('nutrition_logs')
+      .insert({
+        user_id: user.id,
+        log_date: logDate,
+        meal_name: selectedFood.name,
+        calories: Number(calculated.calories.toFixed(2)),
+        proteins: Number(calculated.proteins.toFixed(2)),
+        carbs: Number(calculated.carbs.toFixed(2)),
+        fats: Number(calculated.fats.toFixed(2)),
+        water: 0,
+        recipe_details: null,
+      })
+      .select()
+      .single()
+
+    if (logError) {
+      console.error(logError)
+      alert("Impossible d'ajouter cet aliment.")
+      setAddFoodLoading(false)
+      return
+    }
+
+    const { error: itemError } = await supabase.from('nutrition_log_items').insert({
+      nutrition_log_id: createdLog.id,
+      food_id: selectedFood.id,
+      custom_name: selectedFood.name,
+      quantity: safeQuantity,
+      unit: selectedFood.unit || 'g',
+      calories: Number(calculated.calories.toFixed(2)),
+      proteins: Number(calculated.proteins.toFixed(2)),
+      carbs: Number(calculated.carbs.toFixed(2)),
+      fats: Number(calculated.fats.toFixed(2)),
+      fiber: Number(calculated.fiber.toFixed(2)),
+    })
+
+    if (itemError) {
+      console.error(itemError)
+      alert("Le repas a été créé, mais l'aliment n'a pas pu être détaillé.")
+    }
+
+    setSelectedFood(null)
+    setFoodSearch('')
+    setSearchResults([])
+    setQuantity('100')
+    setAddFoodLoading(false)
+
+    await loadNutrition()
   }
 
   async function deleteMeal(id) {
     const confirmDelete = window.confirm('Supprimer ce repas ?')
-
     if (!confirmDelete) return
 
     const { error } = await supabase.from('nutrition_logs').delete().eq('id', id)
@@ -326,10 +749,6 @@ export default function NutritionPage() {
 
     setLogs((prev) => prev.filter((meal) => meal.id !== id))
   }
-
-  useEffect(() => {
-    loadNutrition()
-  }, [user?.id, logDate])
 
   const totals = useMemo(() => {
     return logs.reduce(
@@ -423,8 +842,8 @@ export default function NutritionPage() {
                 maxWidth: 760,
               }}
             >
-              Suis tes apports du jour, visualise tes objectifs et retrouve le détail des repas
-              déjà enregistrés.
+              Suis tes apports du jour, visualise tes objectifs et ajoute rapidement un aliment
+              sans saisir les macros à la main.
             </div>
 
             <div
@@ -455,59 +874,78 @@ export default function NutritionPage() {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr',
+                gridTemplateColumns: isMobile ? '1fr' : '1.15fr 0.85fr',
                 gap: 18,
                 marginBottom: 18,
               }}
             >
               <div
                 style={{
-                  padding: isMobile ? '16px 14px' : '20px 20px',
-                  borderRadius: 26,
-                  background:
-                    'linear-gradient(135deg, rgba(18,21,19,0.96), rgba(9,12,10,0.98))',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  boxShadow: '0 20px 50px rgba(0,0,0,0.22)',
+                  display: 'grid',
+                  gap: 18,
                 }}
               >
                 <div
                   style={{
-                    display: 'grid',
-                    gridTemplateColumns: isMobile
-                      ? '1fr'
-                      : 'repeat(auto-fit,minmax(220px,1fr))',
-                    gap: 14,
+                    padding: isMobile ? '16px 14px' : '20px 20px',
+                    borderRadius: 26,
+                    background:
+                      'linear-gradient(135deg, rgba(18,21,19,0.96), rgba(9,12,10,0.98))',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    boxShadow: '0 20px 50px rgba(0,0,0,0.22)',
                   }}
                 >
-                  <ProgressBar
-                    label="Calories"
-                    value={totals.calories}
-                    goal={goals?.calories}
-                    suffix=" kcal"
-                    isMobile={isMobile}
-                  />
-                  <ProgressBar
-                    label="Protéines"
-                    value={totals.proteins}
-                    goal={goals?.proteins}
-                    suffix="g"
-                    isMobile={isMobile}
-                  />
-                  <ProgressBar
-                    label="Glucides"
-                    value={totals.carbs}
-                    goal={goals?.carbs}
-                    suffix="g"
-                    isMobile={isMobile}
-                  />
-                  <ProgressBar
-                    label="Lipides"
-                    value={totals.fats}
-                    goal={goals?.fats}
-                    suffix="g"
-                    isMobile={isMobile}
-                  />
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit,minmax(220px,1fr))',
+                      gap: 14,
+                    }}
+                  >
+                    <ProgressBar
+                      label="Calories"
+                      value={totals.calories}
+                      goal={goals?.calories}
+                      suffix=" kcal"
+                      isMobile={isMobile}
+                    />
+                    <ProgressBar
+                      label="Protéines"
+                      value={totals.proteins}
+                      goal={goals?.proteins}
+                      suffix="g"
+                      isMobile={isMobile}
+                    />
+                    <ProgressBar
+                      label="Glucides"
+                      value={totals.carbs}
+                      goal={goals?.carbs}
+                      suffix="g"
+                      isMobile={isMobile}
+                    />
+                    <ProgressBar
+                      label="Lipides"
+                      value={totals.fats}
+                      goal={goals?.fats}
+                      suffix="g"
+                      isMobile={isMobile}
+                    />
+                  </div>
                 </div>
+
+                <FoodQuickAddCard
+                  foodSearch={foodSearch}
+                  setFoodSearch={setFoodSearch}
+                  searchResults={searchResults}
+                  searchLoading={searchLoading}
+                  selectedFood={selectedFood}
+                  setSelectedFood={setSelectedFood}
+                  quantity={quantity}
+                  setQuantity={setQuantity}
+                  addFoodLoading={addFoodLoading}
+                  onAddFood={addFoodToLog}
+                  isMobile={isMobile}
+                />
               </div>
 
               <div
@@ -518,6 +956,7 @@ export default function NutritionPage() {
                     'radial-gradient(circle at 20% 20%, rgba(45,255,155,0.10), transparent 30%), linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
                   border: '1px solid rgba(255,255,255,0.08)',
                   boxShadow: '0 20px 50px rgba(0,0,0,0.22)',
+                  alignSelf: 'start',
                 }}
               >
                 <div
@@ -540,21 +979,9 @@ export default function NutritionPage() {
                   }}
                 >
                   <MiniMetric label="Calories" value={`${remaining.calories} kcal`} isMobile={isMobile} />
-                  <MiniMetric
-                    label="Protéines"
-                    value={`${remaining.proteins.toFixed(0)} g`}
-                    isMobile={isMobile}
-                  />
-                  <MiniMetric
-                    label="Glucides"
-                    value={`${remaining.carbs.toFixed(0)} g`}
-                    isMobile={isMobile}
-                  />
-                  <MiniMetric
-                    label="Lipides"
-                    value={`${remaining.fats.toFixed(0)} g`}
-                    isMobile={isMobile}
-                  />
+                  <MiniMetric label="Protéines" value={`${remaining.proteins.toFixed(0)} g`} isMobile={isMobile} />
+                  <MiniMetric label="Glucides" value={`${remaining.carbs.toFixed(0)} g`} isMobile={isMobile} />
+                  <MiniMetric label="Lipides" value={`${remaining.fats.toFixed(0)} g`} isMobile={isMobile} />
                 </div>
               </div>
             </div>
