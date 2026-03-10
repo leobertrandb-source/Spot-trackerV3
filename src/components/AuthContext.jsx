@@ -21,116 +21,91 @@ export function AuthProvider({ children }) {
         .eq('id', userId)
         .maybeSingle()
 
-      if (error) {
-        throw error
-      }
+      if (error) throw error
 
       setProfile(data || null)
       return data || null
     } catch (error) {
-      console.error('Erreur fetchProfile:', error)
+      console.error('fetchProfile error:', error)
       setProfile(null)
       return null
     }
   }, [])
 
   useEffect(() => {
-    let isMounted = true
+    let active = true
 
-    async function initAuth() {
-      setLoading(true)
-
+    async function init() {
       try {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession()
+        const result = await supabase.auth.getSession()
+        const session = result?.data?.session ?? null
 
-        if (!isMounted) return
+        if (!active) return
 
-        if (error) {
-          throw error
-        }
-
-        const currentUser = session?.user ?? null
-        setUser(currentUser)
-
-        // IMPORTANT :
-        // on débloque l'app dès que la session est connue
+        const nextUser = session?.user ?? null
+        setUser(nextUser)
         setLoading(false)
 
-        // le profil charge ensuite en arrière-plan
-        if (currentUser?.id) {
-          fetchProfile(currentUser.id)
+        if (nextUser?.id) {
+          fetchProfile(nextUser.id)
         } else {
           setProfile(null)
         }
       } catch (error) {
-        console.error('Erreur init auth:', error)
-
-        if (!isMounted) return
+        console.error('init auth error:', error)
+        if (!active) return
         setUser(null)
         setProfile(null)
         setLoading(false)
       }
     }
 
-    initAuth()
+    init()
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!isMounted) return
+      if (!active) return
 
-      const currentUser = session?.user ?? null
-      setUser(currentUser)
-
-      // on ne rebloque jamais toute l'app ici
+      const nextUser = session?.user ?? null
+      setUser(nextUser)
       setLoading(false)
 
-      if (currentUser?.id) {
-        fetchProfile(currentUser.id)
+      if (nextUser?.id) {
+        fetchProfile(nextUser.id)
       } else {
         setProfile(null)
       }
     })
 
     return () => {
-      isMounted = false
+      active = false
       subscription.unsubscribe()
     }
   }, [fetchProfile])
 
   const signOut = useCallback(async () => {
-    try {
-      const { error } = await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut()
 
-      if (error) {
-        throw error
-      }
-
+    if (!error) {
       setUser(null)
       setProfile(null)
       setLoading(false)
-
-      return { error: null }
-    } catch (error) {
-      console.error('Erreur signOut:', error)
-      return { error }
     }
+
+    return { error }
   }, [])
 
-  const value = useMemo(
-    () => ({
+  const value = useMemo(() => {
+    return {
       user,
       profile,
       loading,
       fetchProfile,
       setProfile,
       signOut,
-    }),
-    [user, profile, loading, fetchProfile, signOut]
-  )
+    }
+  }, [user, profile, loading, fetchProfile, signOut])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
