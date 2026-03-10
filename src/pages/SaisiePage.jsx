@@ -4,9 +4,81 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import { Card, Label, Input, Btn, Badge, PageWrap } from '../components/UI'
 import { SEANCES, SEANCE_ICONS, T } from '../lib/data'
+import { resolveExerciseImage } from '../lib/media'
 
 function uniq(arr) {
   return [...new Set(arr.filter(Boolean))]
+}
+
+function ExerciseLibraryItem({ exercise, onAdd }) {
+  const imageUrl = resolveExerciseImage(exercise)
+
+  return (
+    <button
+      type="button"
+      onClick={() => onAdd(exercise)}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '56px minmax(0, 1fr) auto',
+        gap: 10,
+        alignItems: 'center',
+        padding: '10px 12px',
+        borderRadius: 14,
+        border: `1px solid ${T.border}`,
+        background: 'rgba(255,255,255,0.03)',
+        color: T.text,
+        cursor: 'pointer',
+        textAlign: 'left',
+      }}
+    >
+      <div
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: 12,
+          overflow: 'hidden',
+          border: `1px solid ${T.border}`,
+          background: imageUrl
+            ? `url("${imageUrl}") center/cover no-repeat`
+            : 'linear-gradient(135deg, rgba(45,255,155,0.12), rgba(255,255,255,0.04))',
+          display: 'grid',
+          placeItems: 'center',
+          color: T.textDim,
+          fontWeight: 900,
+          fontSize: 11,
+          textTransform: 'uppercase',
+          letterSpacing: 1,
+        }}
+      >
+        {!imageUrl ? 'EXO' : null}
+      </div>
+
+      <div style={{ minWidth: 0 }}>
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 800,
+            color: T.text,
+            lineHeight: 1.35,
+          }}
+        >
+          {exercise}
+        </div>
+
+        <div
+          style={{
+            color: T.textDim,
+            fontSize: 11,
+            marginTop: 4,
+          }}
+        >
+          Bibliothèque d’exercices
+        </div>
+      </div>
+
+      <Badge>Ajouter</Badge>
+    </button>
+  )
 }
 
 export default function SaisiePage() {
@@ -17,8 +89,7 @@ export default function SaisiePage() {
   const seanceKeys = Object.keys(SEANCES)
 
   const allExercises = useMemo(() => {
-    return uniq(Object.values(SEANCES).flat())
-      .sort((a, b) => a.localeCompare(b, 'fr'))
+    return uniq(Object.values(SEANCES).flat()).sort((a, b) => a.localeCompare(b, 'fr'))
   }, [])
 
   const [date, setDate] = useState(today)
@@ -27,7 +98,7 @@ export default function SaisiePage() {
   const [status, setStatus] = useState(null)
 
   const [exerciseSearch, setExerciseSearch] = useState('')
-  const [libraryMode, setLibraryMode] = useState('all') // all | session
+  const [libraryMode, setLibraryMode] = useState('all')
 
   const defaultExercise = SEANCES[seance]?.[0] || allExercises[0] || ''
 
@@ -55,6 +126,14 @@ export default function SaisiePage() {
       String(exercise).toLowerCase().includes(q)
     )
   }, [allExercises, sessionExercises, libraryMode, exerciseSearch])
+
+  const focusedExercise = useMemo(() => {
+    return sets[sets.length - 1]?.exercise || defaultExercise
+  }, [sets, defaultExercise])
+
+  const focusedExerciseImage = useMemo(() => {
+    return resolveExerciseImage(focusedExercise)
+  }, [focusedExercise])
 
   function touchDirty() {
     markDirty?.()
@@ -262,7 +341,7 @@ export default function SaisiePage() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.5fr) 320px',
+          gridTemplateColumns: 'minmax(0, 1.45fr) 360px',
           gap: 16,
           alignItems: 'start',
         }}
@@ -473,108 +552,154 @@ export default function SaisiePage() {
           </div>
         </Card>
 
-        <Card>
-          <Label>Bibliothèque d’exercices</Label>
-
-          <div style={{ display: 'grid', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={() => setLibraryMode('all')}
-                style={{
-                  height: 36,
-                  padding: '0 12px',
-                  borderRadius: 999,
-                  border: `1px solid ${libraryMode === 'all' ? T.accent + '40' : T.border}`,
-                  background:
-                    libraryMode === 'all'
-                      ? 'rgba(45,255,155,0.10)'
-                      : 'rgba(255,255,255,0.03)',
-                  color: libraryMode === 'all' ? T.accentLight : T.textMid,
-                  cursor: 'pointer',
-                  fontWeight: 800,
-                  fontSize: 12,
-                }}
-              >
-                Toute la bibliothèque
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setLibraryMode('session')}
-                style={{
-                  height: 36,
-                  padding: '0 12px',
-                  borderRadius: 999,
-                  border: `1px solid ${libraryMode === 'session' ? T.accent + '40' : T.border}`,
-                  background:
-                    libraryMode === 'session'
-                      ? 'rgba(45,255,155,0.10)'
-                      : 'rgba(255,255,255,0.03)',
-                  color: libraryMode === 'session' ? T.accentLight : T.textMid,
-                  cursor: 'pointer',
-                  fontWeight: 800,
-                  fontSize: 12,
-                }}
-              >
-                Exos de la séance
-              </button>
-            </div>
-
-            <Input
-              label="Rechercher un exercice"
-              value={exerciseSearch}
-              onChange={setExerciseSearch}
-              placeholder="Développé couché, squat, rowing..."
-            />
-
+        <div style={{ display: 'grid', gap: 16 }}>
+          <Card style={{ padding: 0, overflow: 'hidden' }}>
             <div
               style={{
-                maxHeight: 460,
-                overflowY: 'auto',
-                display: 'grid',
-                gap: 8,
-                paddingRight: 4,
+                minHeight: 250,
+                background: focusedExerciseImage
+                  ? `linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.70)), url("${focusedExerciseImage}") center/cover no-repeat`
+                  : 'linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
               }}
             >
-              {libraryExercises.length === 0 ? (
+              <div
+                style={{
+                  minHeight: 250,
+                  padding: 18,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  background: focusedExerciseImage
+                    ? 'linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.76))'
+                    : 'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.10), transparent 30%)',
+                }}
+              >
                 <div
                   style={{
-                    color: T.textDim,
-                    fontSize: 13,
-                    padding: '8px 2px',
+                    color: '#fff',
+                    fontSize: 12,
+                    fontWeight: 800,
+                    letterSpacing: 1,
+                    textTransform: 'uppercase',
                   }}
                 >
-                  Aucun exercice trouvé.
+                  Aperçu exercice
                 </div>
-              ) : (
-                libraryExercises.map((exercise) => (
-                  <button
-                    key={exercise}
-                    type="button"
-                    onClick={() => addSet(exercise)}
+
+                <div>
+                  <div
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 12,
-                      padding: '11px 12px',
-                      borderRadius: 14,
-                      border: `1px solid ${T.border}`,
-                      background: 'rgba(255,255,255,0.03)',
-                      color: T.text,
-                      cursor: 'pointer',
-                      textAlign: 'left',
+                      color: '#fff',
+                      fontSize: 24,
+                      fontWeight: 900,
+                      lineHeight: 1.1,
                     }}
                   >
-                    <span style={{ fontSize: 13, fontWeight: 700 }}>{exercise}</span>
-                    <Badge>Ajouter</Badge>
-                  </button>
-                ))
-              )}
+                    {focusedExercise || 'Exercice'}
+                  </div>
+
+                  <div
+                    style={{
+                      color: 'rgba(255,255,255,0.82)',
+                      fontSize: 13,
+                      marginTop: 8,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Visuel chargé depuis le bucket ui-assets si disponible.
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+
+          <Card>
+            <Label>Bibliothèque d’exercices</Label>
+
+            <div style={{ display: 'grid', gap: 12 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setLibraryMode('all')}
+                  style={{
+                    height: 36,
+                    padding: '0 12px',
+                    borderRadius: 999,
+                    border: `1px solid ${libraryMode === 'all' ? T.accent + '40' : T.border}`,
+                    background:
+                      libraryMode === 'all'
+                        ? 'rgba(45,255,155,0.10)'
+                        : 'rgba(255,255,255,0.03)',
+                    color: libraryMode === 'all' ? T.accentLight : T.textMid,
+                    cursor: 'pointer',
+                    fontWeight: 800,
+                    fontSize: 12,
+                  }}
+                >
+                  Toute la bibliothèque
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setLibraryMode('session')}
+                  style={{
+                    height: 36,
+                    padding: '0 12px',
+                    borderRadius: 999,
+                    border: `1px solid ${libraryMode === 'session' ? T.accent + '40' : T.border}`,
+                    background:
+                      libraryMode === 'session'
+                        ? 'rgba(45,255,155,0.10)'
+                        : 'rgba(255,255,255,0.03)',
+                    color: libraryMode === 'session' ? T.accentLight : T.textMid,
+                    cursor: 'pointer',
+                    fontWeight: 800,
+                    fontSize: 12,
+                  }}
+                >
+                  Exos de la séance
+                </button>
+              </div>
+
+              <Input
+                label="Rechercher un exercice"
+                value={exerciseSearch}
+                onChange={setExerciseSearch}
+                placeholder="Développé couché, squat, rowing..."
+              />
+
+              <div
+                style={{
+                  maxHeight: 520,
+                  overflowY: 'auto',
+                  display: 'grid',
+                  gap: 8,
+                  paddingRight: 4,
+                }}
+              >
+                {libraryExercises.length === 0 ? (
+                  <div
+                    style={{
+                      color: T.textDim,
+                      fontSize: 13,
+                      padding: '8px 2px',
+                    }}
+                  >
+                    Aucun exercice trouvé.
+                  </div>
+                ) : (
+                  libraryExercises.map((exercise) => (
+                    <ExerciseLibraryItem
+                      key={exercise}
+                      exercise={exercise}
+                      onAdd={addSet}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          </Card>
+        </div>
       </div>
     </PageWrap>
   )
