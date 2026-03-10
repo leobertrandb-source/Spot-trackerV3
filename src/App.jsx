@@ -2,11 +2,11 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { useEffect, useState } from 'react'
 
 import { AuthProvider, useAuth } from './components/AuthContext'
-import { DirtyProvider } from '../components/DirtyContext'
-import { Grain, Layout } from '../components/UI'
+import { DirtyProvider } from './components/DirtyContext'
+import { Grain, Layout } from './components/UI'
 
-import Sidebar from '../components/Sidebar'
-import Topbar from '../components/Topbar'
+import Sidebar from './components/Sidebar'
+import Topbar from './components/Topbar'
 
 import AuthPage from '../pages/AuthPage'
 import InviteAcceptPage from '../pages/InviteAcceptPage'
