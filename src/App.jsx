@@ -60,7 +60,10 @@ useEffect(() => {
 function handleResize() {
 const mobile = window.innerWidth < 900
 setIsMobile(mobile)
-if (!mobile) setMobileSidebarOpen(false)
+
+if (!mobile) {
+setMobileSidebarOpen(false)
+}
 }
 
 window.addEventListener('resize', handleResize)
@@ -230,44 +233,28 @@ element={isCoach ? <Navigate to="/coach" replace /> : <ProgressionPage />}
 <Route
 path="/coach"
 element={
-isCoach ? (
-<CoachPage />
-) : (
-<Navigate to={athleteHome} replace />
-)
+isCoach ? <CoachPage /> : <Navigate to={athleteHome} replace />
 }
 />
 
 <Route
 path="/coach/clients"
 element={
-isCoach ? (
-<CoachClientsPage />
-) : (
-<Navigate to={athleteHome} replace />
-)
+isCoach ? <CoachClientsPage /> : <Navigate to={athleteHome} replace />
 }
 />
 
 <Route
 path="/coach/client/:id"
 element={
-isCoach ? (
-<CoachClientDetailPage />
-) : (
-<Navigate to={athleteHome} replace />
-)
+isCoach ? <CoachClientDetailPage /> : <Navigate to={athleteHome} replace />
 }
 />
 
 <Route
 path="/programmes"
 element={
-isCoach ? (
-<ProgramBuilderPage />
-) : (
-<Navigate to={athleteHome} replace />
-)
+isCoach ? <ProgramBuilderPage /> : <Navigate to={athleteHome} replace />
 }
 />
 
@@ -281,11 +268,7 @@ isCoach ? <Navigate to="/coach" replace /> : <ProgrammeBodybuildingPage />
 <Route
 path="/programme/perte-de-poids"
 element={
-isCoach ? (
-<Navigate to="/coach" replace />
-) : (
-<ProgrammePerteDePoidsPage />
-)
+isCoach ? <Navigate to="/coach" replace /> : <ProgrammePerteDePoidsPage />
 }
 />
 
