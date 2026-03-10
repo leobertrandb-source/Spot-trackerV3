@@ -1,593 +1,732 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-import { Card, Label, Select, StatCard, PageWrap, Btn, Input } from '../components/UI'
-import { ALL_EXERCISES, T } from '../lib/data'
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ReferenceLine,
-} from 'recharts'
+import { PageWrap, Card, StatCard, Badge } from '../components/UI'
+import { T } from '../lib/data'
 
-function formatDateFR(d) {
-  if (!d) return ''
-  if (typeof d === 'string' && d.includes('-')) {
-    const [y, m, day] = d.split('-')
-    return `${day}/${m}/${y}`
+function formatDate(value) {
+  if (!value) return '—'
+
+  try {
+    return new Date(value).toLocaleDateString('fr-FR')
+  } catch {
+    return String(value)
   }
-  return String(d)
 }
 
-function numberOrNull(v) {
-  if (v === '' || v === null || v === undefined) return null
-  const n = Number(v)
-  return Number.isFinite(n) ? n : null
+function startOfDay(date) {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  return d
 }
 
-function extFromFile(file) {
-  const n = (file?.name || '').toLowerCase()
-  if (n.endsWith('.png')) return 'png'
-  if (n.endsWith('.webp')) return 'webp'
-  if (n.endsWith('.jpeg')) return 'jpg'
-  if (n.endsWith('.jpg')) return 'jpg'
-  return 'jpg'
+function daysBetween(a, b) {
+  const ms = startOfDay(b).getTime() - startOfDay(a).getTime()
+  return Math.round(ms / (1000 * 60 * 60 * 24))
 }
 
-function ChartTooltip({ active, payload, label, unit = '' }) {
-  if (!active || !payload?.length) return null
-  return (
-    <div
-      style={{
-        background: T.card,
-        border: `1px solid ${T.border}`,
-        borderRadius: T.radiusSm,
-        padding: '10px 14px',
-        boxShadow: T.shadowCard,
-      }}
-    >
-      <div
-        style={{
-          fontFamily: T.fontDisplay,
-          fontWeight: 800,
-          fontSize: 11,
-          color: T.accent,
-          letterSpacing: 1,
-          marginBottom: 6,
-          textTransform: 'uppercase',
-        }}
-      >
-        {formatDateFR(label)}
-      </div>
+function estimate1RM(weight, reps) {
+  const w = Number(weight || 0)
+  const r = Number(reps || 0)
 
-      {payload.map((p, i) => (
-        <div
-          key={i}
-          style={{
-            fontFamily: T.fontDisplay,
-            fontWeight: 900,
-            fontSize: 18,
-            color: p.color || T.text,
-          }}
-        >
-          {p.value}
-          <span style={{ fontSize: 11, fontWeight: 650, color: T.textMid, marginLeft: 6 }}>
-            {unit}
-          </span>
-        </div>
-      ))}
-    </div>
-  )
+  if (!w || !r) return 0
+  return w * (1 + r / 30)
+}
+
+function getSessionVolume(session) {
+  return (session.sets || []).reduce((sum, setRow) => {
+    return sum + Number(setRow.weight || 0) * Number(setRow.reps || 0)
+  }, 0)
+}
+
+function buildWeeklyBuckets(sessions) {
+  const buckets = new Map()
+
+  sessions.forEach((session) => {
+    if (!session.date) return
+    const date = new Date(session.date)
+    if (Number.isNaN(date.getTime())) return
+
+    const weekKey = `${date.getFullYear()}-${String(getWeekNumber(date)).padStart(2, '0')}`
+
+    const current = buckets.get(weekKey) || {
+      key: weekKey,
+      label: weekLabel(date),
+      sessions: 0,
+      volume: 0,
+      sets: 0,
+    }
+
+    current.sessions += 1
+    current.volume += getSessionVolume(session)
+    current.sets += session.sets?.length || 0
+
+    buckets.set(weekKey, current)
+  })
+
+  return [...buckets.values()].sort((a, b) => a.key.localeCompare(b.key))
+}
+
+function getWeekNumber(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const dayNum = d.getUTCDay() || 7
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7)
+}
+
+function weekLabel(date) {
+  return `S${getWeekNumber(date)} ${date.getFullYear()}`
+}
+
+function getTrendLabel(first, last) {
+  if (!first && !last) return 'Stable'
+  if (!first && last) return 'En hausse'
+
+  const base = Number(first || 0)
+  const now = Number(last || 0)
+
+  if (!base && !now) return 'Stable'
+  if (!base && now) return 'En hausse'
+
+  const diff = ((now - base) / base) * 100
+
+  if (diff > 5) return 'En hausse'
+  if (diff < -5) return 'En baisse'
+  return 'Stable'
 }
 
 export default function ProgressionPage() {
-  const { user, profile } = useAuth()
-  const isCoach = profile?.role === 'coach'
+  const { user } = useAuth()
 
-  const [tab, setTab] = useState('charges') // charges | mesures | prs | photos
+  const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
 
-  // ---------- Charges ----------
-  const [allSessions, setAllSessions] = useState([])
-  const [usedExercises, setUsedExercises] = useState([])
-  const [selectedExercise, setSelectedExercise] = useState('')
-  const [chargeMetric, setChargeMetric] = useState('weight') // weight | reps
+  const loadProgress = useCallback(async () => {
+    if (!user?.id) {
+      setSessions([])
+      setLoading(false)
+      return
+    }
 
-  // ---------- Mesures ----------
-  const [metrics, setMetrics] = useState([])
-  const [mDate, setMDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [weight, setWeight] = useState('')
-  const [bodyfat, setBodyfat] = useState('')
-  const [waist, setWaist] = useState('')
-  const [note, setNote] = useState('')
+    setLoading(true)
+    setErrorMessage('')
 
-  // ---------- PR ----------
-  const [prs, setPrs] = useState([])
-  const [prDate, setPrDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [exercise, setExercise] = useState('')
-  const [prType, setPrType] = useState('1RM')
-  const [prValue, setPrValue] = useState('')
-  const [prUnit, setPrUnit] = useState('kg')
-  const [prNote, setPrNote] = useState('')
+    try {
+      const { data: sessionsData, error: sessionsError } = await supabase
+        .from('sessions')
+        .select('id, user_id, date, seance_type, notes')
+        .eq('user_id', user.id)
+        .order('date', { ascending: true })
 
-  // ---------- Photos ----------
-  const [photos, setPhotos] = useState([])
-  const [photoUrls, setPhotoUrls] = useState({})
-  const [photoDate, setPhotoDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [photoTag, setPhotoTag] = useState('front')
-  const [photoNote, setPhotoNote] = useState('')
-  const [uploading, setUploading] = useState(false)
+      if (sessionsError) {
+        throw sessionsError
+      }
 
-  async function refreshSignedUrls(list) {
-    const entries = await Promise.all(
-      (list || []).map(async (ph) => {
-        const { data, error } = await supabase.storage
-          .from('progress-photos')
-          .createSignedUrl(ph.storage_path, 60 * 60)
+      const sessionIds = (sessionsData || []).map((session) => session.id).filter(Boolean)
+
+      let setsData = []
+
+      if (sessionIds.length > 0) {
+        const { data, error } = await supabase
+          .from('sets')
+          .select('*')
+          .in('session_id', sessionIds)
+          .order('set_order', { ascending: true })
 
         if (error) {
-          console.error('signed url error', ph.storage_path, error)
-          return [ph.storage_path, null]
+          throw error
         }
-        return [ph.storage_path, data?.signedUrl || null]
-      })
-    )
 
-    const map = {}
-    for (const [path, url] of entries) map[path] = url
-    setPhotoUrls(map)
-  }
+        setsData = data || []
+      }
 
-  async function loadAll() {
-    if (!user?.id) return
-    setLoading(true)
+      const setsBySession = setsData.reduce((acc, row) => {
+        if (!acc[row.session_id]) acc[row.session_id] = []
+        acc[row.session_id].push(row)
+        return acc
+      }, {})
 
-    const { data: sessions, error: sErr } = await supabase
-      .from('sessions')
-      .select('id, date, seance_type')
-      .eq('user_id', user.id)
-      .order('date')
-
-    if (sErr) console.error('sessions load error', sErr)
-
-    let merged = []
-    if (sessions?.length) {
-      const ids = sessions.map((s) => s.id)
-      const { data: sets, error: setsErr } = await supabase.from('sets').select('*').in('session_id', ids)
-      if (setsErr) console.error('sets load error', setsErr)
-
-      merged = (sessions || []).map((s) => ({
-        ...s,
-        sets: (sets || []).filter((st) => st.session_id === s.id),
+      const built = (sessionsData || []).map((session) => ({
+        ...session,
+        sets: setsBySession[session.id] || [],
       }))
 
-      const exos = [...new Set((sets || []).map((st) => st.exercise).filter(Boolean))]
-      setUsedExercises(exos)
-      if (!selectedExercise && exos.length) setSelectedExercise(exos[0])
-    } else {
-      setUsedExercises([])
-      setSelectedExercise('')
+      setSessions(built)
+    } catch (error) {
+      console.error('Erreur chargement progression :', error)
+      setSessions([])
+      setErrorMessage("Impossible de charger la progression pour le moment.")
+    } finally {
+      setLoading(false)
     }
-    setAllSessions(merged)
-
-    const [
-      { data: mData, error: mErr },
-      { data: prData, error: prErr },
-      { data: phData, error: phErr },
-    ] = await Promise.all([
-      supabase.from('body_metrics').select('*').order('metric_date', { ascending: true }).limit(240),
-      supabase.from('exercise_prs').select('*').order('pr_date', { ascending: false }).limit(80),
-      supabase.from('progress_photos').select('*').order('photo_date', { ascending: false }).limit(48),
-    ])
-
-    if (mErr) console.error('body_metrics load error', mErr)
-    if (prErr) console.error('exercise_prs load error', prErr)
-    if (phErr) console.error('progress_photos load error', phErr)
-
-    setMetrics(mData || [])
-    setPrs(prData || [])
-    setPhotos(phData || [])
-    await refreshSignedUrls(phData || [])
-
-    setLoading(false)
-  }
-
-  useEffect(() => {
-    loadAll()
   }, [user?.id])
 
-  const chargesChartData = useMemo(() => {
-    if (!selectedExercise) return []
-    const points = []
-    allSessions.forEach((session) => {
-      const matching = (session.sets || []).filter(
-        (s) => s.exercise === selectedExercise && s[chargeMetric]
+  useEffect(() => {
+    loadProgress()
+  }, [loadProgress])
+
+  const overview = useMemo(() => {
+    const totalSessions = sessions.length
+    const totalSets = sessions.reduce((sum, session) => sum + (session.sets?.length || 0), 0)
+    const totalVolume = sessions.reduce((sum, session) => sum + getSessionVolume(session), 0)
+
+    const firstDate = sessions[0]?.date || null
+    const lastDate = sessions[sessions.length - 1]?.date || null
+    const activeDays = firstDate && lastDate ? Math.max(1, daysBetween(firstDate, lastDate) + 1) : 0
+
+    const bestWeight = sessions.reduce((max, session) => {
+      const currentBest = (session.sets || []).reduce(
+        (innerMax, setRow) => Math.max(innerMax, Number(setRow.weight || 0)),
+        0
       )
-      if (!matching.length) return
+      return Math.max(max, currentBest)
+    }, 0)
 
-      const best = matching.reduce((acc, s) => {
-        const a = parseFloat(acc?.[chargeMetric]) || 0
-        const b = parseFloat(s?.[chargeMetric]) || 0
-        return b > a ? s : acc
-      }, matching[0])
+    const best1RM = sessions.reduce((max, session) => {
+      const currentBest = (session.sets || []).reduce(
+        (innerMax, setRow) => Math.max(innerMax, estimate1RM(setRow.weight, setRow.reps)),
+        0
+      )
+      return Math.max(max, currentBest)
+    }, 0)
 
-      const val = parseFloat(best?.[chargeMetric]) || 0
-      if (val > 0) points.push({ date: session.date, [chargeMetric]: val })
-    })
-    return points
-  }, [allSessions, selectedExercise, chargeMetric])
-
-  const chargesStats = useMemo(() => {
-    if (!chargesChartData.length) return null
-    const vals = chargesChartData.map((d) => d[chargeMetric])
-    const first = vals[0]
-    const last = vals[vals.length - 1]
-    const max = Math.max(...vals)
-    const progressPct = vals.length > 1 && first ? ((last - first) / first) * 100 : 0
-    return { max, last, first, progressPct, sessions: chargesChartData.length }
-  }, [chargesChartData, chargeMetric])
-
-  const weightSeries = useMemo(() => {
-    return (metrics || [])
-      .filter((m) => m.weight_kg !== null && m.weight_kg !== undefined)
-      .map((m) => ({ date: m.metric_date, weight: Number(m.weight_kg) }))
-  }, [metrics])
-
-  const weightStats = useMemo(() => {
-    if (!weightSeries.length) return null
-    const first = weightSeries[0].weight
-    const last = weightSeries[weightSeries.length - 1].weight
-    const min = Math.min(...weightSeries.map((d) => d.weight))
-    const max = Math.max(...weightSeries.map((d) => d.weight))
-    const delta = last - first
-    const deltaPct = first ? (delta / first) * 100 : 0
-    return { first, last, min, max, delta, deltaPct }
-  }, [weightSeries])
-
-  async function addMetric() {
-    if (!user?.id) return
-    const w = numberOrNull(weight)
-    const bf = numberOrNull(bodyfat)
-    const wc = numberOrNull(waist)
-    if (w === null && bf === null && wc === null) return
-
-    setSaving(true)
-    const { error } = await supabase.from('body_metrics').insert({
-      user_id: user.id,
-      metric_date: mDate,
-      weight_kg: w,
-      bodyfat_pct: bf,
-      waist_cm: wc,
-      note: note || null,
-    })
-
-    if (error) {
-      console.error('addMetric error', error)
-      alert(error.message)
-      setSaving(false)
-      return
+    return {
+      totalSessions,
+      totalSets,
+      totalVolume,
+      activeDays,
+      bestWeight,
+      best1RM,
+      firstDate,
+      lastDate,
     }
+  }, [sessions])
 
-    setWeight('')
-    setBodyfat('')
-    setWaist('')
-    setNote('')
-    await loadAll()
-    setSaving(false)
-  }
+  const exerciseStats = useMemo(() => {
+    const map = new Map()
 
-  async function addPr() {
-    if (!user?.id) return
-    if (!exercise.trim() || prValue === '') return
+    sessions.forEach((session) => {
+      ;(session.sets || []).forEach((setRow) => {
+        const name = String(setRow.exercise || 'Exercice').trim()
+        const current = map.get(name) || {
+          name,
+          totalSets: 0,
+          totalVolume: 0,
+          bestWeight: 0,
+          best1RM: 0,
+          occurrences: 0,
+        }
 
-    setSaving(true)
-    const { error } = await supabase.from('exercise_prs').insert({
-      user_id: user.id,
-      exercise_name: exercise.trim(),
-      pr_type: prType,
-      value: Number(prValue),
-      unit: prUnit,
-      pr_date: prDate,
-      note: prNote || null,
-    })
+        current.totalSets += 1
+        current.totalVolume += Number(setRow.weight || 0) * Number(setRow.reps || 0)
+        current.bestWeight = Math.max(current.bestWeight, Number(setRow.weight || 0))
+        current.best1RM = Math.max(current.best1RM, estimate1RM(setRow.weight, setRow.reps))
+        current.occurrences += 1
 
-    if (error) {
-      console.error('addPr error', error)
-      alert(error.message)
-      setSaving(false)
-      return
-    }
-
-    setExercise('')
-    setPrValue('')
-    setPrNote('')
-    await loadAll()
-    setSaving(false)
-  }
-
-  async function uploadProgressPhoto(file) {
-    if (!user?.id) return
-    if (!file) return
-
-    setUploading(true)
-    try {
-      const ext = extFromFile(file)
-      const safeTag = String(photoTag || 'front').toLowerCase().trim() || 'front'
-      const path = `${user.id}/${photoDate}/${safeTag}-${Date.now()}.${ext}`
-
-      const { error: upErr } = await supabase.storage
-        .from('progress-photos')
-        .upload(path, file, {
-          upsert: false,
-          contentType: file.type || `image/${ext}`,
-        })
-
-      if (upErr) {
-        console.error('upload error', upErr)
-        alert(upErr.message)
-        return
-      }
-
-      const { error: insErr } = await supabase.from('progress_photos').insert({
-        user_id: user.id,
-        photo_date: photoDate,
-        tag: safeTag,
-        storage_path: path,
-        note: photoNote || null,
+        map.set(name, current)
       })
+    })
 
-      if (insErr) {
-        console.error('insert progress_photos error', insErr)
-        alert(insErr.message)
-        return
+    return [...map.values()].sort((a, b) => b.totalVolume - a.totalVolume)
+  }, [sessions])
+
+  const weeklyTrend = useMemo(() => buildWeeklyBuckets(sessions), [sessions])
+
+  const trendSummary = useMemo(() => {
+    if (weeklyTrend.length < 2) {
+      return {
+        sessionsTrend: 'Stable',
+        volumeTrend: 'Stable',
       }
-
-      setPhotoNote('')
-      await loadAll()
-    } finally {
-      setUploading(false)
     }
-  }
 
-  if (loading) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: 300,
-          color: T.textDim,
-          fontFamily: T.fontDisplay,
-          letterSpacing: 2,
-          fontSize: 12,
-          textTransform: 'uppercase',
-        }}
-      >
-        Chargement...
-      </div>
-    )
-  }
+    const first = weeklyTrend[0]
+    const last = weeklyTrend[weeklyTrend.length - 1]
+
+    return {
+      sessionsTrend: getTrendLabel(first.sessions, last.sessions),
+      volumeTrend: getTrendLabel(first.volume, last.volume),
+    }
+  }, [weeklyTrend])
+
+  const strongestExercises = useMemo(() => {
+    return [...exerciseStats]
+      .sort((a, b) => b.best1RM - a.best1RM)
+      .slice(0, 6)
+  }, [exerciseStats])
+
+  const mostWorkedExercises = useMemo(() => {
+    return [...exerciseStats]
+      .sort((a, b) => b.totalSets - a.totalSets)
+      .slice(0, 6)
+  }, [exerciseStats])
 
   return (
     <PageWrap>
-      <div style={{ marginBottom: 10 }}>
-        <div style={{ fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 36, letterSpacing: 2, color: T.text, lineHeight: 1 }}>
-          PROGRESSION
-        </div>
-        <div style={{ fontSize: 14, color: T.textMid, marginTop: 6 }}>
-          Charges, mesures, PR et photos — {isCoach ? 'mode coach' : 'mode athlète'}
-        </div>
-      </div>
+      <div
+        style={{
+          maxWidth: 1180,
+          margin: '0 auto',
+          display: 'grid',
+          gap: 18,
+        }}
+      >
+        <Card
+          glow
+          style={{
+            padding: '24px 22px',
+            background:
+              'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.10), transparent 30%), linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
+          }}
+        >
+          <div
+            style={{
+              display: 'inline-flex',
+              padding: '8px 12px',
+              borderRadius: 999,
+              border: `1px solid ${T.accent + '28'}`,
+              background: 'rgba(45,255,155,0.10)',
+              color: T.accentLight,
+              fontWeight: 800,
+              fontSize: 12,
+              letterSpacing: 1,
+              textTransform: 'uppercase',
+              marginBottom: 14,
+            }}
+          >
+            Progression
+          </div>
 
-      <Card>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Btn variant={tab === 'charges' ? 'primary' : 'secondary'} onClick={() => setTab('charges')}>Charges</Btn>
-          <Btn variant={tab === 'mesures' ? 'primary' : 'secondary'} onClick={() => setTab('mesures')}>Mesures</Btn>
-          <Btn variant={tab === 'prs' ? 'primary' : 'secondary'} onClick={() => setTab('prs')}>Records (PR)</Btn>
-          <Btn variant={tab === 'photos' ? 'primary' : 'secondary'} onClick={() => setTab('photos')}>Photos</Btn>
-        </div>
-      </Card>
+          <div
+            style={{
+              color: T.text,
+              fontFamily: T.fontDisplay,
+              fontWeight: 900,
+              fontSize: 30,
+              lineHeight: 1,
+            }}
+          >
+            MA PROGRESSION
+          </div>
 
-      {/* CHARGES */}
-      {tab === 'charges' ? (
-        !allSessions.length ? (
-          <Card style={{ textAlign: 'center', padding: '60px 40px' }}>
-            <div style={{ fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 60, color: T.border, marginBottom: 16 }}>◎</div>
-            <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 20, color: T.text, letterSpacing: 1, marginBottom: 8 }}>
-              AUCUNE DONNÉE
+          <div
+            style={{
+              color: T.textMid,
+              fontSize: 14,
+              lineHeight: 1.65,
+              marginTop: 10,
+            }}
+          >
+            Suis ton volume, tes performances et tes exercices forts dans le temps.
+          </div>
+        </Card>
+
+        {errorMessage ? (
+          <Card
+            style={{
+              padding: 16,
+              border: '1px solid rgba(255,120,120,0.22)',
+              background: 'rgba(255,90,90,0.06)',
+            }}
+          >
+            <div style={{ color: '#FFB3B3', fontWeight: 800, fontSize: 14 }}>
+              {errorMessage}
             </div>
-            <div style={{ fontSize: 14, color: T.textMid }}>
-              Enregistre ta première séance pour voir ta progression de charge.
+          </Card>
+        ) : null}
+
+        {loading ? (
+          <Card style={{ padding: 20 }}>
+            <div style={{ color: T.textDim, fontSize: 14 }}>
+              Chargement de la progression...
+            </div>
+          </Card>
+        ) : sessions.length === 0 ? (
+          <Card style={{ padding: 20 }}>
+            <div
+              style={{
+                color: T.text,
+                fontWeight: 800,
+                fontSize: 15,
+                marginBottom: 8,
+              }}
+            >
+              Pas encore de données
+            </div>
+
+            <div style={{ color: T.textMid, fontSize: 14 }}>
+              Enregistre quelques séances pour commencer à voir ta progression.
             </div>
           </Card>
         ) : (
           <>
-            <Card>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-                <Select label="Exercice" value={selectedExercise} onChange={setSelectedExercise} options={usedExercises.length ? usedExercises : ALL_EXERCISES} />
-                <Select
-                  label="Métrique"
-                  value={chargeMetric}
-                  onChange={setChargeMetric}
-                  options={[
-                    { value: 'weight', label: 'Charge (kg)' },
-                    { value: 'reps', label: 'Répétitions' },
-                  ]}
-                />
-              </div>
-            </Card>
-
-            {chargesStats ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
-                <StatCard label="Record" value={`${chargesStats.max}`} sub={chargeMetric === 'weight' ? 'kg' : 'rép.'} accent />
-                <StatCard label="Dernière" value={`${chargesStats.last}`} sub={chargeMetric === 'weight' ? 'kg' : 'rép.'} />
-                <StatCard label="Départ" value={`${chargesStats.first}`} sub={chargeMetric === 'weight' ? 'kg' : 'rép.'} />
-                <StatCard label="Progression" value={`${chargesStats.progressPct >= 0 ? '+' : ''}${chargesStats.progressPct.toFixed(1)}%`} sub="depuis le début" accent={chargesStats.progressPct > 0} />
-                <StatCard label="Séances" value={chargesStats.sessions} sub="avec cet exo" />
-              </div>
-            ) : null}
-
-            <Card glow>
-              <Label>{selectedExercise || 'Exercice'} — {chargeMetric === 'weight' ? 'Charge (kg)' : 'Répétitions'}</Label>
-
-              {chargesChartData.length >= 2 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={chargesChartData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="areaGradCharges" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={T.accent} stopOpacity={0.16} />
-                        <stop offset="95%" stopColor={T.accent} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-                    <XAxis dataKey="date" tick={{ fill: T.textDim, fontSize: 11, fontFamily: T.fontBody }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: T.textDim, fontSize: 11, fontFamily: T.fontBody }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<ChartTooltip unit={chargeMetric === 'weight' ? 'kg' : 'rép.'} />} />
-                    {chargesStats && <ReferenceLine y={chargesStats.max} stroke={T.accent + '33'} strokeDasharray="4 4" />}
-                    <Area type="monotone" dataKey={chargeMetric} stroke={T.accent} strokeWidth={2.5} fill="url(#areaGradCharges)" dot={{ fill: T.accent, r: 4, strokeWidth: 0 }} activeDot={{ r: 7, fill: T.accent, strokeWidth: 2, stroke: T.bg }} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div style={{ textAlign: 'center', padding: 50, color: T.textDim, fontFamily: T.fontDisplay, fontSize: 12, letterSpacing: 2, textTransform: 'uppercase' }}>
-                  {chargesChartData.length === 1 ? 'Continue — une séance de plus pour voir la courbe' : 'Pas de données pour cet exercice'}
-                </div>
-              )}
-            </Card>
-          </>
-        )
-      ) : null}
-
-      {/* MESURES */}
-      {tab === 'mesures' ? (
-        <>
-          <Card>
-            <Label>Ajouter une mesure</Label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-              <Input label="Date" type="date" value={mDate} onChange={setMDate} />
-              <Input label="Poids (kg)" type="number" step="0.1" value={weight} onChange={setWeight} />
-              <Input label="Bodyfat (%)" type="number" step="0.1" value={bodyfat} onChange={setBodyfat} />
-              <Input label="Taille (cm)" type="number" step="0.1" value={waist} onChange={setWaist} />
-              <Input label="Note" value={note} onChange={setNote} />
-            </div>
-            <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
-              <Btn onClick={addMetric} disabled={saving}>{saving ? 'Enregistrement…' : 'Ajouter'}</Btn>
-            </div>
-          </Card>
-
-          {weightStats ? (
-            <Card glow>
-              <Label>Poids (kg)</Label>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={weightSeries} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="areaGradWeight" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={T.accent} stopOpacity={0.16} />
-                      <stop offset="95%" stopColor={T.accent} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={T.border} vertical={false} />
-                  <XAxis dataKey="date" tick={{ fill: T.textDim, fontSize: 11, fontFamily: T.fontBody }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: T.textDim, fontSize: 11, fontFamily: T.fontBody }} axisLine={false} tickLine={false} domain={['dataMin - 1', 'dataMax + 1']} />
-                  <Tooltip content={<ChartTooltip unit="kg" />} />
-                  <Area type="monotone" dataKey="weight" stroke={T.accent} strokeWidth={2.5} fill="url(#areaGradWeight)" dot={{ fill: T.accent, r: 3, strokeWidth: 0 }} activeDot={{ r: 6, fill: T.accent, strokeWidth: 2, stroke: T.bg }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </Card>
-          ) : null}
-        </>
-      ) : null}
-
-      {/* PR */}
-      {tab === 'prs' ? (
-        <Card>
-          <Label>Ajouter un record (PR)</Label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
-            <Input label="Date" type="date" value={prDate} onChange={setPrDate} />
-            <Input label="Exercice" value={exercise} onChange={setExercise} />
-            <Input label="Type" value={prType} onChange={setPrType} />
-            <Input label="Valeur" type="number" step="0.5" value={prValue} onChange={setPrValue} />
-            <Input label="Unité" value={prUnit} onChange={setPrUnit} />
-            <Input label="Note" value={prNote} onChange={setPrNote} />
-          </div>
-          <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
-            <Btn onClick={addPr} disabled={saving}>{saving ? 'Enregistrement…' : 'Ajouter'}</Btn>
-          </div>
-        </Card>
-      ) : null}
-
-      {/* PHOTOS */}
-      {tab === 'photos' ? (
-        <Card>
-          <Label>Photos de progression</Label>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12, marginTop: 10 }}>
-            <Input label="Date" type="date" value={photoDate} onChange={setPhotoDate} />
-            <Input label="Tag" value={photoTag} onChange={setPhotoTag} placeholder="front / side / back" />
-            <Input label="Note" value={photoNote} onChange={setPhotoNote} placeholder="optionnel" />
-
-            <div style={{ alignSelf: 'end' }}>
-              <div style={{ color: T.textDim, fontSize: 12, marginBottom: 6 }}>Fichier</div>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => uploadProgressPhoto(e.target.files?.[0])}
-                disabled={uploading}
-                style={{
-                  width: '100%',
-                  color: T.textMid,
-                  background: T.surface,
-                  border: `1px solid ${T.border}`,
-                  borderRadius: T.radius,
-                  padding: 10,
-                }}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: 12,
+              }}
+            >
+              <StatCard label="Séances totales" value={overview.totalSessions} accent />
+              <StatCard label="Séries totales" value={overview.totalSets} />
+              <StatCard label="Volume total" value={`${Math.round(overview.totalVolume)} kg`} />
+              <StatCard
+                label="Meilleure charge"
+                value={overview.bestWeight ? `${overview.bestWeight.toFixed(1)} kg` : '—'}
               />
-              <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
-                <Btn disabled={uploading}>{uploading ? 'Upload…' : 'Sélectionner une photo'}</Btn>
-              </div>
+              <StatCard
+                label="Meilleur 1RM estimé"
+                value={overview.best1RM ? `${overview.best1RM.toFixed(1)} kg` : '—'}
+              />
             </div>
-          </div>
 
-          <div style={{ height: 16 }} />
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) minmax(320px, 0.9fr)',
+                gap: 18,
+                alignItems: 'start',
+              }}
+            >
+              <Card style={{ padding: 20 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    marginBottom: 14,
+                  }}
+                >
+                  <div
+                    style={{
+                      color: T.text,
+                      fontWeight: 900,
+                      fontSize: 18,
+                    }}
+                  >
+                    Évolution hebdomadaire
+                  </div>
 
-          {photos.length ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-              {photos.map((ph) => {
-                const url = photoUrls[ph.storage_path]
-                return (
-                  <div key={ph.id} style={{ border: `1px solid ${T.border}`, borderRadius: T.radius, background: T.surface, overflow: 'hidden' }}>
-                    <div style={{ aspectRatio: '1 / 1', background: T.card }}>
-                      {url ? (
-                        <img src={url} alt={ph.tag || 'photo'} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} loading="lazy" />
-                      ) : (
-                        <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.textDim, fontSize: 12 }}>
-                          (URL…)
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <Badge>{trendSummary.sessionsTrend} fréquence</Badge>
+                    <Badge color={T.blue || '#5BA7FF'}>{trendSummary.volumeTrend} volume</Badge>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {weeklyTrend.slice(-8).map((week) => {
+                    const maxVolume = Math.max(...weeklyTrend.map((item) => item.volume), 1)
+                    const width = Math.max(6, (week.volume / maxVolume) * 100)
+
+                    return (
+                      <div
+                        key={week.key}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '110px minmax(0, 1fr) auto',
+                          gap: 12,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <div
+                          style={{
+                            color: T.textDim,
+                            fontSize: 12,
+                            fontWeight: 800,
+                          }}
+                        >
+                          {week.label}
                         </div>
-                      )}
-                    </div>
-                    <div style={{ padding: 10 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                        <div style={{ fontFamily: T.fontBody, fontWeight: 900, color: T.text }}>
-                          {String(ph.tag || 'photo').toUpperCase()}
+
+                        <div
+                          style={{
+                            height: 14,
+                            borderRadius: 999,
+                            background: 'rgba(255,255,255,0.06)',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          <div
+                            style={{
+                              height: '100%',
+                              width: `${Math.min(100, width)}%`,
+                              background: T.accent,
+                              borderRadius: 999,
+                            }}
+                          />
                         </div>
-                        <div style={{ color: T.textSub, fontSize: 12 }}>{formatDateFR(ph.photo_date)}</div>
+
+                        <div
+                          style={{
+                            color: T.text,
+                            fontSize: 12,
+                            fontWeight: 800,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {Math.round(week.volume)} kg
+                        </div>
                       </div>
-                      {ph.note ? <div style={{ marginTop: 6, color: T.textMid, fontSize: 12 }}>{ph.note}</div> : null}
+                    )
+                  })}
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 14,
+                    color: T.textMid,
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                  }}
+                >
+                  Période suivie : {overview.firstDate ? formatDate(overview.firstDate) : '—'} →{' '}
+                  {overview.lastDate ? formatDate(overview.lastDate) : '—'}
+                </div>
+              </Card>
+
+              <Card style={{ padding: 20 }}>
+                <div
+                  style={{
+                    color: T.text,
+                    fontWeight: 900,
+                    fontSize: 18,
+                    marginBottom: 14,
+                  }}
+                >
+                  Résumé rapide
+                </div>
+
+                <div style={{ display: 'grid', gap: 12 }}>
+                  <div
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      background: 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${T.border}`,
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: T.textDim,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        letterSpacing: 1,
+                      }}
+                    >
+                      Période active
+                    </div>
+
+                    <div
+                      style={{
+                        color: T.text,
+                        fontSize: 20,
+                        fontWeight: 900,
+                        marginTop: 8,
+                      }}
+                    >
+                      {overview.activeDays || 0} jours
                     </div>
                   </div>
-                )
-              })}
+
+                  <div
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      background: 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${T.border}`,
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: T.textDim,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        letterSpacing: 1,
+                      }}
+                    >
+                      Exercices suivis
+                    </div>
+
+                    <div
+                      style={{
+                        color: T.text,
+                        fontSize: 20,
+                        fontWeight: 900,
+                        marginTop: 8,
+                      }}
+                    >
+                      {exerciseStats.length}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      background: 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${T.border}`,
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: T.textDim,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        letterSpacing: 1,
+                      }}
+                    >
+                      Tendance volume
+                    </div>
+
+                    <div
+                      style={{
+                        color: T.text,
+                        fontSize: 20,
+                        fontWeight: 900,
+                        marginTop: 8,
+                      }}
+                    >
+                      {trendSummary.volumeTrend}
+                    </div>
+                  </div>
+                </div>
+              </Card>
             </div>
-          ) : (
-            <div style={{ color: T.textMid }}>Aucune photo enregistrée.</div>
-          )}
-        </Card>
-      ) : null}
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+                gap: 18,
+                alignItems: 'start',
+              }}
+            >
+              <Card style={{ padding: 20 }}>
+                <div
+                  style={{
+                    color: T.text,
+                    fontWeight: 900,
+                    fontSize: 18,
+                    marginBottom: 14,
+                  }}
+                >
+                  Exercices les plus travaillés
+                </div>
+
+                {mostWorkedExercises.length === 0 ? (
+                  <div style={{ color: T.textMid, fontSize: 14 }}>
+                    Pas encore assez de données.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {mostWorkedExercises.map((exercise) => (
+                      <div
+                        key={exercise.name}
+                        style={{
+                          padding: '12px 14px',
+                          borderRadius: 14,
+                          background: 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${T.border}`,
+                          display: 'grid',
+                          gap: 6,
+                        }}
+                      >
+                        <div
+                          style={{
+                            color: T.text,
+                            fontWeight: 800,
+                            fontSize: 14,
+                          }}
+                        >
+                          {exercise.name}
+                        </div>
+
+                        <div
+                          style={{
+                            display: 'flex',
+                            gap: 8,
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <Badge>{exercise.totalSets} séries</Badge>
+                          <Badge color={T.blue || '#5BA7FF'}>
+                            {Math.round(exercise.totalVolume)} kg
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+
+              <Card style={{ padding: 20 }}>
+                <div
+                  style={{
+                    color: T.text,
+                    fontWeight: 900,
+                    fontSize: 18,
+                    marginBottom: 14,
+                  }}
+                >
+                  Exercices les plus forts
+                </div>
+
+                {strongestExercises.length === 0 ? (
+                  <div style={{ color: T.textMid, fontSize: 14 }}>
+                    Pas encore assez de données.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {strongestExercises.map((exercise) => (
+                      <div
+                        key={exercise.name}
+                        style={{
+                          padding: '12px 14px',
+                          borderRadius: 14,
+                          background: 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${T.border}`,
+                          display: 'grid',
+                          gap: 6,
+                        }}
+                      >
+                        <div
+                          style={{
+                            color: T.text,
+                            fontWeight: 800,
+                            fontSize: 14,
+                          }}
+                        >
+                          {exercise.name}
+                        </div>
+
+                        <div
+                          style={{
+                            display: 'flex',
+                            gap: 8,
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <Badge>{exercise.bestWeight ? `${exercise.bestWeight.toFixed(1)} kg` : '—'}</Badge>
+                          <Badge color={T.orange || '#FFB454'}>
+                            1RM {exercise.best1RM ? exercise.best1RM.toFixed(1) : '—'} kg
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
+          </>
+        )}
+      </div>
     </PageWrap>
   )
 }
