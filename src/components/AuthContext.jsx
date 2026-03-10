@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext(null)
@@ -55,8 +55,13 @@ export function AuthProvider({ children }) {
         const currentUser = session?.user ?? null
         setUser(currentUser)
 
+        // IMPORTANT :
+        // on débloque l'app dès que la session est connue
+        setLoading(false)
+
+        // le profil charge ensuite en arrière-plan
         if (currentUser?.id) {
-          await fetchProfile(currentUser.id)
+          fetchProfile(currentUser.id)
         } else {
           setProfile(null)
         }
@@ -66,10 +71,7 @@ export function AuthProvider({ children }) {
         if (!isMounted) return
         setUser(null)
         setProfile(null)
-      } finally {
-        if (isMounted) {
-          setLoading(false)
-        }
+        setLoading(false)
       }
     }
 
@@ -77,26 +79,19 @@ export function AuthProvider({ children }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isMounted) return
 
-      try {
-        const currentUser = session?.user ?? null
-        setUser(currentUser)
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
 
-        if (currentUser?.id) {
-          await fetchProfile(currentUser.id)
-        } else {
-          setProfile(null)
-        }
-      } catch (error) {
-        console.error('Erreur onAuthStateChange:', error)
-        if (!isMounted) return
+      // on ne rebloque jamais toute l'app ici
+      setLoading(false)
+
+      if (currentUser?.id) {
+        fetchProfile(currentUser.id)
+      } else {
         setProfile(null)
-      } finally {
-        if (isMounted) {
-          setLoading(false)
-        }
       }
     })
 
@@ -116,6 +111,7 @@ export function AuthProvider({ children }) {
 
       setUser(null)
       setProfile(null)
+      setLoading(false)
 
       return { error: null }
     } catch (error) {
