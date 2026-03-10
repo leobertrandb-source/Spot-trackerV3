@@ -1,119 +1,286 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom"
-import { useState, useEffect } from "react"
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { AuthProvider, useAuth } from './components/AuthContext'
+import { Grain, Layout } from './components/UI'
+import { DirtyProvider } from './components/DirtyContext'
+import Sidebar from './components/Sidebar'
+import Topbar from './components/Topbar'
 
-import { AuthProvider, useAuth } from "./components/AuthContext"
-import { Grain, Layout } from "./components/UI"
-import { DirtyProvider } from "./components/DirtyContext"
+import AuthPage from './pages/AuthPage'
+import InviteAcceptPage from './pages/InviteAcceptPage'
 
-import Sidebar from "./components/Sidebar"
-import Topbar from "./components/Topbar"
+import SaisiePage from './pages/SaisiePage'
+import HistoriquePage from './pages/HistoriquePage'
+import ProgressionPage from './pages/ProgressionPage'
+import CoachPage from './pages/CoachPage'
+import CoachClientsPage from './pages/CoachClientsPage'
+import CoachClientDetailPage from './pages/CoachClientDetailPage'
+import AujourdhuiPage from './pages/AujourdhuiPage'
+import NutritionPage from './pages/NutritionPage'
+import ProgramBuilderPage from './pages/ProgramBuilderPage'
+import RecipesPage from './pages/RecipesPage'
+import RecipeDetailPage from './pages/RecipeDetailPage'
+import MealPlanPage from './pages/MealPlanPage'
 
-import AuthPage from "./pages/AuthPage"
-import InviteAcceptPage from "./pages/InviteAcceptPage"
+import GoalSelectionPage from './pages/GoalSelectionPage'
+import GoalHomePage from './pages/GoalHomePage'
+import ProgrammeBodybuildingPage from './pages/ProgrammeBodybuildingPage'
+import ProgrammePerteDePoidsPage from './pages/ProgrammePerteDePoidsPage'
+import ProgrammeAthletiquePage from './pages/ProgrammeAthletiquePage'
 
-import SaisiePage from "./pages/SaisiePage"
-import HistoriquePage from "./pages/HistoriquePage"
-import ProgressionPage from "./pages/ProgressionPage"
-import CoachPage from "./pages/CoachPage"
-import CoachClientsPage from "./pages/CoachClientsPage"
-import CoachClientDetailPage from "./pages/CoachClientDetailPage"
-import AujourdhuiPage from "./pages/AujourdhuiPage"
-import NutritionPage from "./pages/NutritionPage"
-import ProgramBuilderPage from "./pages/ProgramBuilderPage"
-import RecipesPage from "./pages/RecipesPage"
-import RecipeDetailPage from "./pages/RecipeDetailPage"
-import MealPlanPage from "./pages/MealPlanPage"
+import { T } from './lib/data'
 
-import GoalSelectionPage from "./pages/GoalSelectionPage"
-import GoalHomePage from "./pages/GoalHomePage"
-import ProgrammeBodybuildingPage from "./pages/ProgrammeBodybuildingPage"
-import ProgrammePerteDePoidsPage from "./pages/ProgrammePerteDePoidsPage"
-import ProgrammeAthletiquePage from "./pages/ProgrammeAthletiquePage"
+function AppLoadingScreen() {
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        background: T.bg,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: T.fontDisplay,
+        fontSize: 11,
+        letterSpacing: 3,
+        color: T.textDim,
+        textTransform: 'uppercase',
+      }}
+    >
+      Chargement...
+    </div>
+  )
+}
 
 function PrivateAppShell() {
   const { user, profile, loading } = useAuth()
   const location = useLocation()
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900)
-  const [mobileOpen, setMobileOpen] = useState(false)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 899px)")
+    const media = window.matchMedia('(max-width: 899px)')
 
     const update = () => {
       const mobile = media.matches
       setIsMobile(mobile)
-      if (!mobile) setMobileOpen(false)
+
+      if (!mobile) {
+        setMobileSidebarOpen(false)
+      }
     }
 
     update()
-    media.addEventListener("change", update)
 
-    return () => media.removeEventListener("change", update)
+    if (media.addEventListener) {
+      media.addEventListener('change', update)
+      return () => media.removeEventListener('change', update)
+    }
+
+    media.addListener(update)
+    return () => media.removeListener(update)
   }, [])
 
   useEffect(() => {
-    setMobileOpen(false)
+    setMobileSidebarOpen(false)
   }, [location.pathname])
 
-  if (!user) return <AuthPage />
-  if (loading) return <div style={{ padding: 40 }}>Chargement...</div>
+  if (loading) {
+    return <AppLoadingScreen />
+  }
 
-  const isCoach = profile?.role === "coach"
+  if (!user) {
+    return <AuthPage />
+  }
+
+  const isCoach = profile?.role === 'coach'
   const hasGoal = !!profile?.goal_type
 
-  const athleteHome = hasGoal ? "/mon-espace" : "/objectif"
-  const defaultRoute = isCoach ? "/coach" : athleteHome
+  const athleteHome = hasGoal ? '/mon-espace' : '/objectif'
+  const defaultRoute = isCoach ? '/coach' : athleteHome
 
   return (
     <DirtyProvider>
-      {isMobile && (
+      {isMobile ? (
         <Sidebar
           isMobile
-          mobileOpen={mobileOpen}
-          onClose={() => setMobileOpen(false)}
+          mobileOpen={mobileSidebarOpen}
+          onClose={() => setMobileSidebarOpen(false)}
         />
-      )}
+      ) : null}
 
       <Layout
         sidebar={!isMobile ? <Sidebar /> : null}
         topbar={
           <Topbar
             isMobile={isMobile}
-            onMenuClick={() => setMobileOpen((v) => !v)}
+            onMenuClick={() => setMobileSidebarOpen((v) => !v)}
           />
         }
       >
         <Routes>
-
           <Route path="/" element={<Navigate to={defaultRoute} replace />} />
 
-          <Route path="/objectif" element={<GoalSelectionPage />} />
-          <Route path="/mon-espace" element={<GoalHomePage />} />
+          <Route
+            path="/objectif"
+            element={isCoach ? <Navigate to="/coach" replace /> : <GoalSelectionPage />}
+          />
 
-          <Route path="/entrainement/aujourdhui" element={<AujourdhuiPage />} />
-          <Route path="/entrainement/libre" element={<SaisiePage />} />
-          <Route path="/entrainement/historique" element={<HistoriquePage />} />
+          <Route
+            path="/mon-espace"
+            element={
+              isCoach ? (
+                <Navigate to="/coach" replace />
+              ) : hasGoal ? (
+                <GoalHomePage />
+              ) : (
+                <Navigate to="/objectif" replace />
+              )
+            }
+          />
 
-          <Route path="/nutrition/macros" element={<NutritionPage />} />
-          <Route path="/nutrition/recettes" element={<RecipesPage />} />
-          <Route path="/nutrition/recette/:id" element={<RecipeDetailPage />} />
-          <Route path="/nutrition/plan" element={<MealPlanPage />} />
+          <Route
+            path="/aujourdhui"
+            element={
+              isCoach ? (
+                <Navigate to="/coach" replace />
+              ) : (
+                <Navigate to="/entrainement/aujourdhui" replace />
+              )
+            }
+          />
 
-          <Route path="/progression" element={<ProgressionPage />} />
+          <Route
+            path="/saisie"
+            element={
+              isCoach ? (
+                <Navigate to="/coach" replace />
+              ) : (
+                <Navigate to="/entrainement/libre" replace />
+              )
+            }
+          />
 
-          <Route path="/coach" element={<CoachPage />} />
-          <Route path="/coach/clients" element={<CoachClientsPage />} />
-          <Route path="/coach/client/:id" element={<CoachClientDetailPage />} />
+          <Route
+            path="/historique"
+            element={
+              isCoach ? (
+                <Navigate to="/coach" replace />
+              ) : (
+                <Navigate to="/entrainement/historique" replace />
+              )
+            }
+          />
 
-          <Route path="/programmes" element={<ProgramBuilderPage />} />
+          <Route
+            path="/nutrition"
+            element={
+              isCoach ? (
+                <Navigate to="/coach" replace />
+              ) : (
+                <Navigate to="/nutrition/macros" replace />
+              )
+            }
+          />
 
-          <Route path="/programme/bodybuilding" element={<ProgrammeBodybuildingPage />} />
-          <Route path="/programme/perte-de-poids" element={<ProgrammePerteDePoidsPage />} />
-          <Route path="/programme/athletique" element={<ProgrammeAthletiquePage />} />
+          <Route
+            path="/recettes"
+            element={
+              isCoach ? (
+                <Navigate to="/coach" replace />
+              ) : (
+                <Navigate to="/nutrition/recettes" replace />
+              )
+            }
+          />
+
+          <Route
+            path="/plan"
+            element={
+              isCoach ? (
+                <Navigate to="/coach" replace />
+              ) : (
+                <Navigate to="/nutrition/plan" replace />
+              )
+            }
+          />
+
+          <Route
+            path="/entrainement/aujourdhui"
+            element={isCoach ? <Navigate to="/coach" replace /> : <AujourdhuiPage />}
+          />
+
+          <Route
+            path="/entrainement/libre"
+            element={isCoach ? <Navigate to="/coach" replace /> : <SaisiePage />}
+          />
+
+          <Route
+            path="/entrainement/historique"
+            element={isCoach ? <Navigate to="/coach" replace /> : <HistoriquePage />}
+          />
+
+          <Route
+            path="/nutrition/macros"
+            element={isCoach ? <Navigate to="/coach" replace /> : <NutritionPage />}
+          />
+
+          <Route
+            path="/nutrition/plan"
+            element={isCoach ? <Navigate to="/coach" replace /> : <MealPlanPage />}
+          />
+
+          <Route
+            path="/nutrition/recettes"
+            element={isCoach ? <Navigate to="/coach" replace /> : <RecipesPage />}
+          />
+
+          <Route
+            path="/nutrition/recette/:id"
+            element={isCoach ? <Navigate to="/coach" replace /> : <RecipeDetailPage />}
+          />
+
+          <Route
+            path="/progression"
+            element={isCoach ? <Navigate to="/coach" replace /> : <ProgressionPage />}
+          />
+
+          <Route
+            path="/coach"
+            element={isCoach ? <CoachPage /> : <Navigate to={athleteHome} replace />}
+          />
+
+          <Route
+            path="/coach/clients"
+            element={isCoach ? <CoachClientsPage /> : <Navigate to={athleteHome} replace />}
+          />
+
+          <Route
+            path="/coach/client/:id"
+            element={isCoach ? <CoachClientDetailPage /> : <Navigate to={athleteHome} replace />}
+          />
+
+          <Route
+            path="/programmes"
+            element={isCoach ? <ProgramBuilderPage /> : <Navigate to={athleteHome} replace />}
+          />
+
+          <Route
+            path="/programme/bodybuilding"
+            element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammeBodybuildingPage />}
+          />
+
+          <Route
+            path="/programme/perte-de-poids"
+            element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammePerteDePoidsPage />}
+          />
+
+          <Route
+            path="/programme/athletique"
+            element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammeAthletiquePage />}
+          />
 
           <Route path="*" element={<Navigate to={defaultRoute} replace />} />
-
         </Routes>
       </Layout>
     </DirtyProvider>
@@ -121,11 +288,24 @@ function PrivateAppShell() {
 }
 
 function InviteRoute() {
-  const { user } = useAuth()
+  const { user, profile, loading } = useAuth()
 
-  if (!user) return <InviteAcceptPage />
+  if (loading) {
+    return <AppLoadingScreen />
+  }
 
-  return <Navigate to="/" replace />
+  if (!user) {
+    return <InviteAcceptPage />
+  }
+
+  const redirectTo =
+    profile?.role === 'coach'
+      ? '/coach'
+      : profile?.goal_type
+        ? '/mon-espace'
+        : '/objectif'
+
+  return <Navigate to={redirectTo} replace />
 }
 
 function RootRouter() {
