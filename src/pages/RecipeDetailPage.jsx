@@ -1,393 +1,690 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { PageWrap, Card, Label, Btn, Input } from '../components/UI'
+import { useAuth } from '../components/AuthContext'
+import { PageWrap, Card, Btn, Input, Badge } from '../components/UI'
 import { T } from '../lib/data'
 
-function MacroBadge({ children }) {
-return (
-<div
-style={{
-display: 'inline-flex',
-alignItems: 'center',
-padding: '8px 12px',
-borderRadius: 999,
-background: 'rgba(255,255,255,0.08)',
-border: '1px solid rgba(255,255,255,0.10)',
-color: '#fff',
-fontSize: 12,
-fontWeight: 800,
-letterSpacing: 0.3,
-backdropFilter: 'blur(8px)',
-}}
->
-{children}
-</div>
-)
+function todayString() {
+  return new Date().toISOString().split('T')[0]
 }
 
-function IngredientRow({ name, qty, unit }) {
-return (
-<div
-style={{
-display: 'flex',
-justifyContent: 'space-between',
-gap: 12,
-padding: '12px 14px',
-borderRadius: 16,
-background: 'rgba(255,255,255,0.03)',
-border: '1px solid rgba(255,255,255,0.06)',
-}}
->
-<div style={{ color: T.text, fontWeight: 700 }}>{name}</div>
-<div style={{ color: T.textMid, fontWeight: 900 }}>
-{qty} {unit}
-</div>
-</div>
-)
+function addDays(dateStr, days) {
+  const d = new Date(dateStr)
+  d.setDate(d.getDate() + days)
+  return d.toISOString().split('T')[0]
 }
 
-export default function RecipeDetailPage() {
-const { id } = useParams()
-
-const [recipe, setRecipe] = useState(null)
-const [ingredients, setIngredients] = useState([])
-const [targetCalories, setTargetCalories] = useState(600)
-const [logDate, setLogDate] = useState(() => new Date().toISOString().slice(0, 10))
-const [saving, setSaving] = useState(false)
-
-useEffect(() => {
-async function load() {
-const { data: r, error: rErr } = await supabase
-.from('recipes')
-.select('*')
-.eq('id', id)
-.single()
-
-if (rErr) {
-console.error(rErr)
-alert(rErr.message)
-return
+function formatDate(value) {
+  if (!value) return '—'
+  try {
+    return new Date(value).toLocaleDateString('fr-FR', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    })
+  } catch {
+    return String(value)
+  }
 }
 
-setRecipe(r)
-setTargetCalories(Math.max(200, Number(r.calories || 600)))
+const MEAL_SLOTS = [
+  'Petit-déjeuner',
+  'Déjeuner',
+  'Snack',
+  'Dîner',
+]
 
-const { data: ing, error: iErr } = await supabase
-.from('recipe_ingredients')
-.select('*')
-.eq('recipe_id', id)
-.order('sort_order', { ascending: true })
+export default function MealPlanPage() {
+  const { user } = useAuth()
 
-if (iErr) console.error(iErr)
-setIngredients(ing || [])
-}
+  const [selectedDate, setSelectedDate] = useState(todayString())
+  const [recipes, setRecipes] = useState([])
+  const [plan, setPlan] = useState([])
+  const [selectedRecipeId, setSelectedRecipeId] = useState('')
+  const [selectedMealSlot, setSelectedMealSlot] = useState(MEAL_SLOTS[0])
 
-load()
-}, [id])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
 
-const ratio = useMemo(() => {
-const base = Math.max(1, Number(recipe?.calories || 1))
-return Number(targetCalories) / base
-}, [recipe, targetCalories])
+  const weekDates = useMemo(() => {
+    return Array.from({ length: 7 }, (_, index) => addDays(todayString(), index))
+  }, [])
 
-const scaledIngredients = useMemo(() => {
-return (ingredients || []).map((i) => {
-const baseQty = Number(i.quantity || 0)
-const scaledQty = +(baseQty * ratio).toFixed(1)
-return { ...i, scaledQty }
-})
-}, [ingredients, ratio])
+  const loadMealPlan = useCallback(async () => {
+    if (!user?.id) {
+      setLoading(false)
+      return
+    }
 
-const scaledMacros = useMemo(() => {
-if (!recipe) return null
-return {
-calories: Math.round(Number(recipe.calories || 0) * ratio),
-proteins: +(Number(recipe.proteins || 0) * ratio).toFixed(1),
-carbs: +(Number(recipe.carbs || 0) * ratio).toFixed(1),
-fats: +(Number(recipe.fats || 0) * ratio).toFixed(1),
-}
-}, [recipe, ratio])
+    setLoading(true)
+    setErrorMessage('')
+    setSuccessMessage('')
 
-async function addToNutritionLogs() {
-if (!recipe || !scaledMacros) return
+    try {
+      const weekStart = weekDates[0]
+      const weekEnd = weekDates[weekDates.length - 1]
 
-setSaving(true)
+      const [recipesRes, planRes] = await Promise.all([
+        supabase
+          .from('recipes')
+          .select('*')
+          .order('title', { ascending: true }),
 
-const { data: auth } = await supabase.auth.getUser()
-const user = auth?.user
+        supabase
+          .from('meal_plan')
+          .select('*, recipes(*)')
+          .eq('user_id', user.id)
+          .gte('plan_date', weekStart)
+          .lte('plan_date', weekEnd)
+          .order('plan_date', { ascending: true })
+          .order('meal_slot', { ascending: true }),
+      ])
 
-if (!user?.id) {
-alert('Non connecté')
-setSaving(false)
-return
-}
+      if (recipesRes.error) throw recipesRes.error
+      if (planRes.error) throw planRes.error
 
-const details = {
-recipe_id: recipe.id,
-title: recipe.title,
-baseCalories: recipe.calories,
-targetCalories: Number(targetCalories),
-ratio: +ratio.toFixed(4),
-ingredients: scaledIngredients.map((i) => ({
-name: i.name,
-quantity: i.scaledQty,
-unit: i.unit,
-})),
-}
+      const nextRecipes = recipesRes.data || []
+      const nextPlan = planRes.data || []
 
-const { error } = await supabase.from('nutrition_logs').insert({
-user_id: user.id,
-log_date: logDate,
-meal_name: recipe.title,
-calories: scaledMacros.calories,
-proteins: scaledMacros.proteins,
-carbs: scaledMacros.carbs,
-fats: scaledMacros.fats,
-water: 0,
-recipe_id: recipe.id,
-recipe_details: details,
-})
+      setRecipes(nextRecipes)
+      setPlan(nextPlan)
 
-if (error) {
-console.error(error)
-alert(error.message)
-setSaving(false)
-return
-}
+      if (!selectedRecipeId && nextRecipes.length > 0) {
+        setSelectedRecipeId(nextRecipes[0].id)
+      }
+    } catch (error) {
+      console.error('Erreur chargement plan repas :', error)
+      setErrorMessage("Impossible de charger le plan repas.")
+      setRecipes([])
+      setPlan([])
+    } finally {
+      setLoading(false)
+    }
+  }, [user?.id, weekDates, selectedRecipeId])
 
-alert('Ajouté ✅')
-setSaving(false)
-}
+  useEffect(() => {
+    loadMealPlan()
+  }, [loadMealPlan])
 
-if (!recipe) {
-return <PageWrap>Chargement…</PageWrap>
-}
+  const selectedDayPlan = useMemo(() => {
+    return plan.filter((item) => item.plan_date === selectedDate)
+  }, [plan, selectedDate])
 
-return (
-<PageWrap>
-<div style={{ maxWidth: 1180, margin: '0 auto' }}>
-<div
-style={{
-position: 'relative',
-minHeight: 420,
-borderRadius: 30,
-overflow: 'hidden',
-border: '1px solid rgba(255,255,255,0.08)',
-background: recipe.image_url
-? `linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.82)), url("${recipe.image_url}") center/cover no-repeat`
-: 'linear-gradient(135deg, rgba(26,32,29,0.96), rgba(9,12,10,0.98))',
-boxShadow: '0 24px 60px rgba(0,0,0,0.24)',
-marginBottom: 20,
-}}
->
-{!recipe.image_url ? (
-<div
-style={{
-position: 'absolute',
-inset: 0,
-opacity: 0.08,
-backgroundImage:
-'radial-gradient(rgba(255,255,255,0.72) 0.7px, transparent 0.7px)',
-backgroundSize: '14px 14px',
-}}
-/>
-) : null}
+  const selectedDayTotals = useMemo(() => {
+    return selectedDayPlan.reduce(
+      (acc, item) => {
+        const recipe = item.recipes || {}
+        return {
+          calories: acc.calories + Number(recipe.calories || 0),
+          proteins: acc.proteins + Number(recipe.proteins || recipe.protein || 0),
+          carbs: acc.carbs + Number(recipe.carbs || 0),
+          fats: acc.fats + Number(recipe.fats || recipe.fat || 0),
+        }
+      },
+      { calories: 0, proteins: 0, carbs: 0, fats: 0 }
+    )
+  }, [selectedDayPlan])
 
-<div
-style={{
-position: 'absolute',
-inset: 0,
-background: recipe.image_url
-? 'linear-gradient(180deg, rgba(0,0,0,0.04), rgba(0,0,0,0.82))'
-: 'radial-gradient(circle at 18% 15%, rgba(45,255,155,0.14), transparent 35%)',
-}}
-/>
+  const groupedWeekPlan = useMemo(() => {
+    return weekDates.map((date) => ({
+      date,
+      items: plan.filter((item) => item.plan_date === date),
+    }))
+  }, [plan, weekDates])
 
-<div
-style={{
-position: 'absolute',
-inset: 0,
-padding: 24,
-display: 'flex',
-flexDirection: 'column',
-justifyContent: 'flex-end',
-}}
->
-<div
-style={{
-display: 'inline-flex',
-width: 'fit-content',
-padding: '8px 12px',
-borderRadius: 999,
-border: `1px solid ${T.accent + '28'}`,
-background: 'rgba(10,12,11,0.36)',
-color: T.accentLight,
-fontWeight: 800,
-fontSize: 12,
-letterSpacing: 1,
-textTransform: 'uppercase',
-marginBottom: 14,
-backdropFilter: 'blur(10px)',
-}}
->
-Recette premium
-</div>
+  async function addRecipeToPlan() {
+    if (!user?.id || !selectedRecipeId || !selectedDate) return
 
-<div
-style={{
-color: '#fff',
-fontSize: 42,
-fontWeight: 900,
-lineHeight: 0.98,
-maxWidth: 760,
-marginBottom: 12,
-}}
->
-{recipe.title}
-</div>
+    setSaving(true)
+    setErrorMessage('')
+    setSuccessMessage('')
 
-<div
-style={{
-color: 'rgba(255,255,255,0.78)',
-fontSize: 15,
-lineHeight: 1.65,
-maxWidth: 760,
-marginBottom: 16,
-}}
->
-Ajuste les calories du repas et les quantités des ingrédients se recalculent automatiquement.
-</div>
+    try {
+      const { data, error } = await supabase
+        .from('meal_plan')
+        .insert({
+          user_id: user.id,
+          recipe_id: selectedRecipeId,
+          plan_date: selectedDate,
+          meal_slot: selectedMealSlot,
+        })
+        .select('*, recipes(*)')
+        .single()
 
-<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-<MacroBadge>{scaledMacros?.calories ?? recipe.calories} kcal</MacroBadge>
-<MacroBadge>P {scaledMacros?.proteins ?? recipe.proteins}g</MacroBadge>
-<MacroBadge>C {scaledMacros?.carbs ?? recipe.carbs}g</MacroBadge>
-<MacroBadge>F {scaledMacros?.fats ?? recipe.fats}g</MacroBadge>
-</div>
-</div>
-</div>
+      if (error) throw error
 
-<div
-style={{
-display: 'grid',
-gridTemplateColumns: '1.2fr 0.9fr',
-gap: 18,
-}}
->
-<Card
-glow
-style={{
-borderRadius: 26,
-background: 'linear-gradient(135deg, rgba(18,21,19,0.96), rgba(9,12,10,0.98))',
-border: '1px solid rgba(255,255,255,0.08)',
-boxShadow: '0 20px 50px rgba(0,0,0,0.22)',
-}}
->
-<Label>Calories du repas</Label>
+      setPlan((prev) => [...prev, data].sort((a, b) => {
+        const dateCompare = String(a.plan_date).localeCompare(String(b.plan_date))
+        if (dateCompare !== 0) return dateCompare
+        return String(a.meal_slot).localeCompare(String(b.meal_slot))
+      }))
 
-<div
-style={{
-display: 'flex',
-justifyContent: 'space-between',
-alignItems: 'end',
-gap: 12,
-marginTop: 8,
-}}
->
-<div
-style={{
-fontFamily: T.fontDisplay,
-fontWeight: 900,
-fontSize: 38,
-color: T.accent,
-}}
->
-{Number(targetCalories)}
-<span style={{ fontSize: 12, color: T.textMid, marginLeft: 8 }}>kcal</span>
-</div>
+      setSuccessMessage('Recette ajoutée au plan repas.')
+    } catch (error) {
+      console.error('Erreur ajout plan repas :', error)
+      setErrorMessage("Impossible d'ajouter cette recette au plan repas.")
+    } finally {
+      setSaving(false)
+    }
+  }
 
-<div style={{ fontSize: 12, color: T.textDim }}>
-Base : {recipe.calories} kcal • Ratio : {ratio.toFixed(2)}×
-</div>
-</div>
+  async function removePlanItem(id) {
+    const confirmed = window.confirm('Supprimer ce repas du plan ?')
+    if (!confirmed) return
 
-<div style={{ height: 16 }} />
+    setErrorMessage('')
+    setSuccessMessage('')
 
-<input
-type="range"
-min="200"
-max="1200"
-step="25"
-value={targetCalories}
-onChange={(e) => setTargetCalories(Number(e.target.value))}
-style={{ width: '100%' }}
-/>
+    try {
+      const { error } = await supabase
+        .from('meal_plan')
+        .delete()
+        .eq('id', id)
 
-<div style={{ height: 18 }} />
+      if (error) throw error
 
-<div style={{ display: 'grid', gap: 12 }}>
-<IngredientRow name="Protéines" qty={scaledMacros?.proteins ?? 0} unit="g" />
-<IngredientRow name="Glucides" qty={scaledMacros?.carbs ?? 0} unit="g" />
-<IngredientRow name="Lipides" qty={scaledMacros?.fats ?? 0} unit="g" />
-</div>
-</Card>
+      setPlan((prev) => prev.filter((item) => item.id !== id))
+      setSuccessMessage('Repas supprimé du plan.')
+    } catch (error) {
+      console.error('Erreur suppression plan repas :', error)
+      setErrorMessage("Impossible de supprimer ce repas.")
+    }
+  }
 
-<Card
-style={{
-borderRadius: 26,
-background:
-'radial-gradient(circle at 18% 20%, rgba(45,255,155,0.10), transparent 30%), linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
-border: '1px solid rgba(255,255,255,0.08)',
-boxShadow: '0 20px 50px rgba(0,0,0,0.22)',
-}}
->
-<Label>Ajouter à Nutrition</Label>
+  return (
+    <PageWrap>
+      <div
+        style={{
+          maxWidth: 1180,
+          margin: '0 auto',
+          display: 'grid',
+          gap: 18,
+        }}
+      >
+        <Card
+          glow
+          style={{
+            padding: '24px 22px',
+            background:
+              'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.10), transparent 30%), linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
+          }}
+        >
+          <div
+            style={{
+              display: 'inline-flex',
+              padding: '8px 12px',
+              borderRadius: 999,
+              border: `1px solid ${T.accent + '28'}`,
+              background: 'rgba(45,255,155,0.10)',
+              color: T.accentLight,
+              fontWeight: 800,
+              fontSize: 12,
+              letterSpacing: 1,
+              textTransform: 'uppercase',
+              marginBottom: 14,
+            }}
+          >
+            Plan repas
+          </div>
 
-<div style={{ color: T.textMid, fontSize: 14, lineHeight: 1.6, marginTop: 10, marginBottom: 12 }}>
-Ajoute directement cette version recalculée à ta journée nutrition.
-</div>
+          <div
+            style={{
+              color: T.text,
+              fontFamily: T.fontDisplay,
+              fontWeight: 900,
+              fontSize: 30,
+              lineHeight: 1,
+            }}
+          >
+            PLANIFIER MES REPAS
+          </div>
 
-<Input label="Date" type="date" value={logDate} onChange={setLogDate} />
+          <div
+            style={{
+              color: T.textMid,
+              fontSize: 14,
+              lineHeight: 1.65,
+              marginTop: 10,
+            }}
+          >
+            Organise tes recettes sur la semaine et visualise rapidement tes apports.
+          </div>
+        </Card>
 
-<div style={{ marginTop: 14 }}>
-<Btn onClick={addToNutritionLogs} disabled={saving}>
-{saving ? 'Ajout…' : 'Ajouter au jour'}
-</Btn>
-</div>
-</Card>
-</div>
+        {errorMessage ? (
+          <Card
+            style={{
+              padding: 16,
+              border: '1px solid rgba(255,120,120,0.22)',
+              background: 'rgba(255,90,90,0.06)',
+            }}
+          >
+            <div style={{ color: '#FFB3B3', fontWeight: 800, fontSize: 14 }}>
+              {errorMessage}
+            </div>
+          </Card>
+        ) : null}
 
-<div style={{ height: 18 }} />
+        {successMessage ? (
+          <Card
+            style={{
+              padding: 16,
+              border: `1px solid ${T.accent}22`,
+              background: 'rgba(57,224,122,0.07)',
+            }}
+          >
+            <div style={{ color: T.accentLight, fontWeight: 800, fontSize: 14 }}>
+              {successMessage}
+            </div>
+          </Card>
+        ) : null}
 
-<Card
-style={{
-borderRadius: 26,
-background: 'linear-gradient(135deg, rgba(18,21,19,0.96), rgba(9,12,10,0.98))',
-border: '1px solid rgba(255,255,255,0.08)',
-boxShadow: '0 20px 50px rgba(0,0,0,0.22)',
-}}
->
-<Label>Ingrédients recalculés</Label>
+        <Card style={{ padding: 20 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '180px minmax(0, 1fr) 180px auto',
+              gap: 12,
+              alignItems: 'end',
+            }}
+          >
+            <Input
+              label="Date"
+              value={selectedDate}
+              onChange={setSelectedDate}
+              type="date"
+            />
 
-<div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
-{scaledIngredients.length ? (
-scaledIngredients.map((i) => (
-<IngredientRow
-key={i.id}
-name={i.name}
-qty={i.scaledQty}
-unit={i.unit}
-/>
-))
-) : (
-<div style={{ color: T.textMid }}>
-Aucun ingrédient renseigné.
-</div>
-)}
-</div>
-</Card>
-</div>
-</PageWrap>
-)
+            <label style={{ display: 'grid', gap: 8 }}>
+              <span
+                style={{
+                  color: T.textSub || T.textDim,
+                  fontSize: 12,
+                  fontWeight: 800,
+                }}
+              >
+                Recette
+              </span>
+
+              <select
+                value={selectedRecipeId}
+                onChange={(e) => setSelectedRecipeId(e.target.value)}
+                style={{
+                  height: 48,
+                  borderRadius: 14,
+                  border: `1px solid ${T.border}`,
+                  background: T.surface,
+                  color: T.text,
+                  padding: '0 14px',
+                  fontSize: 14,
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  width: '100%',
+                }}
+              >
+                {recipes.map((recipe) => (
+                  <option key={recipe.id} value={recipe.id}>
+                    {recipe.title || recipe.name || 'Recette'}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label style={{ display: 'grid', gap: 8 }}>
+              <span
+                style={{
+                  color: T.textSub || T.textDim,
+                  fontSize: 12,
+                  fontWeight: 800,
+                }}
+              >
+                Repas
+              </span>
+
+              <select
+                value={selectedMealSlot}
+                onChange={(e) => setSelectedMealSlot(e.target.value)}
+                style={{
+                  height: 48,
+                  borderRadius: 14,
+                  border: `1px solid ${T.border}`,
+                  background: T.surface,
+                  color: T.text,
+                  padding: '0 14px',
+                  fontSize: 14,
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  width: '100%',
+                }}
+              >
+                {MEAL_SLOTS.map((slot) => (
+                  <option key={slot} value={slot}>
+                    {slot}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <Btn onClick={addRecipeToPlan} disabled={saving || !selectedRecipeId}>
+              {saving ? 'Ajout...' : 'Ajouter'}
+            </Btn>
+          </div>
+        </Card>
+
+        {loading ? (
+          <Card style={{ padding: 20 }}>
+            <div style={{ color: T.textDim, fontSize: 14 }}>
+              Chargement du plan repas...
+            </div>
+          </Card>
+        ) : (
+          <>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                gap: 10,
+              }}
+            >
+              {weekDates.map((date) => {
+                const active = selectedDate === date
+                const count = plan.filter((item) => item.plan_date === date).length
+
+                return (
+                  <button
+                    key={date}
+                    type="button"
+                    onClick={() => setSelectedDate(date)}
+                    style={{
+                      padding: '14px 14px',
+                      borderRadius: 16,
+                      border: `1px solid ${active ? T.accent + '40' : T.border}`,
+                      background: active
+                        ? 'rgba(45,255,155,0.10)'
+                        : 'rgba(255,255,255,0.03)',
+                      color: active ? T.accentLight : T.text,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: 900,
+                        fontSize: 13,
+                      }}
+                    >
+                      {formatDate(date)}
+                    </div>
+
+                    <div
+                      style={{
+                        color: active ? T.accentLight : T.textDim,
+                        fontSize: 12,
+                        marginTop: 6,
+                      }}
+                    >
+                      {count} repas
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1.1fr) minmax(320px, 0.85fr)',
+                gap: 18,
+                alignItems: 'start',
+              }}
+            >
+              <Card style={{ padding: 20 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    marginBottom: 14,
+                  }}
+                >
+                  <div
+                    style={{
+                      color: T.text,
+                      fontWeight: 900,
+                      fontSize: 18,
+                    }}
+                  >
+                    Plan du {formatDate(selectedDate)}
+                  </div>
+
+                  <Badge>{selectedDayPlan.length} repas</Badge>
+                </div>
+
+                {selectedDayPlan.length === 0 ? (
+                  <div style={{ color: T.textMid, fontSize: 14 }}>
+                    Aucun repas planifié pour cette date.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 12 }}>
+                    {selectedDayPlan.map((item) => {
+                      const recipe = item.recipes || {}
+                      return (
+                        <div
+                          key={item.id}
+                          style={{
+                            padding: '14px 16px',
+                            borderRadius: 18,
+                            border: `1px solid ${T.border}`,
+                            background: 'rgba(255,255,255,0.03)',
+                            display: 'grid',
+                            gap: 10,
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              gap: 12,
+                              alignItems: 'flex-start',
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <div>
+                              <div
+                                style={{
+                                  color: T.text,
+                                  fontWeight: 900,
+                                  fontSize: 15,
+                                }}
+                              >
+                                {recipe.title || recipe.name || 'Recette'}
+                              </div>
+
+                              <div
+                                style={{
+                                  color: T.textDim,
+                                  fontSize: 12,
+                                  marginTop: 4,
+                                }}
+                              >
+                                {item.meal_slot || 'Repas'}
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => removePlanItem(item.id)}
+                              style={{
+                                height: 36,
+                                borderRadius: 12,
+                                border: `1px solid ${T.border}`,
+                                background: 'transparent',
+                                color: T.danger,
+                                cursor: 'pointer',
+                                padding: '0 12px',
+                                fontWeight: 800,
+                              }}
+                            >
+                              Supprimer
+                            </button>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            {recipe.calories ? <Badge>{recipe.calories} kcal</Badge> : null}
+                            {(recipe.proteins || recipe.protein) ? (
+                              <Badge color={T.blue || '#5BA7FF'}>
+                                {recipe.proteins || recipe.protein} g prot
+                              </Badge>
+                            ) : null}
+                            {recipe.carbs ? (
+                              <Badge color={T.orange || '#FFB454'}>
+                                {recipe.carbs} g gluc
+                              </Badge>
+                            ) : null}
+                            {(recipe.fats || recipe.fat) ? (
+                              <Badge>{recipe.fats || recipe.fat} g lip</Badge>
+                            ) : null}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </Card>
+
+              <Card style={{ padding: 20 }}>
+                <div
+                  style={{
+                    color: T.text,
+                    fontWeight: 900,
+                    fontSize: 18,
+                    marginBottom: 14,
+                  }}
+                >
+                  Totaux du jour
+                </div>
+
+                <div style={{ display: 'grid', gap: 12 }}>
+                  <div
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      background: 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${T.border}`,
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: T.textDim,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        letterSpacing: 1,
+                      }}
+                    >
+                      Calories
+                    </div>
+                    <div
+                      style={{
+                        color: T.text,
+                        fontSize: 22,
+                        fontWeight: 900,
+                        marginTop: 8,
+                      }}
+                    >
+                      {Math.round(selectedDayTotals.calories)} kcal
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <Badge>{Math.round(selectedDayTotals.proteins)} g prot</Badge>
+                    <Badge color={T.blue || '#5BA7FF'}>
+                      {Math.round(selectedDayTotals.carbs)} g gluc
+                    </Badge>
+                    <Badge color={T.orange || '#FFB454'}>
+                      {Math.round(selectedDayTotals.fats)} g lip
+                    </Badge>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            <Card style={{ padding: 20 }}>
+              <div
+                style={{
+                  color: T.text,
+                  fontWeight: 900,
+                  fontSize: 18,
+                  marginBottom: 14,
+                }}
+              >
+                Vue semaine
+              </div>
+
+              <div style={{ display: 'grid', gap: 10 }}>
+                {groupedWeekPlan.map((day) => (
+                  <div
+                    key={day.date}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      border: `1px solid ${T.border}`,
+                      background: 'rgba(255,255,255,0.03)',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        flexWrap: 'wrap',
+                        marginBottom: day.items.length ? 10 : 0,
+                      }}
+                    >
+                      <div
+                        style={{
+                          color: T.text,
+                          fontWeight: 800,
+                          fontSize: 14,
+                        }}
+                      >
+                        {formatDate(day.date)}
+                      </div>
+
+                      <div
+                        style={{
+                          color: T.textDim,
+                          fontSize: 12,
+                        }}
+                      >
+                        {day.items.length} repas
+                      </div>
+                    </div>
+
+                    {day.items.length ? (
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {day.items.map((item) => (
+                          <Badge key={item.id}>
+                            {(item.meal_slot || 'Repas') + ' • ' + (item.recipes?.title || item.recipes?.name || 'Recette')}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ color: T.textDim, fontSize: 13 }}>
+                        Aucun repas planifié.
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </>
+        )}
+      </div>
+    </PageWrap>
+  )
 }
