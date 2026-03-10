@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import { PageWrap, Card, StatCard, Badge } from '../components/UI'
-import { T } from '../lib/data'
+import { SEANCE_ICONS, T } from '../lib/data'
 
 function formatDate(value) {
   if (!value) return '—'
@@ -12,17 +12,6 @@ function formatDate(value) {
   } catch {
     return String(value)
   }
-}
-
-function startOfDay(date) {
-  const d = new Date(date)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
-function daysBetween(a, b) {
-  const ms = startOfDay(b).getTime() - startOfDay(a).getTime()
-  return Math.round(ms / (1000 * 60 * 60 * 24))
 }
 
 function estimate1RM(weight, reps) {
@@ -39,67 +28,282 @@ function getSessionVolume(session) {
   }, 0)
 }
 
-function buildWeeklyBuckets(sessions) {
-  const buckets = new Map()
+function getSessionAvgRpe(session) {
+  const values = (session.sets || [])
+    .map((setRow) => Number(setRow.rpe || 0))
+    .filter(Boolean)
 
-  sessions.forEach((session) => {
-    if (!session.date) return
-    const date = new Date(session.date)
-    if (Number.isNaN(date.getTime())) return
+  if (!values.length) return null
 
-    const weekKey = `${date.getFullYear()}-${String(getWeekNumber(date)).padStart(2, '0')}`
+  return values.reduce((a, b) => a + b, 0) / values.length
+}
 
-    const current = buckets.get(weekKey) || {
-      key: weekKey,
-      label: weekLabel(date),
-      sessions: 0,
-      volume: 0,
-      sets: 0,
+function getUniqueExercises(session) {
+  const names = new Set(
+    (session.sets || [])
+      .map((setRow) => String(setRow.exercise || '').trim())
+      .filter(Boolean)
+  )
+
+  return [...names]
+}
+
+function buildExerciseTimeline(sessions, exerciseName) {
+  if (!exerciseName) return []
+
+  return sessions
+    .map((session) => {
+      const matchingSets = (session.sets || []).filter(
+        (setRow) => String(setRow.exercise || '').trim() === exerciseName
+      )
+
+      if (!matchingSets.length) return null
+
+      const bestWeight = matchingSets.reduce(
+        (max, row) => Math.max(max, Number(row.weight || 0)),
+        0
+      )
+
+      const best1RM = matchingSets.reduce(
+        (max, row) => Math.max(max, estimate1RM(row.weight, row.reps)),
+        0
+      )
+
+      const volume = matchingSets.reduce(
+        (sum, row) => sum + Number(row.weight || 0) * Number(row.reps || 0),
+        0
+      )
+
+      const totalReps = matchingSets.reduce(
+        (sum, row) => sum + Number(row.reps || 0),
+        0
+      )
+
+      return {
+        sessionId: session.id,
+        date: session.date,
+        label: formatDate(session.date),
+        bestWeight,
+        best1RM,
+        volume,
+        setsCount: matchingSets.length,
+        totalReps,
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+}
+
+function buildPath(points, width, height, accessor) {
+  if (!points.length) return ''
+
+  const values = points.map(accessor)
+  const max = Math.max(...values, 1)
+  const min = Math.min(...values, 0)
+  const range = max - min || 1
+
+  return points
+    .map((point, index) => {
+      const x = points.length === 1 ? width / 2 : (index / (points.length - 1)) * width
+      const y = height - ((accessor(point) - min) / range) * height
+      return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`
+    })
+    .join(' ')
+}
+
+function getPointCoords(points, width, height, accessor) {
+  if (!points.length) return []
+
+  const values = points.map(accessor)
+  const max = Math.max(...values, 1)
+  const min = Math.min(...values, 0)
+  const range = max - min || 1
+
+  return points.map((point, index) => {
+    const x = points.length === 1 ? width / 2 : (index / (points.length - 1)) * width
+    const y = height - ((accessor(point) - min) / range) * height
+
+    return {
+      ...point,
+      x,
+      y,
+      value: accessor(point),
     }
-
-    current.sessions += 1
-    current.volume += getSessionVolume(session)
-    current.sets += session.sets?.length || 0
-
-    buckets.set(weekKey, current)
   })
-
-  return [...buckets.values()].sort((a, b) => a.key.localeCompare(b.key))
 }
 
-function getWeekNumber(date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-  const dayNum = d.getUTCDay() || 7
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7)
-}
+function MiniLineChart({
+  title,
+  points,
+  accessor,
+  valueFormatter,
+  lineColor = T.accent,
+  fillColor = 'rgba(45,255,155,0.08)',
+}) {
+  const width = 560
+  const height = 180
 
-function weekLabel(date) {
-  return `S${getWeekNumber(date)} ${date.getFullYear()}`
-}
+  const coords = useMemo(
+    () => getPointCoords(points, width, height, accessor),
+    [points, accessor]
+  )
 
-function getTrendLabel(first, last) {
-  if (!first && !last) return 'Stable'
-  if (!first && last) return 'En hausse'
+  const path = useMemo(
+    () => buildPath(points, width, height, accessor),
+    [points, accessor]
+  )
 
-  const base = Number(first || 0)
-  const now = Number(last || 0)
+  const areaPath = useMemo(() => {
+    if (!coords.length) return ''
 
-  if (!base && !now) return 'Stable'
-  if (!base && now) return 'En hausse'
+    const first = coords[0]
+    const last = coords[coords.length - 1]
+    const line = coords
+      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+      .join(' ')
 
-  const diff = ((now - base) / base) * 100
+    return `${line} L ${last.x.toFixed(2)} ${height} L ${first.x.toFixed(2)} ${height} Z`
+  }, [coords])
 
-  if (diff > 5) return 'En hausse'
-  if (diff < -5) return 'En baisse'
-  return 'Stable'
+  return (
+    <Card style={{ padding: 18 }}>
+      <div
+        style={{
+          color: T.text,
+          fontWeight: 900,
+          fontSize: 16,
+          marginBottom: 12,
+        }}
+      >
+        {title}
+      </div>
+
+      {points.length === 0 ? (
+        <div style={{ color: T.textDim, fontSize: 14 }}>
+          Pas assez de données pour afficher la courbe.
+        </div>
+      ) : (
+        <>
+          <div
+            style={{
+              width: '100%',
+              overflowX: 'auto',
+            }}
+          >
+            <svg
+              width="100%"
+              viewBox={`0 0 ${width} ${height + 24}`}
+              style={{
+                display: 'block',
+                minWidth: 320,
+              }}
+            >
+              <defs>
+                <linearGradient id={`grad-${title.replace(/\s+/g, '-')}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={lineColor} stopOpacity="0.28" />
+                  <stop offset="100%" stopColor={lineColor} stopOpacity="0.02" />
+                </linearGradient>
+              </defs>
+
+              {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+                const y = ratio * height
+                return (
+                  <line
+                    key={ratio}
+                    x1="0"
+                    y1={y}
+                    x2={width}
+                    y2={y}
+                    stroke="rgba(255,255,255,0.06)"
+                    strokeWidth="1"
+                  />
+                )
+              })}
+
+              {areaPath ? (
+                <path
+                  d={areaPath}
+                  fill={`url(#grad-${title.replace(/\s+/g, '-')})`}
+                  stroke="none"
+                />
+              ) : null}
+
+              {path ? (
+                <path
+                  d={path}
+                  fill="none"
+                  stroke={lineColor}
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ) : null}
+
+              {coords.map((point) => (
+                <g key={`${title}-${point.sessionId}`}>
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r="4.5"
+                    fill={lineColor}
+                  />
+                </g>
+              ))}
+            </svg>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(${Math.min(points.length, 6)}, minmax(0, 1fr))`,
+              gap: 8,
+              marginTop: 10,
+            }}
+          >
+            {points.slice(-6).map((point) => (
+              <div
+                key={`${title}-legend-${point.sessionId}`}
+                style={{
+                  padding: '8px 10px',
+                  borderRadius: 12,
+                  background: 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${T.border}`,
+                }}
+              >
+                <div
+                  style={{
+                    color: T.textDim,
+                    fontSize: 11,
+                    marginBottom: 4,
+                  }}
+                >
+                  {point.label}
+                </div>
+                <div
+                  style={{
+                    color: T.text,
+                    fontWeight: 800,
+                    fontSize: 13,
+                  }}
+                >
+                  {valueFormatter(accessor(point))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </Card>
+  )
 }
 
 export default function ProgressionPage() {
   const { user } = useAuth()
 
   const [sessions, setSessions] = useState([])
+  const [selectedExercise, setSelectedExercise] = useState('')
+  const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState('all')
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -167,14 +371,33 @@ export default function ProgressionPage() {
     loadProgress()
   }, [loadProgress])
 
+  const allExercises = useMemo(() => {
+    const names = new Set()
+
+    sessions.forEach((session) => {
+      ;(session.sets || []).forEach((setRow) => {
+        const name = String(setRow.exercise || '').trim()
+        if (name) names.add(name)
+      })
+    })
+
+    return [...names].sort((a, b) => a.localeCompare(b, 'fr'))
+  }, [sessions])
+
+  useEffect(() => {
+    if (!selectedExercise && allExercises.length > 0) {
+      setSelectedExercise(allExercises[0])
+    }
+  }, [allExercises, selectedExercise])
+
+  const exerciseTimeline = useMemo(() => {
+    return buildExerciseTimeline(sessions, selectedExercise)
+  }, [sessions, selectedExercise])
+
   const overview = useMemo(() => {
     const totalSessions = sessions.length
     const totalSets = sessions.reduce((sum, session) => sum + (session.sets?.length || 0), 0)
     const totalVolume = sessions.reduce((sum, session) => sum + getSessionVolume(session), 0)
-
-    const firstDate = sessions[0]?.date || null
-    const lastDate = sessions[sessions.length - 1]?.date || null
-    const activeDays = firstDate && lastDate ? Math.max(1, daysBetween(firstDate, lastDate) + 1) : 0
 
     const bestWeight = sessions.reduce((max, session) => {
       const currentBest = (session.sets || []).reduce(
@@ -196,78 +419,110 @@ export default function ProgressionPage() {
       totalSessions,
       totalSets,
       totalVolume,
-      activeDays,
       bestWeight,
       best1RM,
-      firstDate,
-      lastDate,
     }
   }, [sessions])
 
-  const exerciseStats = useMemo(() => {
-    const map = new Map()
-
-    sessions.forEach((session) => {
-      ;(session.sets || []).forEach((setRow) => {
-        const name = String(setRow.exercise || 'Exercice').trim()
-        const current = map.get(name) || {
-          name,
-          totalSets: 0,
-          totalVolume: 0,
-          bestWeight: 0,
-          best1RM: 0,
-          occurrences: 0,
-        }
-
-        current.totalSets += 1
-        current.totalVolume += Number(setRow.weight || 0) * Number(setRow.reps || 0)
-        current.bestWeight = Math.max(current.bestWeight, Number(setRow.weight || 0))
-        current.best1RM = Math.max(current.best1RM, estimate1RM(setRow.weight, setRow.reps))
-        current.occurrences += 1
-
-        map.set(name, current)
-      })
-    })
-
-    return [...map.values()].sort((a, b) => b.totalVolume - a.totalVolume)
-  }, [sessions])
-
-  const weeklyTrend = useMemo(() => buildWeeklyBuckets(sessions), [sessions])
-
-  const trendSummary = useMemo(() => {
-    if (weeklyTrend.length < 2) {
+  const selectedExerciseStats = useMemo(() => {
+    if (!exerciseTimeline.length) {
       return {
-        sessionsTrend: 'Stable',
-        volumeTrend: 'Stable',
+        sessionsCount: 0,
+        bestWeight: 0,
+        best1RM: 0,
+        totalVolume: 0,
+        trend: '—',
       }
     }
 
-    const first = weeklyTrend[0]
-    const last = weeklyTrend[weeklyTrend.length - 1]
+    const first = exerciseTimeline[0]
+    const last = exerciseTimeline[exerciseTimeline.length - 1]
+
+    const bestWeight = Math.max(...exerciseTimeline.map((item) => item.bestWeight), 0)
+    const best1RM = Math.max(...exerciseTimeline.map((item) => item.best1RM), 0)
+    const totalVolume = exerciseTimeline.reduce((sum, item) => sum + item.volume, 0)
+
+    let trend = 'Stable'
+    if (last.bestWeight > first.bestWeight) trend = 'En hausse'
+    if (last.bestWeight < first.bestWeight) trend = 'En baisse'
 
     return {
-      sessionsTrend: getTrendLabel(first.sessions, last.sessions),
-      volumeTrend: getTrendLabel(first.volume, last.volume),
+      sessionsCount: exerciseTimeline.length,
+      bestWeight,
+      best1RM,
+      totalVolume,
+      trend,
     }
-  }, [weeklyTrend])
+  }, [exerciseTimeline])
 
-  const strongestExercises = useMemo(() => {
-    return [...exerciseStats]
-      .sort((a, b) => b.best1RM - a.best1RM)
-      .slice(0, 6)
-  }, [exerciseStats])
+  const typeOptions = useMemo(() => {
+    const values = [...new Set(sessions.map((session) => session.seance_type).filter(Boolean))]
+    return values
+  }, [sessions])
 
-  const mostWorkedExercises = useMemo(() => {
-    return [...exerciseStats]
-      .sort((a, b) => b.totalSets - a.totalSets)
-      .slice(0, 6)
-  }, [exerciseStats])
+  const filteredHistory = useMemo(() => {
+    const q = search.trim().toLowerCase()
+
+    return [...sessions]
+      .slice()
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+      .filter((session) => {
+        const matchesType =
+          typeFilter === 'all' || String(session.seance_type || '') === typeFilter
+
+        if (!matchesType) return false
+
+        if (!q) return true
+
+        const sessionType = String(session.seance_type || '').toLowerCase()
+        const notes = String(session.notes || '').toLowerCase()
+        const exercises = getUniqueExercises(session).join(' ').toLowerCase()
+
+        return (
+          sessionType.includes(q) ||
+          notes.includes(q) ||
+          exercises.includes(q)
+        )
+      })
+  }, [sessions, search, typeFilter])
+
+  const handleDeleteSession = useCallback(async (sessionId) => {
+    const confirmed = window.confirm('Supprimer cette séance et toutes ses séries ?')
+    if (!confirmed) return
+
+    setErrorMessage('')
+
+    try {
+      const { error: setsError } = await supabase
+        .from('sets')
+        .delete()
+        .eq('session_id', sessionId)
+
+      if (setsError) {
+        throw setsError
+      }
+
+      const { error: sessionError } = await supabase
+        .from('sessions')
+        .delete()
+        .eq('id', sessionId)
+
+      if (sessionError) {
+        throw sessionError
+      }
+
+      setSessions((current) => current.filter((session) => session.id !== sessionId))
+    } catch (error) {
+      console.error('Erreur suppression séance :', error)
+      setErrorMessage("Impossible de supprimer la séance.")
+    }
+  }, [])
 
   return (
     <PageWrap>
       <div
         style={{
-          maxWidth: 1180,
+          maxWidth: 1220,
           margin: '0 auto',
           display: 'grid',
           gap: 18,
@@ -308,7 +563,7 @@ export default function ProgressionPage() {
               lineHeight: 1,
             }}
           >
-            MA PROGRESSION
+            PROGRESSION & HISTORIQUE
           </div>
 
           <div
@@ -319,7 +574,7 @@ export default function ProgressionPage() {
               marginTop: 10,
             }}
           >
-            Suis ton volume, tes performances et tes exercices forts dans le temps.
+            Suis tes charges, ton volume et toutes tes séances au même endroit.
           </div>
         </Card>
 
@@ -357,7 +612,7 @@ export default function ProgressionPage() {
             </div>
 
             <div style={{ color: T.textMid, fontSize: 14 }}>
-              Enregistre quelques séances pour commencer à voir ta progression.
+              Enregistre quelques séances pour afficher tes courbes de progression.
             </div>
           </Card>
         ) : (
@@ -382,348 +637,549 @@ export default function ProgressionPage() {
               />
             </div>
 
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1fr) minmax(320px, 0.9fr)',
-                gap: 18,
-                alignItems: 'start',
-              }}
-            >
-              <Card style={{ padding: 20 }}>
+            <Card style={{ padding: 18 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  marginBottom: 14,
+                }}
+              >
                 <div
                   style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: 12,
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    marginBottom: 14,
+                    color: T.text,
+                    fontWeight: 900,
+                    fontSize: 18,
                   }}
                 >
-                  <div
-                    style={{
-                      color: T.text,
-                      fontWeight: 900,
-                      fontSize: 18,
-                    }}
-                  >
-                    Évolution hebdomadaire
-                  </div>
-
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <Badge>{trendSummary.sessionsTrend} fréquence</Badge>
-                    <Badge color={T.blue || '#5BA7FF'}>{trendSummary.volumeTrend} volume</Badge>
-                  </div>
+                  Courbes d'évolution par exercice
                 </div>
 
-                <div style={{ display: 'grid', gap: 10 }}>
-                  {weeklyTrend.slice(-8).map((week) => {
-                    const maxVolume = Math.max(...weeklyTrend.map((item) => item.volume), 1)
-                    const width = Math.max(6, (week.volume / maxVolume) * 100)
+                <div style={{ minWidth: 260 }}>
+                  <select
+                    value={selectedExercise}
+                    onChange={(e) => setSelectedExercise(e.target.value)}
+                    style={{
+                      height: 46,
+                      width: '100%',
+                      borderRadius: 14,
+                      border: `1px solid ${T.border}`,
+                      background: T.surface,
+                      color: T.text,
+                      padding: '0 14px',
+                      fontSize: 14,
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    {allExercises.map((exercise) => (
+                      <option key={exercise} value={exercise}>
+                        {exercise}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                  gap: 12,
+                  marginBottom: 16,
+                }}
+              >
+                <Card style={{ padding: 14 }}>
+                  <div
+                    style={{
+                      color: T.textSub,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                    }}
+                  >
+                    Séances sur l'exercice
+                  </div>
+                  <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
+                    {selectedExerciseStats.sessionsCount}
+                  </div>
+                </Card>
+
+                <Card style={{ padding: 14 }}>
+                  <div
+                    style={{
+                      color: T.textSub,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                    }}
+                  >
+                    Meilleure charge
+                  </div>
+                  <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
+                    {selectedExerciseStats.bestWeight
+                      ? `${selectedExerciseStats.bestWeight.toFixed(1)} kg`
+                      : '—'}
+                  </div>
+                </Card>
+
+                <Card style={{ padding: 14 }}>
+                  <div
+                    style={{
+                      color: T.textSub,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                    }}
+                  >
+                    1RM estimé
+                  </div>
+                  <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
+                    {selectedExerciseStats.best1RM
+                      ? `${selectedExerciseStats.best1RM.toFixed(1)} kg`
+                      : '—'}
+                  </div>
+                </Card>
+
+                <Card style={{ padding: 14 }}>
+                  <div
+                    style={{
+                      color: T.textSub,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                    }}
+                  >
+                    Tendance
+                  </div>
+                  <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
+                    {selectedExerciseStats.trend}
+                  </div>
+                </Card>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+                  gap: 18,
+                  alignItems: 'start',
+                }}
+              >
+                <MiniLineChart
+                  title="Meilleure charge"
+                  points={exerciseTimeline}
+                  accessor={(point) => point.bestWeight}
+                  valueFormatter={(value) => `${Number(value || 0).toFixed(1)} kg`}
+                  lineColor={T.accent}
+                />
+
+                <MiniLineChart
+                  title="Volume"
+                  points={exerciseTimeline}
+                  accessor={(point) => point.volume}
+                  valueFormatter={(value) => `${Math.round(Number(value || 0))} kg`}
+                  lineColor={T.blue || '#5BA7FF'}
+                />
+              </div>
+            </Card>
+
+            <Card style={{ padding: 18 }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1fr) 220px auto',
+                  gap: 12,
+                  alignItems: 'end',
+                  marginBottom: 14,
+                }}
+              >
+                <label style={{ display: 'grid', gap: 8 }}>
+                  <span
+                    style={{
+                      color: T.textSub || T.textDim,
+                      fontSize: 12,
+                      fontWeight: 800,
+                    }}
+                  >
+                    Rechercher dans l'historique
+                  </span>
+
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Séance, exercice, notes..."
+                    style={{
+                      height: 48,
+                      borderRadius: 14,
+                      border: `1px solid ${T.border}`,
+                      background: T.surface,
+                      color: T.text,
+                      padding: '0 14px',
+                      fontSize: 14,
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      width: '100%',
+                    }}
+                  />
+                </label>
+
+                <label style={{ display: 'grid', gap: 8 }}>
+                  <span
+                    style={{
+                      color: T.textSub || T.textDim,
+                      fontSize: 12,
+                      fontWeight: 800,
+                    }}
+                  >
+                    Type de séance
+                  </span>
+
+                  <select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                    style={{
+                      height: 48,
+                      borderRadius: 14,
+                      border: `1px solid ${T.border}`,
+                      background: T.surface,
+                      color: T.text,
+                      padding: '0 14px',
+                      fontSize: 14,
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      width: '100%',
+                    }}
+                  >
+                    <option value="all">Toutes</option>
+                    {typeOptions.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <button
+                  type="button"
+                  onClick={loadProgress}
+                  disabled={loading}
+                  style={{
+                    height: 48,
+                    borderRadius: 14,
+                    border: `1px solid ${T.border}`,
+                    background: 'rgba(255,255,255,0.03)',
+                    color: T.text,
+                    padding: '0 16px',
+                    cursor: loading ? 'default' : 'pointer',
+                    fontWeight: 800,
+                    fontSize: 14,
+                    opacity: loading ? 0.7 : 1,
+                  }}
+                >
+                  {loading ? 'Chargement...' : 'Rafraîchir'}
+                </button>
+              </div>
+
+              <div
+                style={{
+                  color: T.text,
+                  fontWeight: 900,
+                  fontSize: 18,
+                  marginBottom: 14,
+                }}
+              >
+                Historique des séances
+              </div>
+
+              {filteredHistory.length === 0 ? (
+                <div style={{ color: T.textDim, fontSize: 14 }}>
+                  Aucun résultat pour ces filtres.
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: 12 }}>
+                  {filteredHistory.map((session) => {
+                    const volume = getSessionVolume(session)
+                    const avgRpe = getSessionAvgRpe(session)
+                    const exercises = getUniqueExercises(session)
 
                     return (
                       <div
-                        key={week.key}
+                        key={session.id}
                         style={{
+                          padding: '14px 16px',
+                          borderRadius: 18,
+                          border: `1px solid ${T.border}`,
+                          background: 'rgba(255,255,255,0.03)',
                           display: 'grid',
-                          gridTemplateColumns: '110px minmax(0, 1fr) auto',
                           gap: 12,
-                          alignItems: 'center',
                         }}
                       >
                         <div
                           style={{
-                            color: T.textDim,
-                            fontSize: 12,
-                            fontWeight: 800,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            gap: 12,
+                            flexWrap: 'wrap',
+                            alignItems: 'flex-start',
                           }}
                         >
-                          {week.label}
+                          <div style={{ minWidth: 0 }}>
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 10,
+                                flexWrap: 'wrap',
+                              }}
+                            >
+                              <div style={{ fontSize: 18 }}>
+                                {SEANCE_ICONS[session.seance_type] || '💪'}
+                              </div>
+
+                              <div
+                                style={{
+                                  color: T.text,
+                                  fontWeight: 900,
+                                  fontSize: 15,
+                                }}
+                              >
+                                {session.seance_type || 'Séance'}
+                              </div>
+
+                              <Badge>{formatDate(session.date)}</Badge>
+                            </div>
+
+                            <div
+                              style={{
+                                display: 'flex',
+                                gap: 8,
+                                flexWrap: 'wrap',
+                                marginTop: 10,
+                              }}
+                            >
+                              <Badge color={T.blue || '#5BA7FF'}>
+                                {session.sets.length} série{session.sets.length > 1 ? 's' : ''}
+                              </Badge>
+
+                              <Badge color={T.orange || '#FFB454'}>
+                                {Math.round(volume)} kg volume
+                              </Badge>
+
+                              {avgRpe ? <Badge>RPE {avgRpe.toFixed(1)}</Badge> : null}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSession(session.id)}
+                            style={{
+                              height: 38,
+                              borderRadius: 12,
+                              border: `1px solid ${T.border}`,
+                              background: 'transparent',
+                              color: T.danger,
+                              cursor: 'pointer',
+                              padding: '0 12px',
+                              fontWeight: 800,
+                            }}
+                          >
+                            Supprimer
+                          </button>
                         </div>
 
-                        <div
-                          style={{
-                            height: 14,
-                            borderRadius: 999,
-                            background: 'rgba(255,255,255,0.06)',
-                            overflow: 'hidden',
-                          }}
-                        >
+                        {exercises.length > 0 ? (
                           <div
                             style={{
-                              height: '100%',
-                              width: `${Math.min(100, width)}%`,
-                              background: T.accent,
-                              borderRadius: 999,
+                              display: 'flex',
+                              gap: 8,
+                              flexWrap: 'wrap',
                             }}
-                          />
-                        </div>
+                          >
+                            {exercises.slice(0, 10).map((exercise) => (
+                              <button
+                                key={`${session.id}-${exercise}`}
+                                type="button"
+                                onClick={() => setSelectedExercise(exercise)}
+                                style={{
+                                  height: 28,
+                                  padding: '0 10px',
+                                  borderRadius: 999,
+                                  border: `1px solid ${T.border}`,
+                                  background:
+                                    exercise === selectedExercise
+                                      ? 'rgba(45,255,155,0.10)'
+                                      : 'rgba(255,255,255,0.03)',
+                                  color:
+                                    exercise === selectedExercise
+                                      ? T.accentLight
+                                      : T.textMid,
+                                  cursor: 'pointer',
+                                  fontSize: 12,
+                                  fontWeight: 800,
+                                }}
+                              >
+                                {exercise}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
 
-                        <div
-                          style={{
-                            color: T.text,
-                            fontSize: 12,
-                            fontWeight: 800,
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {Math.round(week.volume)} kg
-                        </div>
+                        {session.notes ? (
+                          <div
+                            style={{
+                              color: T.textMid,
+                              fontSize: 13,
+                              lineHeight: 1.6,
+                            }}
+                          >
+                            Notes : {session.notes}
+                          </div>
+                        ) : null}
+
+                        {session.sets.length > 0 ? (
+                          <div
+                            style={{
+                              overflowX: 'auto',
+                              borderRadius: 14,
+                              border: `1px solid ${T.border}`,
+                            }}
+                          >
+                            <table
+                              style={{
+                                width: '100%',
+                                borderCollapse: 'collapse',
+                                minWidth: 700,
+                              }}
+                            >
+                              <thead>
+                                <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
+                                  <th
+                                    style={{
+                                      textAlign: 'left',
+                                      padding: '12px 14px',
+                                      color: T.textDim,
+                                      fontSize: 11,
+                                      textTransform: 'uppercase',
+                                      letterSpacing: 1,
+                                    }}
+                                  >
+                                    Exercice
+                                  </th>
+                                  <th
+                                    style={{
+                                      textAlign: 'left',
+                                      padding: '12px 14px',
+                                      color: T.textDim,
+                                      fontSize: 11,
+                                      textTransform: 'uppercase',
+                                      letterSpacing: 1,
+                                    }}
+                                  >
+                                    Reps
+                                  </th>
+                                  <th
+                                    style={{
+                                      textAlign: 'left',
+                                      padding: '12px 14px',
+                                      color: T.textDim,
+                                      fontSize: 11,
+                                      textTransform: 'uppercase',
+                                      letterSpacing: 1,
+                                    }}
+                                  >
+                                    Poids
+                                  </th>
+                                  <th
+                                    style={{
+                                      textAlign: 'left',
+                                      padding: '12px 14px',
+                                      color: T.textDim,
+                                      fontSize: 11,
+                                      textTransform: 'uppercase',
+                                      letterSpacing: 1,
+                                    }}
+                                  >
+                                    RPE
+                                  </th>
+                                  <th
+                                    style={{
+                                      textAlign: 'left',
+                                      padding: '12px 14px',
+                                      color: T.textDim,
+                                      fontSize: 11,
+                                      textTransform: 'uppercase',
+                                      letterSpacing: 1,
+                                    }}
+                                  >
+                                    1RM estimé
+                                  </th>
+                                  <th
+                                    style={{
+                                      textAlign: 'left',
+                                      padding: '12px 14px',
+                                      color: T.textDim,
+                                      fontSize: 11,
+                                      textTransform: 'uppercase',
+                                      letterSpacing: 1,
+                                    }}
+                                  >
+                                    Volume
+                                  </th>
+                                </tr>
+                              </thead>
+
+                              <tbody>
+                                {session.sets.map((setRow) => (
+                                  <tr
+                                    key={setRow.id}
+                                    style={{
+                                      borderTop: `1px solid ${T.border}`,
+                                      background:
+                                        String(setRow.exercise || '').trim() === selectedExercise
+                                          ? 'rgba(45,255,155,0.04)'
+                                          : 'transparent',
+                                    }}
+                                  >
+                                    <td style={{ padding: '12px 14px', color: T.text, fontSize: 13 }}>
+                                      {setRow.exercise || 'Exercice'}
+                                    </td>
+                                    <td style={{ padding: '12px 14px', color: T.textMid, fontSize: 13 }}>
+                                      {setRow.reps ?? '—'}
+                                    </td>
+                                    <td style={{ padding: '12px 14px', color: T.textMid, fontSize: 13 }}>
+                                      {setRow.weight ?? '—'}
+                                    </td>
+                                    <td style={{ padding: '12px 14px', color: T.textMid, fontSize: 13 }}>
+                                      {setRow.rpe ?? '—'}
+                                    </td>
+                                    <td style={{ padding: '12px 14px', color: T.textMid, fontSize: 13 }}>
+                                      {setRow.weight && setRow.reps
+                                        ? `${estimate1RM(setRow.weight, setRow.reps).toFixed(1)}`
+                                        : '—'}
+                                    </td>
+                                    <td style={{ padding: '12px 14px', color: T.textMid, fontSize: 13 }}>
+                                      {Math.round(Number(setRow.weight || 0) * Number(setRow.reps || 0))}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : null}
                       </div>
                     )
                   })}
                 </div>
-
-                <div
-                  style={{
-                    marginTop: 14,
-                    color: T.textMid,
-                    fontSize: 13,
-                    lineHeight: 1.6,
-                  }}
-                >
-                  Période suivie : {overview.firstDate ? formatDate(overview.firstDate) : '—'} →{' '}
-                  {overview.lastDate ? formatDate(overview.lastDate) : '—'}
-                </div>
-              </Card>
-
-              <Card style={{ padding: 20 }}>
-                <div
-                  style={{
-                    color: T.text,
-                    fontWeight: 900,
-                    fontSize: 18,
-                    marginBottom: 14,
-                  }}
-                >
-                  Résumé rapide
-                </div>
-
-                <div style={{ display: 'grid', gap: 12 }}>
-                  <div
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: 14,
-                      background: 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${T.border}`,
-                    }}
-                  >
-                    <div
-                      style={{
-                        color: T.textDim,
-                        fontSize: 11,
-                        fontWeight: 800,
-                        textTransform: 'uppercase',
-                        letterSpacing: 1,
-                      }}
-                    >
-                      Période active
-                    </div>
-
-                    <div
-                      style={{
-                        color: T.text,
-                        fontSize: 20,
-                        fontWeight: 900,
-                        marginTop: 8,
-                      }}
-                    >
-                      {overview.activeDays || 0} jours
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: 14,
-                      background: 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${T.border}`,
-                    }}
-                  >
-                    <div
-                      style={{
-                        color: T.textDim,
-                        fontSize: 11,
-                        fontWeight: 800,
-                        textTransform: 'uppercase',
-                        letterSpacing: 1,
-                      }}
-                    >
-                      Exercices suivis
-                    </div>
-
-                    <div
-                      style={{
-                        color: T.text,
-                        fontSize: 20,
-                        fontWeight: 900,
-                        marginTop: 8,
-                      }}
-                    >
-                      {exerciseStats.length}
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: 14,
-                      background: 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${T.border}`,
-                    }}
-                  >
-                    <div
-                      style={{
-                        color: T.textDim,
-                        fontSize: 11,
-                        fontWeight: 800,
-                        textTransform: 'uppercase',
-                        letterSpacing: 1,
-                      }}
-                    >
-                      Tendance volume
-                    </div>
-
-                    <div
-                      style={{
-                        color: T.text,
-                        fontSize: 20,
-                        fontWeight: 900,
-                        marginTop: 8,
-                      }}
-                    >
-                      {trendSummary.volumeTrend}
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
-                gap: 18,
-                alignItems: 'start',
-              }}
-            >
-              <Card style={{ padding: 20 }}>
-                <div
-                  style={{
-                    color: T.text,
-                    fontWeight: 900,
-                    fontSize: 18,
-                    marginBottom: 14,
-                  }}
-                >
-                  Exercices les plus travaillés
-                </div>
-
-                {mostWorkedExercises.length === 0 ? (
-                  <div style={{ color: T.textMid, fontSize: 14 }}>
-                    Pas encore assez de données.
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    {mostWorkedExercises.map((exercise) => (
-                      <div
-                        key={exercise.name}
-                        style={{
-                          padding: '12px 14px',
-                          borderRadius: 14,
-                          background: 'rgba(255,255,255,0.03)',
-                          border: `1px solid ${T.border}`,
-                          display: 'grid',
-                          gap: 6,
-                        }}
-                      >
-                        <div
-                          style={{
-                            color: T.text,
-                            fontWeight: 800,
-                            fontSize: 14,
-                          }}
-                        >
-                          {exercise.name}
-                        </div>
-
-                        <div
-                          style={{
-                            display: 'flex',
-                            gap: 8,
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          <Badge>{exercise.totalSets} séries</Badge>
-                          <Badge color={T.blue || '#5BA7FF'}>
-                            {Math.round(exercise.totalVolume)} kg
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-
-              <Card style={{ padding: 20 }}>
-                <div
-                  style={{
-                    color: T.text,
-                    fontWeight: 900,
-                    fontSize: 18,
-                    marginBottom: 14,
-                  }}
-                >
-                  Exercices les plus forts
-                </div>
-
-                {strongestExercises.length === 0 ? (
-                  <div style={{ color: T.textMid, fontSize: 14 }}>
-                    Pas encore assez de données.
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    {strongestExercises.map((exercise) => (
-                      <div
-                        key={exercise.name}
-                        style={{
-                          padding: '12px 14px',
-                          borderRadius: 14,
-                          background: 'rgba(255,255,255,0.03)',
-                          border: `1px solid ${T.border}`,
-                          display: 'grid',
-                          gap: 6,
-                        }}
-                      >
-                        <div
-                          style={{
-                            color: T.text,
-                            fontWeight: 800,
-                            fontSize: 14,
-                          }}
-                        >
-                          {exercise.name}
-                        </div>
-
-                        <div
-                          style={{
-                            display: 'flex',
-                            gap: 8,
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          <Badge>{exercise.bestWeight ? `${exercise.bestWeight.toFixed(1)} kg` : '—'}</Badge>
-                          <Badge color={T.orange || '#FFB454'}>
-                            1RM {exercise.best1RM ? exercise.best1RM.toFixed(1) : '—'} kg
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-            </div>
+              )}
+            </Card>
           </>
         )}
       </div>
