@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { resolveImageUrl } from '../lib/media'
+import { resolveImageUrl, resolveUiAssetImage } from '../lib/media'
 import { useAuth } from '../components/AuthContext'
 import { PageWrap, Card, Btn, Badge } from '../components/UI'
 import { T, SEANCE_ICONS } from '../lib/data'
@@ -209,6 +209,39 @@ export default function GoalHomePage() {
     })
   }, [suggestedRecipe])
 
+  const workoutImage = useMemo(
+    () =>
+      resolveUiAssetImage(
+        'goalhome-workout.jpg',
+        'goalHome-workout.jpg',
+        'goalHome/goalhome-workout.jpg',
+        'goalHome/workout.jpg'
+      ),
+    []
+  )
+
+  const nutritionImage = useMemo(
+    () =>
+      resolveUiAssetImage(
+        'goalhome-nutrition.jpg',
+        'goalHome-nutrition.jpg',
+        'goalHome/goalhome-nutrition.jpg',
+        'goalHome/nutrition.jpg'
+      ),
+    []
+  )
+
+  const progressImage = useMemo(
+    () =>
+      resolveUiAssetImage(
+        'goalhome-progress.jpg',
+        'goalHome-progress.jpg',
+        'goalHome/goalhome-progress.jpg',
+        'goalHome/progress.jpg'
+      ),
+    []
+  )
+
   const lastSession = recentSessions[0] || null
 
   const nutritionCompletion = useMemo(() => {
@@ -344,124 +377,170 @@ export default function GoalHomePage() {
                 alignItems: 'start',
               }}
             >
-              <Card style={{ padding: 20 }}>
+              <Card style={{ padding: 0, overflow: 'hidden' }}>
                 <div
                   style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: 12,
-                    flexWrap: 'wrap',
-                    alignItems: 'center',
-                    marginBottom: 14,
+                    minHeight: 280,
+                    background: workoutImage
+                      ? `linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.78)), url("${workoutImage}") center/cover no-repeat`
+                      : 'linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
                   }}
                 >
-                  <div style={{ color: T.text, fontWeight: 900, fontSize: 18 }}>
-                    Séance du jour
-                  </div>
-
-                  {sessionSummary.type ? (
-                    <Badge>
-                      {(SEANCE_ICONS[sessionSummary.type] || '💪') + ' ' + sessionSummary.type}
-                    </Badge>
-                  ) : (
-                    <Badge color={T.blue || '#5BA7FF'}>Séance libre</Badge>
-                  )}
-                </div>
-
-                {sessionSummary.exists ? (
-                  <>
-                    <div style={{ color: T.text, fontWeight: 800, fontSize: 18 }}>
-                      {sessionSummary.name}
-                    </div>
-
-                    <div
-                      style={{
-                        color: T.textMid,
-                        fontSize: 14,
-                        marginTop: 8,
-                        lineHeight: 1.65,
-                      }}
-                    >
-                      {sessionSummary.exerciseCount} exercice{sessionSummary.exerciseCount > 1 ? 's' : ''} prévu{sessionSummary.exerciseCount > 1 ? 's' : ''} aujourd’hui.
-                    </div>
-
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
-                      <Link to="/entrainement/aujourdhui" style={{ textDecoration: 'none' }}>
-                        <Btn>Commencer la séance</Btn>
-                      </Link>
-
-                      <Link to="/entrainement/libre" style={{ textDecoration: 'none' }}>
-                        <Btn variant="secondary">Séance libre</Btn>
-                      </Link>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ color: T.text, fontWeight: 800, fontSize: 18 }}>
-                      Aucun programme assigné aujourd’hui
-                    </div>
-
-                    <div
-                      style={{
-                        color: T.textMid,
-                        fontSize: 14,
-                        marginTop: 8,
-                        lineHeight: 1.65,
-                      }}
-                    >
-                      Tu peux lancer une séance libre et enregistrer ton entraînement.
-                    </div>
-
-                    <div style={{ marginTop: 18 }}>
-                      <Link to="/entrainement/libre" style={{ textDecoration: 'none' }}>
-                        <Btn>Démarrer une séance libre</Btn>
-                      </Link>
-                    </div>
-                  </>
-                )}
-              </Card>
-
-              <Card style={{ padding: 20 }}>
-                <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 14 }}>
-                  Nutrition du jour
-                </div>
-
-                <div style={{ display: 'grid', gap: 12 }}>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <Badge>
-                      {Math.round(nutritionTotals.calories)} / {Math.round(nutritionSummary.caloriesGoal || 0)} kcal
-                    </Badge>
-                    <Badge color={T.blue || '#5BA7FF'}>{nutritionCompletion}% atteint</Badge>
-                  </div>
-
                   <div
                     style={{
-                      height: 10,
-                      borderRadius: 999,
-                      background: 'rgba(255,255,255,0.06)',
-                      overflow: 'hidden',
+                      minHeight: 280,
+                      padding: 20,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      background: workoutImage
+                        ? 'linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.80))'
+                        : 'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.10), transparent 30%)',
                     }}
                   >
                     <div
                       style={{
-                        height: '100%',
-                        width: `${nutritionCompletion}%`,
-                        background: T.accent,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        flexWrap: 'wrap',
+                        alignItems: 'center',
                       }}
-                    />
-                  </div>
+                    >
+                      <div style={{ color: '#fff', fontWeight: 900, fontSize: 18 }}>
+                        Séance du jour
+                      </div>
 
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <Badge>{Math.round(nutritionTotals.proteins)} g prot</Badge>
-                    <Badge color={T.blue || '#5BA7FF'}>{Math.round(nutritionTotals.carbs)} g gluc</Badge>
-                    <Badge color={T.orange || '#FFB454'}>{Math.round(nutritionTotals.fats)} g lip</Badge>
-                    <Badge color="#26c6da">{Math.round(nutritionTotals.water)} ml eau</Badge>
-                  </div>
+                      {sessionSummary.type ? (
+                        <Badge>
+                          {(SEANCE_ICONS[sessionSummary.type] || '💪') + ' ' + sessionSummary.type}
+                        </Badge>
+                      ) : (
+                        <Badge color={T.blue || '#5BA7FF'}>Séance libre</Badge>
+                      )}
+                    </div>
 
-                  <div style={{ marginTop: 4 }}>
-                    <Link to="/nutrition/macros" style={{ textDecoration: 'none' }}>
-                      <Btn variant="secondary">Voir la nutrition</Btn>
-                    </Link>
+                    <div>
+                      {sessionSummary.exists ? (
+                        <>
+                          <div style={{ color: '#fff', fontWeight: 900, fontSize: 28, lineHeight: 1.05 }}>
+                            {sessionSummary.name}
+                          </div>
+
+                          <div
+                            style={{
+                              color: 'rgba(255,255,255,0.85)',
+                              fontSize: 14,
+                              marginTop: 10,
+                              lineHeight: 1.65,
+                            }}
+                          >
+                            {sessionSummary.exerciseCount} exercice{sessionSummary.exerciseCount > 1 ? 's' : ''} prévu{sessionSummary.exerciseCount > 1 ? 's' : ''} aujourd’hui.
+                          </div>
+
+                          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
+                            <Link to="/entrainement/aujourdhui" style={{ textDecoration: 'none' }}>
+                              <Btn>Commencer la séance</Btn>
+                            </Link>
+
+                            <Link to="/entrainement/libre" style={{ textDecoration: 'none' }}>
+                              <Btn variant="secondary">Séance libre</Btn>
+                            </Link>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ color: '#fff', fontWeight: 900, fontSize: 28, lineHeight: 1.05 }}>
+                            Aucun programme assigné aujourd’hui
+                          </div>
+
+                          <div
+                            style={{
+                              color: 'rgba(255,255,255,0.85)',
+                              fontSize: 14,
+                              marginTop: 10,
+                              lineHeight: 1.65,
+                            }}
+                          >
+                            Tu peux lancer une séance libre et enregistrer ton entraînement.
+                          </div>
+
+                          <div style={{ marginTop: 18 }}>
+                            <Link to="/entrainement/libre" style={{ textDecoration: 'none' }}>
+                              <Btn>Démarrer une séance libre</Btn>
+                            </Link>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <Card style={{ padding: 0, overflow: 'hidden' }}>
+                <div
+                  style={{
+                    minHeight: 280,
+                    background: nutritionImage
+                      ? `linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.78)), url("${nutritionImage}") center/cover no-repeat`
+                      : 'linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
+                  }}
+                >
+                  <div
+                    style={{
+                      minHeight: 280,
+                      padding: 20,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      background: nutritionImage
+                        ? 'linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.80))'
+                        : 'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.10), transparent 30%)',
+                    }}
+                  >
+                    <div style={{ color: '#fff', fontWeight: 900, fontSize: 18 }}>
+                      Nutrition du jour
+                    </div>
+
+                    <div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <Badge>
+                          {Math.round(nutritionTotals.calories)} / {Math.round(nutritionSummary.caloriesGoal || 0)} kcal
+                        </Badge>
+                        <Badge color={T.blue || '#5BA7FF'}>{nutritionCompletion}% atteint</Badge>
+                      </div>
+
+                      <div
+                        style={{
+                          height: 10,
+                          borderRadius: 999,
+                          background: 'rgba(255,255,255,0.14)',
+                          overflow: 'hidden',
+                          marginTop: 14,
+                        }}
+                      >
+                        <div
+                          style={{
+                            height: '100%',
+                            width: `${nutritionCompletion}%`,
+                            background: T.accent,
+                          }}
+                        />
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+                        <Badge>{Math.round(nutritionTotals.proteins)} g prot</Badge>
+                        <Badge color={T.blue || '#5BA7FF'}>{Math.round(nutritionTotals.carbs)} g gluc</Badge>
+                        <Badge color={T.orange || '#FFB454'}>{Math.round(nutritionTotals.fats)} g lip</Badge>
+                        <Badge color="#26c6da">{Math.round(nutritionTotals.water)} ml eau</Badge>
+                      </div>
+
+                      <div style={{ marginTop: 16 }}>
+                        <Link to="/nutrition/macros" style={{ textDecoration: 'none' }}>
+                          <Btn variant="secondary">Voir la nutrition</Btn>
+                        </Link>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -555,53 +634,77 @@ export default function GoalHomePage() {
                 )}
               </Card>
 
-              <Card style={{ padding: 20 }}>
-                <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 14 }}>
-                  Progression rapide
-                </div>
+              <Card style={{ padding: 0, overflow: 'hidden' }}>
+                <div
+                  style={{
+                    minHeight: 360,
+                    background: progressImage
+                      ? `linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.78)), url("${progressImage}") center/cover no-repeat`
+                      : 'linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
+                  }}
+                >
+                  <div
+                    style={{
+                      minHeight: 360,
+                      padding: 20,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      background: progressImage
+                        ? 'linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.80))'
+                        : 'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.10), transparent 30%)',
+                    }}
+                  >
+                    <div style={{ color: '#fff', fontWeight: 900, fontSize: 18 }}>
+                      Progression rapide
+                    </div>
 
-                {recentSessions.length === 0 ? (
-                  <div style={{ color: T.textMid, fontSize: 14 }}>
-                    Aucune séance récente.
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    {recentSessions.slice(0, 4).map((session) => (
-                      <div
-                        key={session.id}
-                        style={{
-                          padding: '12px 14px',
-                          borderRadius: 14,
-                          background: 'rgba(255,255,255,0.03)',
-                          border: `1px solid ${T.border}`,
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          gap: 10,
-                          alignItems: 'center',
-                        }}
-                      >
-                        <div>
-                          <div style={{ color: T.text, fontWeight: 800, fontSize: 14 }}>
-                            {session.seance_type || 'Séance'}
-                          </div>
-                          <div style={{ color: T.textDim, fontSize: 12, marginTop: 4 }}>
-                            {formatDate(session.date)}
+                    <div>
+                      {recentSessions.length === 0 ? (
+                        <div style={{ color: 'rgba(255,255,255,0.82)', fontSize: 14 }}>
+                          Aucune séance récente.
+                        </div>
+                      ) : (
+                        <div style={{ display: 'grid', gap: 10 }}>
+                          {recentSessions.slice(0, 4).map((session) => (
+                            <div
+                              key={session.id}
+                              style={{
+                                padding: '12px 14px',
+                                borderRadius: 14,
+                                background: 'rgba(255,255,255,0.08)',
+                                border: '1px solid rgba(255,255,255,0.12)',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                gap: 10,
+                                alignItems: 'center',
+                              }}
+                            >
+                              <div>
+                                <div style={{ color: '#fff', fontWeight: 800, fontSize: 14 }}>
+                                  {session.seance_type || 'Séance'}
+                                </div>
+                                <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: 12, marginTop: 4 }}>
+                                  {formatDate(session.date)}
+                                </div>
+                              </div>
+
+                              <div style={{ fontSize: 18 }}>
+                                {SEANCE_ICONS[session.seance_type] || '💪'}
+                              </div>
+                            </div>
+                          ))}
+
+                          <div style={{ marginTop: 8 }}>
+                            <Link to="/progression" style={{ textDecoration: 'none' }}>
+                              <Btn variant="secondary">Voir ma progression</Btn>
+                            </Link>
                           </div>
                         </div>
-
-                        <div style={{ fontSize: 18 }}>
-                          {SEANCE_ICONS[session.seance_type] || '💪'}
-                        </div>
-                      </div>
-                    ))}
-
-                    <div style={{ marginTop: 8 }}>
-                      <Link to="/progression" style={{ textDecoration: 'none' }}>
-                        <Btn variant="secondary">Voir ma progression</Btn>
-                      </Link>
+                      )}
                     </div>
                   </div>
-                )}
+                </div>
               </Card>
             </div>
           </>
