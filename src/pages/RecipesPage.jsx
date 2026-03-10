@@ -1,32 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { PageWrap, Input } from '../components/UI'
+import { resolveImageUrl } from '../lib/media'
+import { PageWrap, Input, Card, Badge } from '../components/UI'
 import { T } from '../lib/data'
 
-function MacroBadge({ children }) {
-  return (
-    <div
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: '7px 10px',
-        borderRadius: 999,
-        background: 'rgba(255,255,255,0.08)',
-        border: '1px solid rgba(255,255,255,0.10)',
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: 800,
-        letterSpacing: 0.3,
-        backdropFilter: 'blur(8px)',
-      }}
-    >
-      {children}
-    </div>
-  )
-}
-
 function RecipeCard({ recipe, onOpen }) {
+  const imageUrl = resolveImageUrl({
+    imageUrl: recipe.image_url,
+    imagePath: recipe.image_path,
+    imageBucket: recipe.image_bucket || 'recipe-images',
+  })
+
   const proteins = Number(recipe.proteins || recipe.protein || 0)
   const carbs = Number(recipe.carbs || 0)
   const fats = Number(recipe.fats || recipe.fat || 0)
@@ -35,7 +20,7 @@ function RecipeCard({ recipe, onOpen }) {
   return (
     <button
       type="button"
-      onClick={() => onOpen(recipe.id)}
+      onClick={() => recipe?.id && onOpen(recipe.id)}
       style={{
         background: 'transparent',
         border: 'none',
@@ -47,46 +32,32 @@ function RecipeCard({ recipe, onOpen }) {
       <div
         style={{
           position: 'relative',
-          minHeight: 360,
-          borderRadius: 26,
+          minHeight: 340,
+          borderRadius: 24,
           overflow: 'hidden',
-          border: '1px solid rgba(255,255,255,0.08)',
-          background: recipe.image_url
-            ? `linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.78)), url("${recipe.image_url}") center/cover no-repeat`
-            : 'linear-gradient(135deg, rgba(26,32,29,0.96), rgba(9,12,10,0.98))',
-          boxShadow: '0 20px 50px rgba(0,0,0,0.22)',
-          transition: 'transform .22s ease, box-shadow .22s ease, border-color .22s ease',
+          border: `1px solid ${T.border}`,
+          background: imageUrl
+            ? `linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.78)), url("${imageUrl}") center/cover no-repeat`
+            : 'linear-gradient(135deg, rgba(24,28,26,0.96), rgba(10,14,12,0.98))',
+          boxShadow: '0 18px 50px rgba(0,0,0,0.24)',
+          transition: 'transform .2s ease, border-color .2s ease',
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'translateY(-4px)'
-          e.currentTarget.style.boxShadow = '0 28px 60px rgba(0,0,0,0.28)'
-          e.currentTarget.style.borderColor = 'rgba(45,255,155,0.20)'
+          e.currentTarget.style.borderColor = `${T.accent}44`
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'translateY(0px)'
-          e.currentTarget.style.boxShadow = '0 20px 50px rgba(0,0,0,0.22)'
-          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
+          e.currentTarget.style.transform = 'translateY(0)'
+          e.currentTarget.style.borderColor = T.border
         }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: recipe.image_url
-              ? 'linear-gradient(180deg, rgba(0,0,0,0.00), rgba(0,0,0,0.82))'
-              : 'radial-gradient(circle at 18% 15%, rgba(45,255,155,0.14), transparent 35%)',
-          }}
-        />
-
-        {!recipe.image_url ? (
+        {!imageUrl ? (
           <div
             style={{
               position: 'absolute',
               inset: 0,
-              opacity: 0.08,
-              backgroundImage:
-                'radial-gradient(rgba(255,255,255,0.75) 0.7px, transparent 0.7px)',
-              backgroundSize: '14px 14px',
+              background:
+                'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.10), transparent 30%)',
             }}
           />
         ) : null}
@@ -102,23 +73,7 @@ function RecipeCard({ recipe, onOpen }) {
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                padding: '8px 12px',
-                borderRadius: 999,
-                background: 'rgba(10,12,11,0.42)',
-                border: '1px solid rgba(255,255,255,0.12)',
-                color: '#fff',
-                fontSize: 12,
-                fontWeight: 900,
-                letterSpacing: 0.5,
-                backdropFilter: 'blur(12px)',
-              }}
-            >
-              {calories} kcal
-            </div>
+            <Badge>{Math.round(calories)} kcal</Badge>
           </div>
 
           <div>
@@ -128,34 +83,30 @@ function RecipeCard({ recipe, onOpen }) {
                 fontSize: 28,
                 fontWeight: 900,
                 lineHeight: 1.05,
-                marginBottom: 14,
-                maxWidth: 420,
+                marginBottom: 12,
               }}
             >
               {recipe.title || recipe.name || 'Recette'}
             </div>
 
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-              <MacroBadge>P {proteins.toFixed(0)}g</MacroBadge>
-              <MacroBadge>C {carbs.toFixed(0)}g</MacroBadge>
-              <MacroBadge>F {fats.toFixed(0)}g</MacroBadge>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+              <Badge>P {Math.round(proteins)}g</Badge>
+              <Badge color={T.blue || '#5BA7FF'}>C {Math.round(carbs)}g</Badge>
+              <Badge color={T.orange || '#FFB454'}>F {Math.round(fats)}g</Badge>
             </div>
 
             <div
               style={{
                 display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
                 padding: '10px 14px',
                 borderRadius: 999,
+                border: '1px solid rgba(255,255,255,0.12)',
                 background: 'rgba(255,255,255,0.08)',
-                border: '1px solid rgba(255,255,255,0.10)',
                 color: '#fff',
                 fontSize: 12,
                 fontWeight: 900,
                 letterSpacing: 0.6,
                 textTransform: 'uppercase',
-                backdropFilter: 'blur(12px)',
               }}
             >
               Voir recette
@@ -171,7 +122,7 @@ export default function RecipesPage() {
   const navigate = useNavigate()
   const [recipes, setRecipes] = useState([])
   const [loading, setLoading] = useState(true)
-  const [q, setQ] = useState('')
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
     let active = true
@@ -179,153 +130,133 @@ export default function RecipesPage() {
     async function loadRecipes() {
       setLoading(true)
 
-      let query = supabase
+      let request = supabase
         .from('recipes')
         .select('*')
         .order('title', { ascending: true })
 
-      if (q.trim()) {
-        query = query.ilike('title', `%${q.trim()}%`)
+      if (query.trim()) {
+        request = request.ilike('title', `%${query.trim()}%`)
       }
 
-      const { data, error } = await query
+      const { data, error } = await request
 
       if (!active) return
 
       if (error) {
         console.error(error)
         setRecipes([])
-        setLoading(false)
-        return
+      } else {
+        setRecipes(data || [])
       }
 
-      setRecipes(data || [])
       setLoading(false)
     }
 
-    const timeout = setTimeout(() => {
-      loadRecipes()
-    }, 250)
+    const timer = setTimeout(loadRecipes, 220)
 
     return () => {
       active = false
-      clearTimeout(timeout)
+      clearTimeout(timer)
     }
-  }, [q])
+  }, [query])
 
-  function openRecipe(id) {
-    navigate(`/nutrition/recette/${id}`)
-  }
+  const recipeCount = useMemo(() => recipes.length, [recipes])
 
   return (
     <PageWrap>
-      <div style={{ maxWidth: 1180, margin: '0 auto' }}>
-        <div
+      <div style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gap: 18 }}>
+        <Card
+          glow
           style={{
-            position: 'relative',
-            overflow: 'hidden',
-            borderRadius: 28,
-            padding: '24px 24px 26px',
+            padding: '24px 22px',
             background:
-              'radial-gradient(circle at 15% 20%, rgba(45,255,155,0.14), transparent 28%), linear-gradient(135deg, rgba(22,27,24,0.96), rgba(10,14,12,0.98))',
-            border: '1px solid rgba(255,255,255,0.08)',
-            boxShadow: '0 24px 60px rgba(0,0,0,0.24)',
-            marginBottom: 20,
+              'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.10), transparent 30%), linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
           }}
         >
           <div
             style={{
-              position: 'absolute',
-              inset: 0,
-              opacity: 0.07,
-              backgroundImage:
-                'radial-gradient(rgba(255,255,255,0.72) 0.7px, transparent 0.7px)',
-              backgroundSize: '14px 14px',
-              pointerEvents: 'none',
+              display: 'inline-flex',
+              padding: '8px 12px',
+              borderRadius: 999,
+              border: `1px solid ${T.accent + '28'}`,
+              background: 'rgba(45,255,155,0.10)',
+              color: T.accentLight,
+              fontWeight: 800,
+              fontSize: 12,
+              letterSpacing: 1,
+              textTransform: 'uppercase',
+              marginBottom: 14,
             }}
-          />
-
-          <div style={{ position: 'relative', zIndex: 1 }}>
-            <div
-              style={{
-                display: 'inline-flex',
-                padding: '8px 12px',
-                borderRadius: 999,
-                border: `1px solid ${(T.accent || '#43E97B') + '28'}`,
-                background: 'rgba(45,255,155,0.10)',
-                color: T.accentLight || T.accent || '#43E97B',
-                fontWeight: 800,
-                fontSize: 12,
-                letterSpacing: 1,
-                textTransform: 'uppercase',
-                marginBottom: 14,
-              }}
-            >
-              Bibliothèque premium
-            </div>
-
-            <div
-              style={{
-                fontSize: 40,
-                fontWeight: 900,
-                letterSpacing: 1.5,
-                color: T.text,
-                lineHeight: 1,
-              }}
-            >
-              RECETTES
-            </div>
-
-            <div
-              style={{
-                color: T.textMid,
-                marginTop: 10,
-                fontSize: 15,
-                lineHeight: 1.65,
-                maxWidth: 760,
-              }}
-            >
-              Explore tes recettes, ajuste les calories, recalcule les quantités et ajoute-les directement à ta journée.
-            </div>
-
-            <div style={{ marginTop: 18, maxWidth: 420 }}>
-              <Input
-                label="Recherche"
-                value={q}
-                onChange={setQ}
-                placeholder="Poulet, saumon, pancakes..."
-              />
-            </div>
+          >
+            Bibliothèque recettes
           </div>
+
+          <div
+            style={{
+              color: T.text,
+              fontFamily: T.fontDisplay,
+              fontWeight: 900,
+              fontSize: 30,
+              lineHeight: 1,
+            }}
+          >
+            RECETTES
+          </div>
+
+          <div
+            style={{
+              color: T.textMid,
+              fontSize: 14,
+              lineHeight: 1.65,
+              marginTop: 10,
+              marginBottom: 18,
+            }}
+          >
+            Explore tes recettes et ajoute-les à ta nutrition ou à ton plan repas.
+          </div>
+
+          <div style={{ maxWidth: 420 }}>
+            <Input
+              label="Recherche"
+              value={query}
+              onChange={setQuery}
+              placeholder="Poulet, pancake, riz..."
+            />
+          </div>
+        </Card>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <Badge>{recipeCount} recette{recipeCount > 1 ? 's' : ''}</Badge>
         </div>
 
         {loading ? (
-          <div style={{ color: T.textMid, padding: 16 }}>Chargement…</div>
+          <Card style={{ padding: 20 }}>
+            <div style={{ color: T.textDim, fontSize: 14 }}>
+              Chargement des recettes...
+            </div>
+          </Card>
+        ) : recipes.length === 0 ? (
+          <Card style={{ padding: 20 }}>
+            <div style={{ color: T.textMid, fontSize: 14 }}>
+              Aucune recette trouvée.
+            </div>
+          </Card>
         ) : (
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
               gap: 18,
             }}
           >
             {recipes.map((recipe) => (
-              <RecipeCard key={recipe.id} recipe={recipe} onOpen={openRecipe} />
+              <RecipeCard
+                key={recipe.id}
+                recipe={recipe}
+                onOpen={(rid) => navigate(`/nutrition/recette/${rid}`)}
+              />
             ))}
-
-            {!recipes.length ? (
-              <div
-                style={{
-                  padding: 18,
-                  borderRadius: 20,
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  background: 'rgba(255,255,255,0.02)',
-                  color: T.textMid,
-                }}
-              >
-                Aucune recette trouvée.
-              </div>
-            ) : null}
           </div>
         )}
       </div>
