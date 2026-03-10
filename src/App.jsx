@@ -1,32 +1,40 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+
 import { AuthProvider, useAuth } from './components/AuthContext'
 import { DirtyProvider } from './components/DirtyContext'
-import { Grain } from './components/UI'
+import { Grain, Layout } from './components/UI'
+
+import Sidebar from './components/Sidebar'
+import Topbar from './components/Topbar'
 
 import AuthPage from './pages/AuthPage'
 import InviteAcceptPage from './pages/InviteAcceptPage'
 
+import GoalSelectionPage from './pages/GoalSelectionPage'
+import GoalHomePage from './pages/GoalHomePage'
+
+import AujourdhuiPage from './pages/AujourdhuiPage'
 import SaisiePage from './pages/SaisiePage'
 import ProgressionPage from './pages/ProgressionPage'
-import CoachPage from './pages/CoachPage'
-import CoachClientsPage from './pages/CoachClientsPage'
-import CoachClientDetailPage from './pages/CoachClientDetailPage'
-import AujourdhuiPage from './pages/AujourdhuiPage'
+
 import NutritionPage from './pages/NutritionPage'
-import ProgramBuilderPage from './pages/ProgramBuilderPage'
 import RecipesPage from './pages/RecipesPage'
 import RecipeDetailPage from './pages/RecipeDetailPage'
 import MealPlanPage from './pages/MealPlanPage'
 
-import GoalSelectionPage from './pages/GoalSelectionPage'
-import GoalHomePage from './pages/GoalHomePage'
+import CoachPage from './pages/CoachPage'
+import CoachClientsPage from './pages/CoachClientsPage'
+import CoachClientDetailPage from './pages/CoachClientDetailPage'
+import ProgramBuilderPage from './pages/ProgramBuilderPage'
+
 import ProgrammeBodybuildingPage from './pages/ProgrammeBodybuildingPage'
 import ProgrammePerteDePoidsPage from './pages/ProgrammePerteDePoidsPage'
 import ProgrammeAthletiquePage from './pages/ProgrammeAthletiquePage'
 
 import { T } from './lib/data'
 
-function AppLoadingScreen() {
+function LoadingScreen() {
   return (
     <div
       style={{
@@ -35,11 +43,10 @@ function AppLoadingScreen() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: T.fontDisplay,
-        fontSize: 11,
-        letterSpacing: 3,
         color: T.textDim,
-        textTransform: 'uppercase',
+        fontFamily: T.fontDisplay,
+        letterSpacing: 2,
+        fontSize: 12,
       }}
     >
       Chargement...
@@ -47,33 +54,37 @@ function AppLoadingScreen() {
   )
 }
 
-function AppFrame({ children }) {
-  return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: T.bg,
-        padding: 20,
-        boxSizing: 'border-box',
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1280,
-          margin: '0 auto',
-        }}
-      >
-        {children}
-      </div>
-    </div>
-  )
-}
-
 function PrivateAppShell() {
   const { user, profile, loading } = useAuth()
+  const location = useLocation()
+
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 900)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 899px)')
+
+    const update = () => {
+      const mobile = media.matches
+      setIsMobile(mobile)
+
+      if (!mobile) {
+        setMobileSidebarOpen(false)
+      }
+    }
+
+    update()
+
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+
+  useEffect(() => {
+    setMobileSidebarOpen(false)
+  }, [location.pathname])
 
   if (loading) {
-    return <AppLoadingScreen />
+    return <LoadingScreen />
   }
 
   if (!user) {
@@ -88,7 +99,23 @@ function PrivateAppShell() {
 
   return (
     <DirtyProvider>
-      <AppFrame>
+      {isMobile && (
+        <Sidebar
+          isMobile
+          mobileOpen={mobileSidebarOpen}
+          onClose={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
+      <Layout
+        sidebar={!isMobile ? <Sidebar /> : null}
+        topbar={
+          <Topbar
+            isMobile={isMobile}
+            onMenuClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+          />
+        }
+      >
         <Routes>
           <Route path="/" element={<Navigate to={defaultRoute} replace />} />
 
@@ -180,44 +207,9 @@ function PrivateAppShell() {
             element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammeAthletiquePage />}
           />
 
-          <Route
-            path="/historique"
-            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/progression" replace />}
-          />
-
-          <Route
-            path="/entrainement/historique"
-            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/progression" replace />}
-          />
-
-          <Route
-            path="/nutrition"
-            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/nutrition/macros" replace />}
-          />
-
-          <Route
-            path="/recettes"
-            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/nutrition/recettes" replace />}
-          />
-
-          <Route
-            path="/plan"
-            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/nutrition/plan" replace />}
-          />
-
-          <Route
-            path="/aujourdhui"
-            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/entrainement/aujourdhui" replace />}
-          />
-
-          <Route
-            path="/saisie"
-            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/entrainement/libre" replace />}
-          />
-
           <Route path="*" element={<Navigate to={defaultRoute} replace />} />
         </Routes>
-      </AppFrame>
+      </Layout>
     </DirtyProvider>
   )
 }
@@ -225,22 +217,18 @@ function PrivateAppShell() {
 function InviteRoute() {
   const { user, profile, loading } = useAuth()
 
-  if (loading) {
-    return <AppLoadingScreen />
-  }
+  if (loading) return <LoadingScreen />
 
-  if (!user) {
-    return <InviteAcceptPage />
-  }
+  if (!user) return <InviteAcceptPage />
 
-  const redirectTo =
+  const redirect =
     profile?.role === 'coach'
       ? '/coach'
       : profile?.goal_type
-        ? '/mon-espace'
-        : '/objectif'
+      ? '/mon-espace'
+      : '/objectif'
 
-  return <Navigate to={redirectTo} replace />
+  return <Navigate to={redirect} replace />
 }
 
 function RootRouter() {
