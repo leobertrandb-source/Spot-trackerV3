@@ -6,7 +6,7 @@ import { PageWrap, Card, Btn, Badge } from '../components/UI'
 import { T, SEANCE_ICONS } from '../lib/data'
 
 function todayString() {
-  return new Date().toISOString().slice(0, 10)
+  return new Date().toISOString().split('T')[0]
 }
 
 function goalLabel(goalType) {
@@ -15,61 +15,88 @@ function goalLabel(goalType) {
   if (value.includes('body')) return 'Prise de masse'
   if (value.includes('perte')) return 'Perte de poids'
   if (value.includes('athlet')) return 'Performance athlétique'
+
   return goalType || 'Objectif non défini'
 }
 
-function getMacroCalories({ protein, carbs, fats }) {
-  return protein * 4 + carbs * 4 + fats * 9
+function formatDate(value) {
+  if (!value) return '—'
+
+  try {
+    return new Date(value).toLocaleDateString('fr-FR')
+  } catch {
+    return String(value)
+  }
 }
 
-function recipeMatchesGoal(recipe, goalType) {
+function sumMacros(logs = []) {
+  return logs.reduce(
+    (acc, log) => ({
+      calories: acc.calories + Number(log.calories || 0),
+      proteins: acc.proteins + Number(log.proteins || 0),
+      carbs: acc.carbs + Number(log.carbs || 0),
+      fats: acc.fats + Number(log.fats || 0),
+      water: acc.water + Number(log.water || 0),
+    }),
+    { calories: 0, proteins: 0, carbs: 0, fats: 0, water: 0 }
+  )
+}
+
+function pickSuggestedRecipe(recipes = [], goalType) {
+  if (!recipes.length) return null
+
   const goal = String(goalType || '').toLowerCase()
-  const title = String(recipe?.title || recipe?.name || '').toLowerCase()
-  const tags = String(recipe?.tags || '').toLowerCase()
-  const combined = `${title} ${tags}`
 
-  if (goal.includes('perte')) {
-    return (
-      combined.includes('light') ||
-      combined.includes('lean') ||
-      combined.includes('salade') ||
-      combined.includes('healthy')
-    )
+  const scoreRecipe = (recipe) => {
+    const title = String(recipe.title || recipe.name || '').toLowerCase()
+    const description = String(recipe.description || '').toLowerCase()
+    const tags = String(recipe.tags || '').toLowerCase()
+    const text = `${title} ${description} ${tags}`
+
+    let score = 0
+
+    if (goal.includes('perte')) {
+      if (text.includes('light')) score += 2
+      if (text.includes('salade')) score += 2
+      if (text.includes('healthy')) score += 2
+      if (Number(recipe.calories || 0) <= 550 && Number(recipe.calories || 0) > 0) score += 2
+    }
+
+    if (goal.includes('body')) {
+      if (text.includes('protein')) score += 2
+      if (text.includes('proté')) score += 2
+      if (text.includes('poulet')) score += 2
+      if (text.includes('riz')) score += 1
+      if (Number(recipe.protein || recipe.proteins || 0) >= 25) score += 2
+    }
+
+    if (goal.includes('athlet')) {
+      if (text.includes('energy')) score += 2
+      if (text.includes('énergie')) score += 2
+      if (text.includes('avoine')) score += 2
+      if (text.includes('pâtes')) score += 1
+      if (text.includes('riz')) score += 1
+    }
+
+    score += Math.min(2, Number(recipe.protein || recipe.proteins || 0) / 20)
+
+    return score
   }
 
-  if (goal.includes('body')) {
-    return (
-      combined.includes('proté') ||
-      combined.includes('protein') ||
-      combined.includes('riz') ||
-      combined.includes('poulet') ||
-      combined.includes('beef')
-    )
-  }
-
-  if (goal.includes('athlet')) {
-    return (
-      combined.includes('énergie') ||
-      combined.includes('energy') ||
-      combined.includes('pâtes') ||
-      combined.includes('riz') ||
-      combined.includes('avoine')
-    )
-  }
-
-  return true
+  return [...recipes].sort((a, b) => scoreRecipe(b) - scoreRecipe(a))[0]
 }
 
 export default function GoalHomePage() {
   const { user, profile } = useAuth()
 
-  const [assignment, setAssignment] = useState(null)
-  const [nutrition, setNutrition] = useState(null)
-  const [recipeOfDay, setRecipeOfDay] = useState(null)
-  const [recentSessions, setRecentSessions] = useState([])
-
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+
+  const [todayAssignment, setTodayAssignment] = useState(null)
+  const [nutritionGoals, setNutritionGoals] = useState(null)
+  const [todayNutritionLogs, setTodayNutritionLogs] = useState([])
+  const [recentSessions, setRecentSessions] = useState([])
+  const [recipes, setRecipes] = useState([])
 
   const today = useMemo(() => todayString(), [])
 
@@ -85,9 +112,10 @@ export default function GoalHomePage() {
     try {
       const [
         assignmentRes,
-        profileRes,
-        recipesRes,
+        goalsRes,
+        logsRes,
         sessionsRes,
+        recipesRes,
       ] = await Promise.all([
         supabase
           .from('assignments')
@@ -98,83 +126,103 @@ export default function GoalHomePage() {
           .limit(1),
 
         supabase
-          .from('profiles')
-          .select('calories_target, protein_target, carbs_target, fats_target, goal_type')
-          .eq('id', user.id)
+          .from('nutrition_goals')
+          .select('*')
+          .eq('user_id', user.id)
           .maybeSingle(),
+
+        supabase
+          .from('nutrition_logs')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('log_date', today)
+          .order('created_at'),
+
+        supabase
+          .from('sessions')
+          .select('id, date, seance_type, notes')
+          .eq('user_id', user.id)
+          .order('date', { ascending: false })
+          .limit(5),
 
         supabase
           .from('recipes')
           .select('*')
-          .limit(30),
-
-        supabase
-          .from('sessions')
-          .select('id, date, seance_type')
-          .eq('user_id', user.id)
-          .order('date', { ascending: false })
-          .limit(5),
+          .limit(40),
       ])
 
       if (assignmentRes.error) throw assignmentRes.error
-      if (profileRes.error) throw profileRes.error
-      if (recipesRes.error) throw recipesRes.error
+      if (goalsRes.error) throw goalsRes.error
+      if (logsRes.error) throw logsRes.error
       if (sessionsRes.error) throw sessionsRes.error
+      if (recipesRes.error) throw recipesRes.error
 
-      const currentAssignment = assignmentRes.data?.[0] || null
-      const nutritionData = profileRes.data || null
-      const allRecipes = recipesRes.data || []
-      const sessionsData = sessionsRes.data || []
-
-      const matchedRecipe =
-        allRecipes.find((recipe) =>
-          recipeMatchesGoal(recipe, nutritionData?.goal_type || profile?.goal_type)
-        ) || allRecipes[0] || null
-
-      setAssignment(currentAssignment)
-      setNutrition(nutritionData)
-      setRecipeOfDay(matchedRecipe)
-      setRecentSessions(sessionsData)
+      setTodayAssignment(assignmentRes.data?.[0] || null)
+      setNutritionGoals(goalsRes.data || null)
+      setTodayNutritionLogs(logsRes.data || [])
+      setRecentSessions(sessionsRes.data || [])
+      setRecipes(recipesRes.data || [])
     } catch (error) {
-      console.error('Erreur dashboard athlète :', error)
-      setErrorMessage("Impossible de charger le dashboard du jour.")
-      setAssignment(null)
-      setNutrition(null)
-      setRecipeOfDay(null)
+      console.error('Erreur chargement dashboard athlète :', error)
+      setErrorMessage("Impossible de charger ton espace du jour.")
+      setTodayAssignment(null)
+      setNutritionGoals(null)
+      setTodayNutritionLogs([])
       setRecentSessions([])
+      setRecipes([])
     } finally {
       setLoading(false)
     }
-  }, [user?.id, today, profile?.goal_type])
+  }, [user?.id, today])
 
   useEffect(() => {
     loadDashboard()
   }, [loadDashboard])
 
+  const nutritionTotals = useMemo(() => {
+    return sumMacros(todayNutritionLogs)
+  }, [todayNutritionLogs])
+
   const nutritionSummary = useMemo(() => {
-    const protein = Number(nutrition?.protein_target || 0)
-    const carbs = Number(nutrition?.carbs_target || 0)
-    const fats = Number(nutrition?.fats_target || 0)
-    const calories = Number(nutrition?.calories_target || 0)
-    const calculated = getMacroCalories({ protein, carbs, fats })
+    const goals = nutritionGoals || {}
 
     return {
-      protein,
-      carbs,
-      fats,
-      calories: calories || calculated,
+      caloriesGoal:
+        Number(goals.calories || goals.calories_target || 0) || 0,
+      proteinsGoal:
+        Number(goals.proteins || goals.protein_target || 0) || 0,
+      carbsGoal:
+        Number(goals.carbs || goals.carbs_target || 0) || 0,
+      fatsGoal:
+        Number(goals.fats || goals.fats_target || 0) || 0,
+      waterGoal:
+        Number(goals.water || goals.water_target || 0) || 0,
     }
-  }, [nutrition])
+  }, [nutritionGoals])
 
   const sessionSummary = useMemo(() => {
-    const exercises = assignment?.programs?.program_exercises || []
+    const program = todayAssignment?.programs || null
+    const programExercises = program?.program_exercises || []
 
     return {
-      name: assignment?.programs?.name || null,
-      type: assignment?.programs?.seance_type || null,
-      count: exercises.length,
+      exists: !!program,
+      name: program?.name || null,
+      type: program?.seance_type || null,
+      exerciseCount: programExercises.length,
     }
-  }, [assignment])
+  }, [todayAssignment])
+
+  const suggestedRecipe = useMemo(() => {
+    return pickSuggestedRecipe(recipes, profile?.goal_type)
+  }, [recipes, profile?.goal_type])
+
+  const lastSession = recentSessions[0] || null
+
+  const nutritionCompletion = useMemo(() => {
+    const caloriesGoal = nutritionSummary.caloriesGoal || 0
+    if (!caloriesGoal) return 0
+    return Math.min(100, Math.round((nutritionTotals.calories / caloriesGoal) * 100))
+  }, [nutritionTotals.calories, nutritionSummary.caloriesGoal])
 
   return (
     <PageWrap>
@@ -232,7 +280,7 @@ export default function GoalHomePage() {
               marginTop: 10,
             }}
           >
-            Bienvenue {profile?.full_name || 'athlète'}. Voici ce que tu dois faire aujourd’hui.
+            Bienvenue {profile?.full_name || 'athlète'}. Voici ton plan de la journée.
           </div>
         </Card>
 
@@ -317,7 +365,7 @@ export default function GoalHomePage() {
                     marginTop: 8,
                   }}
                 >
-                  {sessionSummary.name ? 'Oui' : 'Libre'}
+                  {sessionSummary.exists ? 'Oui' : 'Libre'}
                 </div>
               </Card>
 
@@ -331,7 +379,7 @@ export default function GoalHomePage() {
                     textTransform: 'uppercase',
                   }}
                 >
-                  Calories cible
+                  Calories du jour
                 </div>
 
                 <div
@@ -342,9 +390,7 @@ export default function GoalHomePage() {
                     marginTop: 8,
                   }}
                 >
-                  {nutritionSummary.calories
-                    ? `${Math.round(nutritionSummary.calories)} kcal`
-                    : '—'}
+                  {Math.round(nutritionTotals.calories)} kcal
                 </div>
               </Card>
 
@@ -358,18 +404,19 @@ export default function GoalHomePage() {
                     textTransform: 'uppercase',
                   }}
                 >
-                  Dernières séances
+                  Dernière séance
                 </div>
 
                 <div
                   style={{
                     color: T.text,
                     fontWeight: 900,
-                    fontSize: 22,
+                    fontSize: 18,
                     marginTop: 8,
+                    lineHeight: 1.3,
                   }}
                 >
-                  {recentSessions.length}
+                  {lastSession ? formatDate(lastSession.date) : 'Aucune'}
                 </div>
               </Card>
             </div>
@@ -377,7 +424,7 @@ export default function GoalHomePage() {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1.25fr) minmax(320px, 0.9fr)',
+                gridTemplateColumns: 'minmax(0, 1.2fr) minmax(320px, 0.85fr)',
                 gap: 18,
                 alignItems: 'start',
               }}
@@ -408,11 +455,11 @@ export default function GoalHomePage() {
                       {(SEANCE_ICONS[sessionSummary.type] || '💪') + ' ' + sessionSummary.type}
                     </Badge>
                   ) : (
-                    <Badge color={T.blue}>Séance libre</Badge>
+                    <Badge color={T.blue || '#5BA7FF'}>Séance libre</Badge>
                   )}
                 </div>
 
-                {sessionSummary.name ? (
+                {sessionSummary.exists ? (
                   <>
                     <div
                       style={{
@@ -432,8 +479,9 @@ export default function GoalHomePage() {
                         lineHeight: 1.65,
                       }}
                     >
-                      {sessionSummary.count} exercice{sessionSummary.count > 1 ? 's' : ''} prévu
-                      {sessionSummary.count > 1 ? 's' : ''} aujourd’hui.
+                      {sessionSummary.exerciseCount} exercice
+                      {sessionSummary.exerciseCount > 1 ? 's' : ''} prévu
+                      {sessionSummary.exerciseCount > 1 ? 's' : ''} aujourd’hui.
                     </div>
 
                     <div
@@ -449,7 +497,7 @@ export default function GoalHomePage() {
                       </Link>
 
                       <Link to="/entrainement/libre" style={{ textDecoration: 'none' }}>
-                        <Btn variant="secondary">Passer en séance libre</Btn>
+                        <Btn variant="secondary">Séance libre</Btn>
                       </Link>
                     </div>
                   </>
@@ -497,22 +545,7 @@ export default function GoalHomePage() {
                   Nutrition du jour
                 </div>
 
-                <div style={{ display: 'grid', gap: 10 }}>
-                  <div
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: 14,
-                      background: 'rgba(255,255,255,0.03)',
-                      border: `1px solid ${T.border}`,
-                      color: T.text,
-                      fontWeight: 800,
-                    }}
-                  >
-                    {nutritionSummary.calories
-                      ? `${Math.round(nutritionSummary.calories)} kcal`
-                      : 'Objectif calories non défini'}
-                  </div>
-
+                <div style={{ display: 'grid', gap: 12 }}>
                   <div
                     style={{
                       display: 'flex',
@@ -520,12 +553,40 @@ export default function GoalHomePage() {
                       flexWrap: 'wrap',
                     }}
                   >
-                    <Badge>{nutritionSummary.protein || 0} g protéines</Badge>
-                    <Badge color={T.blue}>{nutritionSummary.carbs || 0} g glucides</Badge>
-                    <Badge color={T.orange}>{nutritionSummary.fats || 0} g lipides</Badge>
+                    <Badge>
+                      {Math.round(nutritionTotals.calories)} / {Math.round(nutritionSummary.caloriesGoal || 0)} kcal
+                    </Badge>
+
+                    <Badge color={T.blue || '#5BA7FF'}>
+                      {nutritionCompletion}% atteint
+                    </Badge>
                   </div>
 
-                  <div style={{ marginTop: 8 }}>
+                  <div
+                    style={{
+                      height: 10,
+                      borderRadius: 999,
+                      background: 'rgba(255,255,255,0.06)',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: '100%',
+                        width: `${nutritionCompletion}%`,
+                        background: T.accent,
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <Badge>{Math.round(nutritionTotals.proteins)} g prot</Badge>
+                    <Badge color={T.blue || '#5BA7FF'}>{Math.round(nutritionTotals.carbs)} g gluc</Badge>
+                    <Badge color={T.orange || '#FFB454'}>{Math.round(nutritionTotals.fats)} g lip</Badge>
+                    <Badge color="#26c6da">{Math.round(nutritionTotals.water)} ml eau</Badge>
+                  </div>
+
+                  <div style={{ marginTop: 4 }}>
                     <Link to="/nutrition/macros" style={{ textDecoration: 'none' }}>
                       <Btn variant="secondary">Voir la nutrition</Btn>
                     </Link>
@@ -554,7 +615,7 @@ export default function GoalHomePage() {
                   Recette suggérée du jour
                 </div>
 
-                {recipeOfDay ? (
+                {suggestedRecipe ? (
                   <>
                     <div
                       style={{
@@ -563,10 +624,10 @@ export default function GoalHomePage() {
                         fontSize: 18,
                       }}
                     >
-                      {recipeOfDay.title || recipeOfDay.name || 'Recette'}
+                      {suggestedRecipe.title || suggestedRecipe.name || 'Recette'}
                     </div>
 
-                    {recipeOfDay.description ? (
+                    {suggestedRecipe.description ? (
                       <div
                         style={{
                           color: T.textMid,
@@ -575,20 +636,27 @@ export default function GoalHomePage() {
                           marginTop: 8,
                         }}
                       >
-                        {recipeOfDay.description}
+                        {suggestedRecipe.description}
                       </div>
                     ) : null}
 
                     <div
                       style={{
                         display: 'flex',
-                        gap: 10,
+                        gap: 8,
                         flexWrap: 'wrap',
-                        marginTop: 16,
+                        marginTop: 14,
                       }}
                     >
-                      {recipeOfDay.calories ? <Badge>{recipeOfDay.calories} kcal</Badge> : null}
-                      {recipeOfDay.protein ? <Badge>{recipeOfDay.protein} g prot</Badge> : null}
+                      {suggestedRecipe.calories ? (
+                        <Badge>{suggestedRecipe.calories} kcal</Badge>
+                      ) : null}
+
+                      {suggestedRecipe.protein || suggestedRecipe.proteins ? (
+                        <Badge color={T.blue || '#5BA7FF'}>
+                          {suggestedRecipe.protein || suggestedRecipe.proteins} g prot
+                        </Badge>
+                      ) : null}
                     </div>
 
                     <div style={{ marginTop: 18 }}>
@@ -664,7 +732,7 @@ export default function GoalHomePage() {
                               marginTop: 4,
                             }}
                           >
-                            {session.date}
+                            {formatDate(session.date)}
                           </div>
                         </div>
 
