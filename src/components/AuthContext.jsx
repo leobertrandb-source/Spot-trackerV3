@@ -1,167 +1,150 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext(null)
 
-function withTimeout(promise, ms = 4000) {
-return Promise.race([
-promise,
-new Promise((_, reject) =>
-setTimeout(() => reject(new Error('Timeout')), ms)
-),
-])
-}
-
 export function AuthProvider({ children }) {
-const [user, setUser] = useState(null)
-const [profile, setProfile] = useState(null)
-const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-async function fetchProfile(userId) {
-if (!userId) {
-setProfile(null)
-return null
-}
+  const fetchProfile = useCallback(async (userId) => {
+    if (!userId) {
+      setProfile(null)
+      return null
+    }
 
-try {
-const { data, error } = await withTimeout(
-supabase
-.from('profiles')
-.select('*')
-.eq('id', userId)
-.maybeSingle(),
-4000
-)
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle()
 
-if (error) {
-console.error('Erreur fetchProfile:', error)
-setProfile(null)
-return null
-}
+      if (error) {
+        throw error
+      }
 
-setProfile(data || null)
-return data || null
-} catch (error) {
-console.error('Erreur fetchProfile / timeout:', error)
-setProfile(null)
-return null
-}
-}
+      setProfile(data || null)
+      return data || null
+    } catch (error) {
+      console.error('Erreur fetchProfile:', error)
+      setProfile(null)
+      return null
+    }
+  }, [])
 
-useEffect(() => {
-let mounted = true
+  useEffect(() => {
+    let isMounted = true
 
-async function bootstrap() {
-try {
-const {
-data: { session },
-error,
-} = await withTimeout(supabase.auth.getSession(), 4000)
+    async function initAuth() {
+      setLoading(true)
 
-if (!mounted) return
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession()
 
-if (error) {
-console.error('Erreur getSession:', error)
-setUser(null)
-setProfile(null)
-setLoading(false)
-return
-}
+        if (!isMounted) return
 
-const currentUser = session?.user ?? null
-setUser(currentUser)
+        if (error) {
+          throw error
+        }
 
-if (currentUser?.id) {
-await fetchProfile(currentUser.id)
-} else {
-setProfile(null)
-}
-} catch (error) {
-console.error('Erreur bootstrap auth:', error)
-if (!mounted) return
-setUser(null)
-setProfile(null)
-} finally {
-if (mounted) {
-setLoading(false)
-}
-}
-}
+        const currentUser = session?.user ?? null
+        setUser(currentUser)
 
-bootstrap()
+        if (currentUser?.id) {
+          await fetchProfile(currentUser.id)
+        } else {
+          setProfile(null)
+        }
+      } catch (error) {
+        console.error('Erreur init auth:', error)
 
-const hardStop = setTimeout(() => {
-if (mounted) {
-setLoading(false)
-}
-}, 5000)
+        if (!isMounted) return
+        setUser(null)
+        setProfile(null)
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
 
-const {
-data: { subscription },
-} = supabase.auth.onAuthStateChange(async (_event, session) => {
-if (!mounted) return
+    initAuth()
 
-try {
-const currentUser = session?.user ?? null
-setUser(currentUser)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!isMounted) return
 
-if (currentUser?.id) {
-await fetchProfile(currentUser.id)
-} else {
-setProfile(null)
-}
-} catch (error) {
-console.error('Erreur onAuthStateChange:', error)
-setProfile(null)
-} finally {
-if (mounted) {
-setLoading(false)
-}
-}
-})
+      try {
+        const currentUser = session?.user ?? null
+        setUser(currentUser)
 
-return () => {
-mounted = false
-clearTimeout(hardStop)
-subscription.unsubscribe()
-}
-}, [])
+        if (currentUser?.id) {
+          await fetchProfile(currentUser.id)
+        } else {
+          setProfile(null)
+        }
+      } catch (error) {
+        console.error('Erreur onAuthStateChange:', error)
+        if (!isMounted) return
+        setProfile(null)
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    })
 
-async function signOut() {
-const { error } = await supabase.auth.signOut()
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
+  }, [fetchProfile])
 
-if (error) {
-console.error('Erreur signOut:', error)
-return { error }
-}
+  const signOut = useCallback(async () => {
+    try {
+      const { error } = await supabase.auth.signOut()
 
-setUser(null)
-setProfile(null)
-return { error: null }
-}
+      if (error) {
+        throw error
+      }
 
-const value = useMemo(
-() => ({
-user,
-profile,
-loading,
-fetchProfile,
-setProfile,
-signOut,
-}),
-[user, profile, loading]
-)
+      setUser(null)
+      setProfile(null)
 
-return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+      return { error: null }
+    } catch (error) {
+      console.error('Erreur signOut:', error)
+      return { error }
+    }
+  }, [])
+
+  const value = useMemo(
+    () => ({
+      user,
+      profile,
+      loading,
+      fetchProfile,
+      setProfile,
+      signOut,
+    }),
+    [user, profile, loading, fetchProfile, signOut]
+  )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
-const context = useContext(AuthContext)
+  const context = useContext(AuthContext)
 
-if (!context) {
-throw new Error('useAuth must be used within an AuthProvider')
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+
+  return context
 }
-
-return context
-}
-
