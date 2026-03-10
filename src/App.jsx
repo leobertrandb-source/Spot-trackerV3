@@ -1,10 +1,7 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './components/AuthContext'
-import { Grain, Layout } from './components/UI'
 import { DirtyProvider } from './components/DirtyContext'
-import Sidebar from './components/Sidebar'
-import Topbar from './components/Topbar'
+import { Grain } from './components/UI'
 
 import AuthPage from './pages/AuthPage'
 import InviteAcceptPage from './pages/InviteAcceptPage'
@@ -50,39 +47,30 @@ function AppLoadingScreen() {
   )
 }
 
+function AppFrame({ children }) {
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        background: T.bg,
+        padding: 20,
+        boxSizing: 'border-box',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 1280,
+          margin: '0 auto',
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
 function PrivateAppShell() {
   const { user, profile, loading } = useAuth()
-  const location = useLocation()
-
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900)
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
-
-  useEffect(() => {
-    const media = window.matchMedia('(max-width: 899px)')
-
-    const update = () => {
-      const mobile = media.matches
-      setIsMobile(mobile)
-
-      if (!mobile) {
-        setMobileSidebarOpen(false)
-      }
-    }
-
-    update()
-
-    if (media.addEventListener) {
-      media.addEventListener('change', update)
-      return () => media.removeEventListener('change', update)
-    }
-
-    media.addListener(update)
-    return () => media.removeListener(update)
-  }, [])
-
-  useEffect(() => {
-    setMobileSidebarOpen(false)
-  }, [location.pathname])
 
   if (loading) {
     return <AppLoadingScreen />
@@ -100,23 +88,7 @@ function PrivateAppShell() {
 
   return (
     <DirtyProvider>
-      {isMobile ? (
-        <Sidebar
-          isMobile
-          mobileOpen={mobileSidebarOpen}
-          onClose={() => setMobileSidebarOpen(false)}
-        />
-      ) : null}
-
-      <Layout
-        sidebar={!isMobile ? <Sidebar /> : null}
-        topbar={
-          <Topbar
-            isMobile={isMobile}
-            onMenuClick={() => setMobileSidebarOpen((v) => !v)}
-          />
-        }
-      >
+      <AppFrame>
         <Routes>
           <Route path="/" element={<Navigate to={defaultRoute} replace />} />
 
@@ -208,31 +180,36 @@ function PrivateAppShell() {
             element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammeAthletiquePage />}
           />
 
-          {/* anciens alias éventuels */}
           <Route
             path="/historique"
             element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/progression" replace />}
           />
+
           <Route
             path="/entrainement/historique"
             element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/progression" replace />}
           />
+
           <Route
             path="/nutrition"
             element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/nutrition/macros" replace />}
           />
+
           <Route
             path="/recettes"
             element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/nutrition/recettes" replace />}
           />
+
           <Route
             path="/plan"
             element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/nutrition/plan" replace />}
           />
+
           <Route
             path="/aujourdhui"
             element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/entrainement/aujourdhui" replace />}
           />
+
           <Route
             path="/saisie"
             element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/entrainement/libre" replace />}
@@ -240,7 +217,7 @@ function PrivateAppShell() {
 
           <Route path="*" element={<Navigate to={defaultRoute} replace />} />
         </Routes>
-      </Layout>
+      </AppFrame>
     </DirtyProvider>
   )
 }
