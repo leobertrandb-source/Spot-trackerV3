@@ -159,7 +159,7 @@ export default function NutritionPage() {
     if (user?.id) {
       loadAll()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [user?.id])
 
   async function loadAll() {
