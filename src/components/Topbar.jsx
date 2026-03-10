@@ -1,240 +1,187 @@
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from './AuthContext'
 import { T } from '../lib/data'
 
-const ROUTE_META = {
-  '/mon-espace': {
-    title: 'Mon espace',
-    subtitle: 'Ton dashboard personnalisé du jour',
-  },
-  '/objectif': {
-    title: 'Objectif',
-    subtitle: 'Choisis et ajuste ton parcours',
-  },
-  '/entrainement/aujourdhui': {
-    title: 'Séance du jour',
-    subtitle: 'Ton focus training du moment',
-  },
-  '/entrainement/libre': {
-    title: 'Séance libre',
-    subtitle: 'Construis ou saisis librement ta séance',
-  },
-  '/entrainement/historique': {
-    title: 'Historique',
-    subtitle: 'Retrouve tes séances précédentes',
-  },
-  '/nutrition/macros': {
-    title: 'Nutrition',
-    subtitle: 'Suivi des macros et hydratation',
-  },
-  '/nutrition/plan': {
-    title: 'Plan journalier',
-    subtitle: 'Organisation intelligente de ta journée',
-  },
-  '/nutrition/recettes': {
-    title: 'Recettes',
-    subtitle: 'Bibliothèque premium de recettes ajustables',
-  },
-  '/progression': {
-    title: 'Progression',
-    subtitle: 'Suivi de ton évolution',
-  },
-  '/coach': {
-    title: 'Vue coach',
-    subtitle: 'Suivi des athlètes et pilotage',
-  },
-  '/programmes': {
-    title: 'Programmes',
-    subtitle: 'Construction et gestion des programmes',
-  },
-  '/programme/bodybuilding': {
-    title: 'Programme',
-    subtitle: 'Prise de masse',
-  },
-  '/programme/perte-de-poids': {
-    title: 'Programme',
-    subtitle: 'Perte de poids',
-  },
-  '/programme/athletique': {
-    title: 'Programme',
-    subtitle: 'Athlétique',
-  },
+function SidebarLink({ to, label, icon, active, onClick }) {
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '12px 14px',
+        borderRadius: 14,
+        textDecoration: 'none',
+        background: active ? 'rgba(45,255,155,0.10)' : 'transparent',
+        border: active
+          ? `1px solid ${T.accent + '30'}`
+          : '1px solid transparent',
+        color: active ? T.accentLight : T.textMid,
+        fontWeight: 800,
+        fontSize: 14,
+        transition: 'all .2s ease',
+      }}
+    >
+      <span style={{ width: 18, textAlign: 'center' }}>{icon}</span>
+      <span>{label}</span>
+    </Link>
+  )
 }
 
-function getMeta(pathname) {
-  if (ROUTE_META[pathname]) return ROUTE_META[pathname]
-
-  if (pathname.startsWith('/nutrition/recette/')) {
-    return {
-      title: 'Recette',
-      subtitle: 'Ajuste les calories et les quantités',
-    }
-  }
-
-  return {
-    title: 'Spot Training',
-    subtitle: 'Plateforme coaching premium',
-  }
-}
-
-export default function Topbar({ isMobile = false, onMenuClick }) {
+export default function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
   const location = useLocation()
   const { profile } = useAuth()
 
-  const meta = getMeta(location.pathname)
-  const goalLabel =
-    profile?.goal_type === 'mass_gain'
-      ? 'Mass Gain'
-      : profile?.goal_type === 'fat_loss'
-        ? 'Fat Loss'
-        : profile?.goal_type === 'athletic'
-          ? 'Athletic'
-          : 'Setup'
+  const isCoach = profile?.role === 'coach'
 
-  return (
-    <header
+  const coachLinks = [
+    { to: '/coach', label: 'Dashboard coach', icon: '🧠' },
+    { to: '/coach/clients', label: 'Clients', icon: '👥' },
+    { to: '/programmes', label: 'Programmes', icon: '📋' },
+  ]
+
+  const athleteLinks = [
+    { to: '/mon-espace', label: 'Mon espace', icon: '🏠' },
+    { to: '/entrainement/aujourdhui', label: "Séance du jour", icon: '🔥' },
+    { to: '/entrainement/libre', label: 'Séance libre', icon: '➕' },
+    { to: '/entrainement/historique', label: 'Historique', icon: '🕘' },
+    { to: '/nutrition/macros', label: 'Nutrition', icon: '🥗' },
+    { to: '/nutrition/recettes', label: 'Recettes', icon: '🍽️' },
+    { to: '/nutrition/plan', label: 'Plan repas', icon: '📆' },
+    { to: '/progression', label: 'Progression', icon: '📈' },
+  ]
+
+  const links = isCoach ? coachLinks : athleteLinks
+
+  const sidebarContent = (
+    <aside
       style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 20,
-        padding: isMobile ? '12px 14px 12px' : '16px 18px 14px',
+        width: isMobile ? 290 : 280,
+        height: '100%',
         background:
-          'linear-gradient(180deg, rgba(10,12,11,0.92), rgba(10,12,11,0.72))',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-        backdropFilter: 'blur(16px)',
+          'linear-gradient(180deg, rgba(12,16,15,0.98), rgba(8,11,10,0.98))',
+        borderRight: `1px solid ${T.border}`,
+        padding: '18px 14px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 18,
+        boxSizing: 'border-box',
       }}
     >
+      <div>
+        <div
+          style={{
+            color: T.text,
+            fontFamily: T.fontDisplay,
+            fontWeight: 900,
+            fontSize: 22,
+            letterSpacing: 1,
+            lineHeight: 1,
+          }}
+        >
+          LE SPOT
+        </div>
+
+        <div
+          style={{
+            color: T.textDim,
+            fontSize: 12,
+            marginTop: 6,
+            textTransform: 'uppercase',
+            letterSpacing: 1.4,
+          }}
+        >
+          {isCoach ? 'Mode coach' : 'Mode athlète'}
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gap: 8 }}>
+        {links.map((item) => {
+          const active =
+            location.pathname === item.to ||
+            (item.to !== '/' && location.pathname.startsWith(item.to + '/'))
+
+          return (
+            <SidebarLink
+              key={item.to}
+              to={item.to}
+              label={item.label}
+              icon={item.icon}
+              active={active}
+              onClick={isMobile ? onClose : undefined}
+            />
+          )
+        })}
+      </div>
+
       <div
         style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: isMobile ? 12 : 18,
-          flexWrap: 'wrap',
+          marginTop: 'auto',
+          padding: '12px 12px',
+          borderRadius: 16,
+          background: 'rgba(255,255,255,0.03)',
+          border: `1px solid ${T.border}`,
         }}
       >
         <div
           style={{
-            display: 'flex',
-            alignItems: isMobile ? 'center' : 'flex-start',
-            gap: 12,
-            minWidth: 0,
-            flex: 1,
+            color: T.textSub,
+            fontSize: 11,
+            textTransform: 'uppercase',
+            letterSpacing: 1,
+            fontWeight: 800,
+            marginBottom: 6,
           }}
         >
-          {isMobile ? (
-            <button
-              type="button"
-              onClick={onMenuClick}
-              style={{
-                width: 42,
-                height: 42,
-                flexShrink: 0,
-                borderRadius: 14,
-                border: '1px solid rgba(255,255,255,0.08)',
-                background:
-                  'linear-gradient(135deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015))',
-                color: T.text,
-                fontSize: 20,
-                cursor: 'pointer',
-              }}
-              aria-label="Ouvrir le menu"
-            >
-              ☰
-            </button>
-          ) : null}
-
-          <div style={{ minWidth: 0 }}>
-            <div
-              style={{
-                color: T.text,
-                fontSize: isMobile ? 22 : 28,
-                fontWeight: 900,
-                letterSpacing: isMobile ? 0.4 : 0.8,
-                lineHeight: 1,
-              }}
-            >
-              {meta.title}
-            </div>
-
-            <div
-              style={{
-                color: T.textMid,
-                fontSize: isMobile ? 12 : 14,
-                marginTop: isMobile ? 6 : 8,
-                lineHeight: 1.5,
-              }}
-            >
-              {meta.subtitle}
-            </div>
-          </div>
+          Espace actif
         </div>
 
-        {!isMobile ? (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'stretch',
-              gap: 10,
-              flexWrap: 'wrap',
-            }}
-          >
-            <div style={glassPillStyle}>
-              <div style={pillLabelStyle}>Objectif</div>
-              <div style={pillValueStyle}>{goalLabel}</div>
-            </div>
-
-            <div style={glassPillStyle}>
-              <div style={pillLabelStyle}>Espace</div>
-              <div style={pillValueStyle}>Le Spot</div>
-            </div>
-          </div>
-        ) : (
-          <div
-            style={{
-              width: '100%',
-              display: 'flex',
-              gap: 8,
-            }}
-          >
-            <div style={{ ...glassPillStyle, minWidth: 0, flex: 1, padding: '8px 10px' }}>
-              <div style={pillLabelStyle}>Objectif</div>
-              <div style={pillValueStyle}>{goalLabel}</div>
-            </div>
-
-            <div style={{ ...glassPillStyle, minWidth: 0, flex: 1, padding: '8px 10px' }}>
-              <div style={pillLabelStyle}>Espace</div>
-              <div style={pillValueStyle}>Le Spot</div>
-            </div>
-          </div>
-        )}
+        <div
+          style={{
+            color: T.text,
+            fontWeight: 800,
+            fontSize: 14,
+          }}
+        >
+          {isCoach ? 'Coach' : 'Athlète'}
+        </div>
       </div>
-    </header>
+    </aside>
   )
-}
 
-const glassPillStyle = {
-  minWidth: 130,
-  padding: '10px 12px',
-  borderRadius: 18,
-  border: '1px solid rgba(255,255,255,0.08)',
-  background:
-    'linear-gradient(135deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015))',
-  boxShadow: '0 14px 24px rgba(0,0,0,0.18)',
-  backdropFilter: 'blur(12px)',
-}
+  if (!isMobile) {
+    return sidebarContent
+  }
 
-const pillLabelStyle = {
-  fontSize: 10,
-  fontWeight: 800,
-  letterSpacing: 1.1,
-  textTransform: 'uppercase',
-  color: '#8E9B94',
-  marginBottom: 6,
-}
+  return (
+    <>
+      {mobileOpen ? (
+        <div
+          onClick={onClose}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.55)',
+            zIndex: 60,
+          }}
+        />
+      ) : null}
 
-const pillValueStyle = {
-  fontSize: 13,
-  fontWeight: 800,
-  color: '#EAF2ED',
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: mobileOpen ? 0 : -310,
+          height: '100vh',
+          zIndex: 70,
+          transition: 'left .25s ease',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.45)',
+        }}
+      >
+        {sidebarContent}
+      </div>
+    </>
+  )
 }
