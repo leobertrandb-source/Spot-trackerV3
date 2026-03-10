@@ -23,27 +23,7 @@ export function resolveImageUrl({
   return fallback
 }
 
-export function getGoalHomeImage(key) {
-  const candidates = [
-    `goalHome/${key}.jpg`,
-    `goalHome/${key}.jpeg`,
-    `goalHome/${key}.png`,
-    `goalHome/${key}.webp`,
-    `goalHome/goalhome-${key}.jpg`,
-    `goalHome/goalhome-${key}.png`,
-    `goalHome/goalhome-${key}.webp`,
-    `goalhome/${key}.jpg`,
-    `goalhome/${key}.png`,
-    `goalhome/${key}.webp`,
-  ]
-
-  for (const path of candidates) {
-    const url = getStoragePublicUrl('ui-assets', path)
-    if (url) return url
-  }
-
-  return ''
-  export function resolveExerciseImage(slug) {
+export function resolveExerciseImage(slug) {
   if (!slug) return ''
 
   const candidates = [
@@ -58,6 +38,25 @@ export function getGoalHomeImage(key) {
     if (data?.publicUrl) {
       return data.publicUrl
     }
+  }
 
+  return ''
 }
 
+export function getGoalHomeImage(key) {
+  const candidates = [
+    `goalHome/${key}.jpg`,
+    `goalHome/${key}.jpeg`,
+    `goalHome/${key}.png`,
+    `goalHome/${key}.webp`,
+  ]
+
+  for (const path of candidates) {
+    const { data } = supabase.storage.from('ui-assets').getPublicUrl(path)
+    if (data?.publicUrl) {
+      return data.publicUrl
+    }
+  }
+
+  return ''
+}
