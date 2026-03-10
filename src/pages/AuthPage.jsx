@@ -1,510 +1,463 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../components/AuthContext'
+import { Card, PageWrap, Input, Btn } from '../components/UI'
 import { T } from '../lib/data'
 
-function AuthField({
-label,
-value,
-onChange,
-placeholder,
-type = 'text',
-autoComplete,
-}) {
-return (
-<label style={{ display: 'grid', gap: 8 }}>
-<span
-style={{
-color: '#98A4BA',
-fontWeight: 800,
-fontSize: 13,
-}}
->
-{label} <span style={{ color: '#43E97B' }}>*</span>
-</span>
-
-<input
-value={value}
-onChange={(e) => onChange(e.target.value)}
-placeholder={placeholder}
-type={type}
-autoComplete={autoComplete}
-style={{
-height: 54,
-borderRadius: 16,
-border: '1px solid rgba(255,255,255,0.08)',
-background: 'rgba(5,8,12,0.62)',
-color: '#fff',
-padding: '0 18px',
-fontSize: 15,
-outline: 'none',
-boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.01)',
-}}
-/>
-</label>
-)
-}
-
-const submitBtnStyle = {
-marginTop: 8,
-height: 56,
-border: 'none',
-borderRadius: 16,
-cursor: 'pointer',
-background: 'linear-gradient(135deg, #43E97B, #36D86E)',
-color: '#07110B',
-fontWeight: 900,
-fontSize: 16,
-boxShadow: '0 0 30px rgba(67,233,123,0.18)',
-}
-
 export default function AuthPage() {
-const navigate = useNavigate()
+  const { user, profile, loading } = useAuth()
 
-const [mode, setMode] = useState('login')
-const [loading, setLoading] = useState(false)
+  const [mode, setMode] = useState('login')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [role, setRole] = useState('athlete')
 
-const [fullName, setFullName] = useState('')
-const [email, setEmail] = useState('')
-const [password, setPassword] = useState('')
-const [role, setRole] = useState('athlete')
+  const [submitting, setSubmitting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
 
-const [errorMsg, setErrorMsg] = useState('')
-const [successMsg, setSuccessMsg] = useState('')
+  const redirectTo = useMemo(() => {
+    if (!user) return null
+    if (profile?.role === 'coach') return '/coach'
+    if (profile?.goal_type) return '/mon-espace'
+    return '/objectif'
+  }, [user, profile?.role, profile?.goal_type])
 
-const isSignup = mode === 'signup'
+  useEffect(() => {
+    setErrorMessage('')
+    setSuccessMessage('')
+  }, [mode])
 
-useEffect(() => {
-async function checkSession() {
-const {
-data: { session },
-} = await supabase.auth.getSession()
+  async function ensureProfile(currentUser, nextRole, nextFullName) {
+    if (!currentUser?.id) return
 
-if (session?.user) {
-await redirectUser(session.user.id)
-}
-}
+    const payload = {
+      id: currentUser.id,
+      email: currentUser.email || email.trim().toLowerCase(),
+      role: nextRole || 'athlete',
+      full_name: nextFullName?.trim() || null,
+      updated_at: new Date().toISOString(),
+    }
 
-checkSession()
-}, [])
+    const { error } = await supabase.from('profiles').upsert(payload)
 
-async function redirectUser(userId) {
-const { data: profile } = await supabase
-.from('profiles')
-.select('role, goal_type')
-.eq('id', userId)
-.maybeSingle()
+    if (error) {
+      throw error
+    }
+  }
 
-if (profile?.role === 'coach') {
-navigate('/coach', { replace: true })
-return
-}
+  async function handleSubmit(e) {
+    e.preventDefault()
 
-if (profile?.goal_type) {
-navigate('/mon-espace', { replace: true })
-return
-}
+    if (submitting) return
 
-navigate('/objectif', { replace: true })
-}
+    const cleanEmail = email.trim().toLowerCase()
+    const cleanPassword = password.trim()
+    const cleanName = fullName.trim()
 
-async function handleSubmit(e) {
-e.preventDefault()
-setErrorMsg('')
-setSuccessMsg('')
-setLoading(true)
+    setErrorMessage('')
+    setSuccessMessage('')
 
-try {
-if (isSignup) {
-if (!fullName.trim()) {
-throw new Error('Entre ton nom ou ton prénom.')
-}
+    if (!cleanEmail || !cleanPassword) {
+      setErrorMessage('Email et mot de passe obligatoires.')
+      return
+    }
 
-if (!email.trim()) {
-throw new Error('Entre ton email.')
-}
+    if (mode === 'signup') {
+      if (!cleanName) {
+        setErrorMessage('Le nom complet est obligatoire.')
+        return
+      }
 
-if (!password || password.length < 6) {
-throw new Error('Le mot de passe doit contenir au moins 6 caractères.')
-}
+      if (cleanPassword.length < 6) {
+        setErrorMessage('Le mot de passe doit contenir au moins 6 caractères.')
+        return
+      }
+    }
 
-const normalizedEmail = email.trim().toLowerCase()
+    setSubmitting(true)
 
-const { data, error } = await supabase.auth.signUp({
-email: normalizedEmail,
-password,
-options: {
-data: {
-full_name: fullName.trim(),
-role,
-},
-},
-})
+    try {
+      if (mode === 'login') {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password: cleanPassword,
+        })
 
-if (error) throw error
+        if (error) {
+          throw error
+        }
+      } else {
+        const { data, error } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password: cleanPassword,
+          options: {
+            data: {
+              full_name: cleanName,
+              role,
+            },
+          },
+        })
 
-const createdUser = data?.user
+        if (error) {
+          throw error
+        }
 
-if (!createdUser?.id) {
-throw new Error("Le compte n'a pas pu être créé.")
-}
+        if (data?.user) {
+          await ensureProfile(data.user, role, cleanName)
+        }
 
-setSuccessMsg(
-role === 'coach'
-? 'Compte coach créé avec succès.'
-: 'Compte athlète créé avec succès.'
-)
+        setSuccessMessage(
+          "Compte créé. Si la confirmation email est activée dans Supabase, valide ton adresse avant de te connecter."
+        )
+        setMode('login')
+        setPassword('')
+      }
+    } catch (error) {
+      console.error('Erreur auth :', error)
+      setErrorMessage(error?.message || 'Une erreur est survenue.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
-if (data?.session?.user?.id) {
-await redirectUser(data.session.user.id)
-}
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          background: T.bg,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: T.textDim,
+          letterSpacing: 2,
+          textTransform: 'uppercase',
+          fontSize: 12,
+        }}
+      >
+        Chargement...
+      </div>
+    )
+  }
 
-return
-}
+  if (user && redirectTo) {
+    return <Navigate to={redirectTo} replace />
+  }
 
-const { data, error } = await supabase.auth.signInWithPassword({
-email: email.trim().toLowerCase(),
-password,
-})
+  return (
+    <PageWrap
+      style={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        paddingTop: 32,
+        paddingBottom: 32,
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 1080,
+          display: 'grid',
+          gridTemplateColumns: 'minmax(320px, 460px) minmax(320px, 1fr)',
+          gap: 20,
+          alignItems: 'stretch',
+        }}
+      >
+        <Card
+          glow
+          style={{
+            padding: 26,
+            background:
+              'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.10), transparent 32%), linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
+            minHeight: 560,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div>
+            <div
+              style={{
+                display: 'inline-flex',
+                padding: '8px 12px',
+                borderRadius: 999,
+                border: `1px solid ${T.accent + '28'}`,
+                background: 'rgba(45,255,155,0.10)',
+                color: T.accentLight,
+                fontWeight: 800,
+                fontSize: 12,
+                letterSpacing: 1,
+                textTransform: 'uppercase',
+                marginBottom: 18,
+              }}
+            >
+              Le Spot
+            </div>
 
-if (error) throw error
+            <div
+              style={{
+                color: T.text,
+                fontFamily: T.fontDisplay,
+                fontWeight: 900,
+                fontSize: 34,
+                lineHeight: 1,
+              }}
+            >
+              SUIVI
+              <br />
+              COACHING
+            </div>
 
-if (data?.user?.id) {
-await redirectUser(data.user.id)
-}
-} catch (error) {
-console.error(error)
-setErrorMsg(error.message || 'Une erreur est survenue.')
-} finally {
-setLoading(false)
-}
-}
+            <div
+              style={{
+                color: T.textMid,
+                fontSize: 14,
+                lineHeight: 1.7,
+                marginTop: 16,
+                maxWidth: 420,
+              }}
+            >
+              Connecte-toi à ton espace coach ou athlète pour gérer tes clients,
+              tes séances, ta nutrition et ta progression.
+            </div>
+          </div>
 
-return (
-<div
-style={{
-minHeight: '100vh',
-background:
-'radial-gradient(circle at 20% 18%, rgba(45,255,155,0.10), transparent 30%), radial-gradient(circle at 100% 0%, rgba(255,255,255,0.04), transparent 26%), linear-gradient(180deg, #070909 0%, #060809 100%)',
-display: 'flex',
-alignItems: 'center',
-justifyContent: 'center',
-padding: '32px 18px',
-}}
->
-<div style={{ width: '100%', maxWidth: 560 }}>
-<div
-style={{
-display: 'flex',
-justifyContent: 'center',
-marginBottom: 24,
-}}
->
-<div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-<div
-style={{
-width: 60,
-height: 60,
-borderRadius: 16,
-background: 'linear-gradient(135deg, #43E97B, #31d46a)',
-display: 'flex',
-alignItems: 'center',
-justifyContent: 'center',
-boxShadow: '0 0 30px rgba(67,233,123,0.22)',
-color: '#07110B',
-fontSize: 24,
-fontWeight: 900,
-}}
->
-⛓
-</div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div
+              style={{
+                padding: '12px 14px',
+                borderRadius: 16,
+                background: 'rgba(255,255,255,0.03)',
+                border: `1px solid ${T.border}`,
+                color: T.textMid,
+                fontSize: 13,
+              }}
+            >
+              Coach : dashboard, clients, programmes.
+            </div>
 
-<div>
-<div
-style={{
-color: '#fff',
-fontWeight: 900,
-fontSize: 22,
-lineHeight: 1,
-}}
->
-Le Spot
-</div>
-<div
-style={{
-color: '#A9B3C7',
-fontWeight: 700,
-fontSize: 14,
-marginTop: 4,
-}}
->
-Training
-</div>
-</div>
-</div>
-</div>
+            <div
+              style={{
+                padding: '12px 14px',
+                borderRadius: 16,
+                background: 'rgba(255,255,255,0.03)',
+                border: `1px solid ${T.border}`,
+                color: T.textMid,
+                fontSize: 13,
+              }}
+            >
+              Athlète : séance du jour, nutrition, progression.
+            </div>
+          </div>
+        </Card>
 
-<div
-style={{
-borderRadius: 28,
-border: '1px solid rgba(255,255,255,0.08)',
-background:
-'linear-gradient(135deg, rgba(18,24,32,0.96), rgba(10,14,19,0.98))',
-boxShadow: '0 30px 80px rgba(0,0,0,0.35)',
-padding: '28px 22px 22px',
-}}
->
-<div
-style={{
-display: 'grid',
-gridTemplateColumns: '1fr 1fr',
-gap: 10,
-background: 'rgba(8,11,16,0.78)',
-borderRadius: 18,
-padding: 6,
-marginBottom: 22,
-}}
->
-<button
-type="button"
-onClick={() => {
-setMode('login')
-setErrorMsg('')
-setSuccessMsg('')
-}}
-style={{
-height: 46,
-border: 'none',
-borderRadius: 14,
-cursor: 'pointer',
-background: mode === 'login' ? '#43E97B' : 'transparent',
-color: mode === 'login' ? '#07110B' : '#7F8AA3',
-fontWeight: 900,
-fontSize: 13,
-letterSpacing: 1.2,
-textTransform: 'uppercase',
-}}
->
-Connexion
-</button>
+        <Card
+          style={{
+            padding: 26,
+            minHeight: 560,
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              gap: 8,
+              marginBottom: 18,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setMode('login')}
+              style={{
+                flex: 1,
+                height: 46,
+                borderRadius: 14,
+                border: mode === 'login' ? 'none' : `1px solid ${T.border}`,
+                background:
+                  mode === 'login'
+                    ? 'linear-gradient(135deg, #43E97B, #36D86E)'
+                    : 'rgba(255,255,255,0.03)',
+                color: mode === 'login' ? '#07110B' : T.text,
+                fontWeight: 900,
+                cursor: 'pointer',
+              }}
+            >
+              Connexion
+            </button>
 
-<button
-type="button"
-onClick={() => {
-setMode('signup')
-setErrorMsg('')
-setSuccessMsg('')
-}}
-style={{
-height: 46,
-border: 'none',
-borderRadius: 14,
-cursor: 'pointer',
-background: mode === 'signup' ? '#43E97B' : 'transparent',
-color: mode === 'signup' ? '#07110B' : '#7F8AA3',
-fontWeight: 900,
-fontSize: 13,
-letterSpacing: 1.2,
-textTransform: 'uppercase',
-}}
->
-Créer un compte
-</button>
-</div>
+            <button
+              type="button"
+              onClick={() => setMode('signup')}
+              style={{
+                flex: 1,
+                height: 46,
+                borderRadius: 14,
+                border: mode === 'signup' ? 'none' : `1px solid ${T.border}`,
+                background:
+                  mode === 'signup'
+                    ? 'linear-gradient(135deg, #43E97B, #36D86E)'
+                    : 'rgba(255,255,255,0.03)',
+                color: mode === 'signup' ? '#07110B' : T.text,
+                fontWeight: 900,
+                cursor: 'pointer',
+              }}
+            >
+              Inscription
+            </button>
+          </div>
 
-<div style={{ marginBottom: 18 }}>
-<div
-style={{
-color: '#fff',
-fontWeight: 900,
-fontSize: 22,
-lineHeight: 1.1,
-}}
->
-{isSignup
-? role === 'coach'
-? 'Compte coach'
-: 'Compte athlète'
-: 'Connexion'}
-</div>
+          <div style={{ marginBottom: 18 }}>
+            <div
+              style={{
+                color: T.text,
+                fontFamily: T.fontDisplay,
+                fontWeight: 900,
+                fontSize: 24,
+                lineHeight: 1,
+              }}
+            >
+              {mode === 'login' ? 'BON RETOUR' : 'CRÉER UN COMPTE'}
+            </div>
 
-<div
-style={{
-color: '#92A0B8',
-fontSize: 14,
-lineHeight: 1.65,
-marginTop: 8,
-}}
->
-{isSignup
-? role === 'coach'
-? 'Crée ton espace coach et commence à inviter tes clients.'
-: 'Crée ton compte athlète et accède à tes séances, ta nutrition et ton suivi.'
-: 'Connecte-toi à ton espace Le Spot Training.'}
-</div>
-</div>
+            <div
+              style={{
+                color: T.textMid,
+                fontSize: 14,
+                lineHeight: 1.65,
+                marginTop: 10,
+              }}
+            >
+              {mode === 'login'
+                ? 'Entre tes identifiants pour accéder à ton espace.'
+                : 'Crée ton compte en quelques secondes.'}
+            </div>
+          </div>
 
-{isSignup ? (
-<div style={{ marginBottom: 18 }}>
-<div
-style={{
-color: '#8E9B94',
-fontSize: 12,
-fontWeight: 800,
-letterSpacing: 1,
-textTransform: 'uppercase',
-marginBottom: 10,
-}}
->
-Je crée un compte :
-</div>
+          {errorMessage ? (
+            <div
+              style={{
+                marginBottom: 14,
+                padding: 14,
+                borderRadius: 14,
+                border: '1px solid rgba(255,120,120,0.22)',
+                background: 'rgba(255,90,90,0.06)',
+                color: '#FFB3B3',
+                fontWeight: 700,
+                fontSize: 14,
+              }}
+            >
+              {errorMessage}
+            </div>
+          ) : null}
 
-<div
-style={{
-display: 'grid',
-gridTemplateColumns: '1fr 1fr',
-gap: 10,
-}}
->
-<button
-type="button"
-onClick={() => setRole('athlete')}
-style={{
-height: 48,
-borderRadius: 14,
-cursor: 'pointer',
-border:
-role === 'athlete'
-? `1px solid ${T.accent || '#43E97B'}`
-: '1px solid rgba(255,255,255,0.08)',
-background:
-role === 'athlete'
-? 'rgba(67,233,123,0.12)'
-: 'rgba(255,255,255,0.02)',
-color: role === 'athlete' ? '#EAF2ED' : '#A9B3C7',
-fontWeight: 800,
-fontSize: 14,
-}}
->
-Athlète
-</button>
+          {successMessage ? (
+            <div
+              style={{
+                marginBottom: 14,
+                padding: 14,
+                borderRadius: 14,
+                border: `1px solid ${T.accent}22`,
+                background: 'rgba(57,224,122,0.07)',
+                color: T.accentLight,
+                fontWeight: 700,
+                fontSize: 14,
+              }}
+            >
+              {successMessage}
+            </div>
+          ) : null}
 
-<button
-type="button"
-onClick={() => setRole('coach')}
-style={{
-height: 48,
-borderRadius: 14,
-cursor: 'pointer',
-border:
-role === 'coach'
-? `1px solid ${T.accent || '#43E97B'}`
-: '1px solid rgba(255,255,255,0.08)',
-background:
-role === 'coach'
-? 'rgba(67,233,123,0.12)'
-: 'rgba(255,255,255,0.02)',
-color: role === 'coach' ? '#EAF2ED' : '#A9B3C7',
-fontWeight: 800,
-fontSize: 14,
-}}
->
-Coach
-</button>
-</div>
-</div>
-) : null}
+          <form
+            onSubmit={handleSubmit}
+            style={{
+              display: 'grid',
+              gap: 14,
+              flex: 1,
+              alignContent: 'start',
+            }}
+          >
+            {mode === 'signup' ? (
+              <Input
+                label="Nom complet"
+                value={fullName}
+                onChange={setFullName}
+                placeholder="Ex : Mehdi Dupont"
+              />
+            ) : null}
 
-{errorMsg ? (
-<div
-style={{
-marginBottom: 14,
-padding: '12px 14px',
-borderRadius: 14,
-border: '1px solid rgba(255,110,110,0.24)',
-background: 'rgba(255,110,110,0.08)',
-color: '#FF9D9D',
-fontSize: 13,
-lineHeight: 1.5,
-}}
->
-{errorMsg}
-</div>
-) : null}
+            <Input
+              label="Email"
+              value={email}
+              onChange={setEmail}
+              placeholder="email@exemple.com"
+              type="email"
+            />
 
-{successMsg ? (
-<div
-style={{
-marginBottom: 14,
-padding: '12px 14px',
-borderRadius: 14,
-border: '1px solid rgba(67,233,123,0.24)',
-background: 'rgba(67,233,123,0.08)',
-color: '#B5FFD0',
-fontSize: 13,
-lineHeight: 1.5,
-}}
->
-{successMsg}
-</div>
-) : null}
+            <Input
+              label="Mot de passe"
+              value={password}
+              onChange={setPassword}
+              placeholder="••••••••"
+              type="password"
+            />
 
-<form onSubmit={handleSubmit} style={{ display: 'grid', gap: 16 }}>
-{isSignup ? (
-<AuthField
-label={role === 'coach' ? 'Nom / structure' : 'Prénom'}
-value={fullName}
-onChange={setFullName}
-placeholder={role === 'coach' ? 'Ex : Coach Martin' : 'Thomas'}
-autoComplete="name"
-/>
-) : null}
+            {mode === 'signup' ? (
+              <label style={{ display: 'grid', gap: 8 }}>
+                <span
+                  style={{
+                    color: T.textSub || T.textDim,
+                    fontSize: 12,
+                    fontWeight: 800,
+                  }}
+                >
+                  Type de compte
+                </span>
 
-<AuthField
-label="Email"
-value={email}
-onChange={setEmail}
-placeholder="thomas@email.com"
-type="email"
-autoComplete="email"
-/>
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  style={{
+                    height: 48,
+                    borderRadius: 14,
+                    border: `1px solid ${T.border}`,
+                    background: T.surface,
+                    color: T.text,
+                    padding: '0 14px',
+                    fontSize: 14,
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    width: '100%',
+                  }}
+                >
+                  <option value="athlete">Athlète</option>
+                  <option value="coach">Coach</option>
+                </select>
+              </label>
+            ) : null}
 
-<AuthField
-label="Mot de passe"
-value={password}
-onChange={setPassword}
-placeholder="••••••••"
-type="password"
-autoComplete={isSignup ? 'new-password' : 'current-password'}
-/>
-
-<button type="submit" disabled={loading} style={submitBtnStyle}>
-{loading
-? isSignup
-? 'Création...'
-: 'Connexion...'
-: isSignup
-? role === 'coach'
-? 'Créer mon compte coach'
-: 'Créer mon compte'
-: 'Me connecter'}
-</button>
-</form>
-</div>
-
-<div
-style={{
-textAlign: 'center',
-marginTop: 18,
-color: '#5D6981',
-fontSize: 12,
-letterSpacing: 4,
-textTransform: 'uppercase',
-}}
->
-Le Spot Training · Prosportconcept
-</div>
-</div>
-</div>
-)
+            <div style={{ marginTop: 8 }}>
+              <Btn
+                type="submit"
+                disabled={submitting}
+                style={{ width: '100%' }}
+              >
+                {submitting
+                  ? mode === 'login'
+                    ? 'Connexion...'
+                    : 'Création...'
+                  : mode === 'login'
+                    ? 'Se connecter'
+                    : 'Créer mon compte'}
+              </Btn>
+            </div>
+          </form>
+        </Card>
+      </div>
+    </PageWrap>
+  )
 }
