@@ -1,129 +1,43 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import { useDirty } from '../components/DirtyContext'
-import { Card, Btn, Badge, PageWrap } from '../components/UI'
+import { PageWrap, Card, Btn, Badge, Input } from '../components/UI'
 import { SEANCE_ICONS, T } from '../lib/data'
 
 function todayString() {
-  return new Date().toISOString().slice(0, 10)
+  return new Date().toISOString().split('T')[0]
 }
 
-function emptySet() {
+function emptySetFromExercise(exerciseRow = {}) {
   return {
+    exercise: exerciseRow.exercise || '',
     reps: '',
     weight: '',
     rpe: '',
+    sets_target: exerciseRow.sets_target || '',
+    reps_target: exerciseRow.reps_target || '',
+    rpe_target: exerciseRow.rpe_target || '',
   }
 }
 
-function normalizeExercises(programExercises = []) {
-  return [...programExercises]
+function normalizeProgramExercises(rows = []) {
+  return [...rows]
     .sort((a, b) => Number(a.exercise_order || 0) - Number(b.exercise_order || 0))
     .map((row) => ({
-      exercise: row.exercise,
-      sets_target: row.sets_target || 1,
+      exercise: row.exercise || '',
+      sets_target: row.sets_target || '',
       reps_target: row.reps_target || '',
       rpe_target: row.rpe_target || '',
-      sets: Array.from({ length: row.sets_target || 1 }, () => emptySet()),
+      sets: Array.from(
+        { length: Math.max(1, Number(row.sets_target || 1)) },
+        () => emptySetFromExercise(row)
+      ),
     }))
 }
 
-function ExerciseSetRow({ setIndex, setData, onChange, onRemove, canRemove }) {
-  return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '100px 120px 100px 44px',
-        gap: 8,
-        alignItems: 'center',
-      }}
-    >
-      <input
-        value={setData.reps}
-        onChange={(e) => onChange(setIndex, 'reps', e.target.value)}
-        placeholder="Reps"
-        type="number"
-        min="0"
-        style={{
-          height: 44,
-          borderRadius: 12,
-          border: `1px solid ${T.border}`,
-          background: T.surface,
-          color: T.text,
-          padding: '0 12px',
-          fontSize: 14,
-          outline: 'none',
-          width: '100%',
-          boxSizing: 'border-box',
-        }}
-      />
-
-      <input
-        value={setData.weight}
-        onChange={(e) => onChange(setIndex, 'weight', e.target.value)}
-        placeholder="Poids (kg)"
-        type="number"
-        min="0"
-        step="0.5"
-        style={{
-          height: 44,
-          borderRadius: 12,
-          border: `1px solid ${T.border}`,
-          background: T.surface,
-          color: T.text,
-          padding: '0 12px',
-          fontSize: 14,
-          outline: 'none',
-          width: '100%',
-          boxSizing: 'border-box',
-        }}
-      />
-
-      <input
-        value={setData.rpe}
-        onChange={(e) => onChange(setIndex, 'rpe', e.target.value)}
-        placeholder="RPE"
-        type="number"
-        min="0"
-        step="0.5"
-        style={{
-          height: 44,
-          borderRadius: 12,
-          border: `1px solid ${T.border}`,
-          background: T.surface,
-          color: T.text,
-          padding: '0 12px',
-          fontSize: 14,
-          outline: 'none',
-          width: '100%',
-          boxSizing: 'border-box',
-        }}
-      />
-
-      <button
-        type="button"
-        disabled={!canRemove}
-        onClick={() => onRemove(setIndex)}
-        style={{
-          height: 44,
-          width: 44,
-          borderRadius: 12,
-          border: `1px solid ${T.border}`,
-          background: 'transparent',
-          color: canRemove ? T.textDim : 'rgba(255,255,255,0.25)',
-          cursor: canRemove ? 'pointer' : 'default',
-          fontSize: 18,
-          fontWeight: 800,
-        }}
-      >
-        ×
-      </button>
-    </div>
-  )
-}
-
-function ExerciseCard({
+function SessionExerciseCard({
   item,
   index,
   onSetChange,
@@ -161,9 +75,9 @@ function ExerciseCard({
               marginTop: 8,
             }}
           >
-            <Badge>{item.sets_target || 1} séries prévues</Badge>
-            {item.reps_target ? <Badge color={T.blue}>{item.reps_target} reps</Badge> : null}
-            {item.rpe_target ? <Badge color={T.orange}>RPE {item.rpe_target}</Badge> : null}
+            {item.sets_target ? <Badge>{item.sets_target} séries prévues</Badge> : null}
+            {item.reps_target ? <Badge color={T.blue || '#5BA7FF'}>{item.reps_target} reps</Badge> : null}
+            {item.rpe_target ? <Badge color={T.orange || '#FFB454'}>RPE {item.rpe_target}</Badge> : null}
           </div>
         </div>
 
@@ -211,14 +125,96 @@ function ExerciseCard({
         </div>
 
         {item.sets.map((setRow, setIndex) => (
-          <ExerciseSetRow
+          <div
             key={`${item.exercise}-${setIndex}`}
-            setIndex={setIndex}
-            setData={setRow}
-            onChange={(rowIndex, field, value) => onSetChange(index, rowIndex, field, value)}
-            onRemove={(rowIndex) => onRemoveSet(index, rowIndex)}
-            canRemove={item.sets.length > 1}
-          />
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '100px 120px 100px 44px',
+              gap: 8,
+              alignItems: 'center',
+            }}
+          >
+            <input
+              value={setRow.reps}
+              onChange={(e) => onSetChange(index, setIndex, 'reps', e.target.value)}
+              placeholder="Reps"
+              type="number"
+              min="0"
+              style={{
+                height: 44,
+                borderRadius: 12,
+                border: `1px solid ${T.border}`,
+                background: T.surface,
+                color: T.text,
+                padding: '0 12px',
+                fontSize: 14,
+                outline: 'none',
+                width: '100%',
+                boxSizing: 'border-box',
+              }}
+            />
+
+            <input
+              value={setRow.weight}
+              onChange={(e) => onSetChange(index, setIndex, 'weight', e.target.value)}
+              placeholder="Poids"
+              type="number"
+              min="0"
+              step="0.5"
+              style={{
+                height: 44,
+                borderRadius: 12,
+                border: `1px solid ${T.border}`,
+                background: T.surface,
+                color: T.text,
+                padding: '0 12px',
+                fontSize: 14,
+                outline: 'none',
+                width: '100%',
+                boxSizing: 'border-box',
+              }}
+            />
+
+            <input
+              value={setRow.rpe}
+              onChange={(e) => onSetChange(index, setIndex, 'rpe', e.target.value)}
+              placeholder="RPE"
+              type="number"
+              min="0"
+              step="0.5"
+              style={{
+                height: 44,
+                borderRadius: 12,
+                border: `1px solid ${T.border}`,
+                background: T.surface,
+                color: T.text,
+                padding: '0 12px',
+                fontSize: 14,
+                outline: 'none',
+                width: '100%',
+                boxSizing: 'border-box',
+              }}
+            />
+
+            <button
+              type="button"
+              disabled={item.sets.length <= 1}
+              onClick={() => onRemoveSet(index, setIndex)}
+              style={{
+                height: 44,
+                width: 44,
+                borderRadius: 12,
+                border: `1px solid ${T.border}`,
+                background: 'transparent',
+                color: item.sets.length <= 1 ? 'rgba(255,255,255,0.25)' : T.textDim,
+                cursor: item.sets.length <= 1 ? 'default' : 'pointer',
+                fontSize: 18,
+                fontWeight: 800,
+              }}
+            >
+              ×
+            </button>
+          </div>
         ))}
       </div>
     </Card>
@@ -230,7 +226,7 @@ export default function AujourdhuiPage() {
   const { markDirty, markClean } = useDirty()
 
   const [assignment, setAssignment] = useState(null)
-  const [exercises, setExercises] = useState([])
+  const [sessionExercises, setSessionExercises] = useState([])
   const [notes, setNotes] = useState('')
 
   const [loading, setLoading] = useState(true)
@@ -240,10 +236,10 @@ export default function AujourdhuiPage() {
 
   const today = useMemo(() => todayString(), [])
 
-  const loadToday = useCallback(async () => {
+  const loadTodaySession = useCallback(async () => {
     if (!user?.id) {
       setAssignment(null)
-      setExercises([])
+      setSessionExercises([])
       setLoading(false)
       return
     }
@@ -265,22 +261,17 @@ export default function AujourdhuiPage() {
         throw error
       }
 
-      const current = data?.[0] || null
-
-      setAssignment(current)
+      const currentAssignment = data?.[0] || null
+      setAssignment(currentAssignment)
       setNotes('')
 
-      if (current?.programs?.program_exercises?.length) {
-        setExercises(normalizeExercises(current.programs.program_exercises))
-      } else {
-        setExercises([])
-      }
-
-      markClean()
+      const programExercises = currentAssignment?.programs?.program_exercises || []
+      setSessionExercises(normalizeProgramExercises(programExercises))
+      markClean?.()
     } catch (error) {
       console.error('Erreur chargement séance du jour :', error)
       setAssignment(null)
-      setExercises([])
+      setSessionExercises([])
       setErrorMessage("Impossible de charger la séance du jour.")
     } finally {
       setLoading(false)
@@ -288,11 +279,16 @@ export default function AujourdhuiPage() {
   }, [user?.id, today, markClean])
 
   useEffect(() => {
-    loadToday()
-  }, [loadToday])
+    loadTodaySession()
+  }, [loadTodaySession])
+
+  function touchDirty() {
+    markDirty?.()
+    if (successMessage) setSuccessMessage('')
+  }
 
   const updateSet = useCallback((exerciseIndex, setIndex, field, value) => {
-    setExercises((current) =>
+    setSessionExercises((current) =>
       current.map((exercise, exIndex) => {
         if (exIndex !== exerciseIndex) return exercise
 
@@ -304,22 +300,36 @@ export default function AujourdhuiPage() {
         }
       })
     )
-    markDirty()
-  }, [markDirty])
+    touchDirty()
+  }, [successMessage, markDirty])
 
   const addSet = useCallback((exerciseIndex) => {
-    setExercises((current) =>
+    setSessionExercises((current) =>
       current.map((exercise, exIndex) =>
         exIndex === exerciseIndex
-          ? { ...exercise, sets: [...exercise.sets, emptySet()] }
+          ? {
+              ...exercise,
+              sets: [
+                ...exercise.sets,
+                {
+                  exercise: exercise.exercise,
+                  reps: '',
+                  weight: '',
+                  rpe: '',
+                  sets_target: exercise.sets_target,
+                  reps_target: exercise.reps_target,
+                  rpe_target: exercise.rpe_target,
+                },
+              ],
+            }
           : exercise
       )
     )
-    markDirty()
-  }, [markDirty])
+    touchDirty()
+  }, [successMessage, markDirty])
 
   const removeSet = useCallback((exerciseIndex, setIndex) => {
-    setExercises((current) =>
+    setSessionExercises((current) =>
       current.map((exercise, exIndex) => {
         if (exIndex !== exerciseIndex) return exercise
         if (exercise.sets.length <= 1) return exercise
@@ -330,35 +340,32 @@ export default function AujourdhuiPage() {
         }
       })
     )
-    markDirty()
-  }, [markDirty])
-
-  const handleNotesChange = useCallback((value) => {
-    setNotes(value)
-    markDirty()
-  }, [markDirty])
+    touchDirty()
+  }, [successMessage, markDirty])
 
   const totalLoggedSets = useMemo(() => {
-    return exercises.reduce((sum, exercise) => {
+    return sessionExercises.reduce((sum, exercise) => {
       return (
         sum +
         exercise.sets.filter((setRow) => setRow.reps || setRow.weight || setRow.rpe).length
       )
     }, 0)
-  }, [exercises])
+  }, [sessionExercises])
 
-  const handleSave = useCallback(async () => {
+  const exerciseCount = sessionExercises.length
+
+  async function handleSave() {
     if (!user?.id) return
 
-    const setsToInsert = []
+    const rows = []
     let setOrder = 0
 
-    exercises.forEach((exercise) => {
+    sessionExercises.forEach((exercise) => {
       exercise.sets.forEach((setRow) => {
         const hasData = setRow.reps || setRow.weight || setRow.rpe
         if (!hasData) return
 
-        setsToInsert.push({
+        rows.push({
           exercise: exercise.exercise,
           reps: setRow.reps ? parseInt(setRow.reps, 10) : null,
           weight: setRow.weight ? parseFloat(setRow.weight) : null,
@@ -370,7 +377,7 @@ export default function AujourdhuiPage() {
       })
     })
 
-    if (setsToInsert.length === 0) {
+    if (!rows.length) {
       setErrorMessage('Saisis au moins une série avant de sauvegarder.')
       return
     }
@@ -380,14 +387,14 @@ export default function AujourdhuiPage() {
     setSuccessMessage('')
 
     try {
-      const sessionType = assignment?.programs?.seance_type || 'Séance du jour'
+      const seanceType = assignment?.programs?.seance_type || 'Séance du jour'
 
       const { data: session, error: sessionError } = await supabase
         .from('sessions')
         .insert({
           user_id: user.id,
           date: today,
-          seance_type: sessionType,
+          seance_type: seanceType,
           notes: notes.trim() || null,
         })
         .select()
@@ -397,29 +404,29 @@ export default function AujourdhuiPage() {
         throw sessionError
       }
 
-      const rows = setsToInsert.map((row) => ({
+      const payload = rows.map((row) => ({
         ...row,
         session_id: session.id,
       }))
 
       const { error: setsError } = await supabase
         .from('sets')
-        .insert(rows)
+        .insert(payload)
 
       if (setsError) {
         throw setsError
       }
 
       setSuccessMessage('Séance enregistrée avec succès.')
-      markClean()
-      await loadToday()
+      markClean?.()
+      await loadTodaySession()
     } catch (error) {
-      console.error('Erreur enregistrement séance :', error)
-      setErrorMessage("Impossible d'enregistrer la séance.")
+      console.error('Erreur enregistrement séance du jour :', error)
+      setErrorMessage("Impossible d'enregistrer la séance du jour.")
     } finally {
       setSaving(false)
     }
-  }, [user?.id, exercises, assignment, today, notes, markClean, loadToday])
+  }
 
   return (
     <PageWrap>
@@ -489,18 +496,22 @@ export default function AujourdhuiPage() {
               >
                 {assignment?.programs?.name
                   ? `Programme assigné : ${assignment.programs.name}`
-                  : "Aucun programme assigné pour aujourd'hui."}
+                  : "Aucun programme assigné aujourd'hui."}
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {assignment?.programs?.seance_type ? (
                 <Badge>
-                  {(SEANCE_ICONS[assignment.programs.seance_type] || '💪') + ' ' + assignment.programs.seance_type}
+                  {(SEANCE_ICONS[assignment.programs.seance_type] || '💪') +
+                    ' ' +
+                    assignment.programs.seance_type}
                 </Badge>
-              ) : null}
+              ) : (
+                <Badge color={T.blue || '#5BA7FF'}>Séance non assignée</Badge>
+              )}
 
-              <Badge color={T.blue}>{today}</Badge>
+              <Badge>{today}</Badge>
             </div>
           </div>
         </Card>
@@ -552,8 +563,14 @@ export default function AujourdhuiPage() {
               Aucun programme aujourd’hui
             </div>
 
-            <div style={{ color: T.textMid, fontSize: 14 }}>
+            <div style={{ color: T.textMid, fontSize: 14, lineHeight: 1.6 }}>
               Aucun programme ne t’a été assigné pour cette date.
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <Link to="/entrainement/libre" style={{ textDecoration: 'none' }}>
+                <Btn>Démarrer une séance libre</Btn>
+              </Link>
             </div>
           </Card>
         ) : (
@@ -578,7 +595,7 @@ export default function AujourdhuiPage() {
                   Exercices
                 </div>
                 <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
-                  {exercises.length}
+                  {exerciseCount}
                 </div>
               </Card>
 
@@ -612,29 +629,20 @@ export default function AujourdhuiPage() {
                 Notes de séance
               </div>
 
-              <textarea
+              <Input
+                label=""
                 value={notes}
-                onChange={(e) => handleNotesChange(e.target.value)}
-                placeholder="Ressenti, énergie, douleurs, remarques..."
-                style={{
-                  width: '100%',
-                  minHeight: 110,
-                  resize: 'vertical',
-                  borderRadius: 14,
-                  border: `1px solid ${T.border}`,
-                  background: T.surface,
-                  color: T.text,
-                  padding: 14,
-                  fontSize: 14,
-                  outline: 'none',
-                  boxSizing: 'border-box',
+                onChange={(value) => {
+                  setNotes(value)
+                  touchDirty()
                 }}
+                placeholder="Ressenti, énergie, douleurs, remarques..."
               />
             </Card>
 
             <div style={{ display: 'grid', gap: 14 }}>
-              {exercises.map((exercise, index) => (
-                <ExerciseCard
+              {sessionExercises.map((exercise, index) => (
+                <SessionExerciseCard
                   key={`${exercise.exercise}-${index}`}
                   item={exercise}
                   index={index}
@@ -655,7 +663,7 @@ export default function AujourdhuiPage() {
             >
               <button
                 type="button"
-                onClick={loadToday}
+                onClick={loadTodaySession}
                 disabled={saving}
                 style={{
                   height: 48,
