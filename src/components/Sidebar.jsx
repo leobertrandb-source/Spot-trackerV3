@@ -1,97 +1,121 @@
-import { Link, useLocation } from "react-router-dom"
-import { useAuth } from "./AuthContext"
-import { T } from "../lib/data"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { supabase } from '../lib/supabase'
 
-export default function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
+const AuthContext = createContext(null)
 
-  const location = useLocation()
-  const { profile } = useAuth()
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-  const isCoach = profile?.role === "coach"
+  const fetchProfile = useCallback(async (userId) => {
+    if (!userId) {
+      setProfile(null)
+      return null
+    }
 
-  const coachLinks = [
-    { to: "/coach", label: "Dashboard coach" },
-    { to: "/coach/clients", label: "Clients" },
-    { to: "/programmes", label: "Programmes" }
-  ]
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle()
 
-  const athleteLinks = [
-    { to: "/mon-espace", label: "Mon espace" },
-    { to: "/entrainement/aujourdhui", label: "Séance du jour" },
-    { to: "/entrainement/libre", label: "Séance libre" },
-    { to: "/entrainement/historique", label: "Historique" },
-    { to: "/nutrition/macros", label: "Nutrition" },
-    { to: "/nutrition/recettes", label: "Recettes" },
-    { to: "/nutrition/plan", label: "Plan repas" },
-    { to: "/progression", label: "Progression" }
-  ]
+      if (error) throw error
 
-  const links = isCoach ? coachLinks : athleteLinks
+      setProfile(data || null)
+      return data || null
+    } catch (error) {
+      console.error('fetchProfile error:', error)
+      setProfile(null)
+      return null
+    }
+  }, [])
 
-  const sidebarContent = (
-    <aside
-      style={{
-        width: 280,
-        height: "100dvh",
-        background: "rgba(12,16,15,0.98)",
-        borderRight: `1px solid ${T.border}`,
-        padding: 20,
-        display: "flex",
-        flexDirection: "column",
-        gap: 12
-      }}
-    >
-      {links.map((item) => {
+  useEffect(() => {
+    let active = true
 
-        const active = location.pathname.startsWith(item.to)
+    async function init() {
+      try {
+        const result = await supabase.auth.getSession()
+        const session = result?.data?.session ?? null
 
-        return (
-          <Link
-            key={item.to}
-            to={item.to}
-            onClick={isMobile ? onClose : undefined}
-            style={{
-              padding: "10px 12px",
-              borderRadius: 10,
-              textDecoration: "none",
-              background: active ? "rgba(45,255,155,0.1)" : "transparent",
-              color: T.text
-            }}
-          >
-            {item.label}
-          </Link>
-        )
-      })}
-    </aside>
-  )
+        if (!active) return
 
-  if (!isMobile) return sidebarContent
+        const nextUser = session?.user ?? null
+        setUser(nextUser)
+        setLoading(false)
 
-  return (
-    <>
-      {mobileOpen && (
-        <div
-          onClick={onClose}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.6)",
-            zIndex: 50
-          }}
-        />
-      )}
+        if (nextUser?.id) {
+          fetchProfile(nextUser.id)
+        } else {
+          setProfile(null)
+        }
+      } catch (error) {
+        console.error('init auth error:', error)
+        if (!active) return
+        setUser(null)
+        setProfile(null)
+        setLoading(false)
+      }
+    }
 
-      <div
-        style={{
-          position: "fixed",
-          left: mobileOpen ? 0 : -300,
-          top: 0,
-          transition: "left .25s",
-          zIndex: 60
-        }}
-      >
-        {sidebarContent}
-      </div>
-    </>
-  )
+    init()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return
+
+      const nextUser = session?.user ?? null
+      setUser(nextUser)
+      setLoading(false)
+
+      if (nextUser?.id) {
+        fetchProfile(nextUser.id)
+      } else {
+        setProfile(null)
+      }
+    })
+
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
+  }, [fetchProfile])
+
+  const signOut = useCallback(async () => {
+    const { error } = await supabase.auth.signOut()
+
+    if (!error) {
+      setUser(null)
+      setProfile(null)
+      setLoading(false)
+    }
+
+    return { error }
+  }, [])
+
+  const value = useMemo(() => {
+    return {
+      user,
+      profile,
+      loading,
+      fetchProfile,
+      setProfile,
+      signOut,
+    }
+  }, [user, profile, loading, fetchProfile, signOut])
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext)
+
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+
+  return context
 }
