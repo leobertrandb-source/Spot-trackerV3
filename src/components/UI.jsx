@@ -8,7 +8,7 @@ style={{
 position: 'fixed',
 inset: 0,
 pointerEvents: 'none',
-opacity: 0.06,
+opacity: 0.05,
 backgroundImage:
 'radial-gradient(rgba(255,255,255,0.6) 0.6px, transparent 0.6px)',
 backgroundSize: '6px 6px',
@@ -151,6 +151,7 @@ padding: '0 14px',
 fontSize: 14,
 outline: 'none',
 boxSizing: 'border-box',
+width: '100%',
 }}
 />
 </label>
@@ -185,6 +186,7 @@ padding: '0 14px',
 fontSize: 14,
 outline: 'none',
 boxSizing: 'border-box',
+width: '100%',
 }}
 >
 {options.map((option) => (
@@ -298,4 +300,3 @@ marginTop: 8,
 </Card>
 )
 }
-
