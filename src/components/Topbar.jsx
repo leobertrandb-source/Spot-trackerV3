@@ -1,57 +1,48 @@
-import { T } from '../lib/data'
+import { useAuth } from "./AuthContext"
+import { T } from "../lib/data"
 
-export default function Topbar({ isMobile = false, onMenuClick }) {
+export default function Topbar({ isMobile, onMenuClick }) {
+  const { profile } = useAuth()
+  const isCoach = profile?.role === "coach"
+
   return (
-    <div
+    <header
       style={{
-        height: 64,
+        height: 70,
         borderBottom: `1px solid ${T.border}`,
-        background: 'rgba(10,14,13,0.85)',
-        backdropFilter: 'blur(8px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 18px',
-        boxSizing: 'border-box',
+        background: "rgba(10,14,13,0.9)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0 20px"
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+
         {isMobile && (
           <button
             onClick={onMenuClick}
             style={{
-              background: 'transparent',
-              border: 'none',
               fontSize: 22,
-              cursor: 'pointer',
+              background: "transparent",
+              border: "none",
               color: T.text,
+              cursor: "pointer"
             }}
           >
             ☰
           </button>
         )}
 
-        <div
-          style={{
-            fontWeight: 900,
-            fontSize: 16,
-            color: T.text,
-            letterSpacing: 1,
-          }}
-        >
+        <div style={{ fontWeight: 900 }}>
           LE SPOT
         </div>
-      </div>
 
-      <div
-        style={{
-          fontSize: 13,
-          color: T.textDim,
-          fontWeight: 700,
-        }}
-      >
-        Dashboard
+        <div style={{ fontSize: 12, color: T.textDim }}>
+          {isCoach ? "Espace coach" : "Espace athlète"}
+        </div>
+
       </div>
-    </div>
+    </header>
   )
 }
