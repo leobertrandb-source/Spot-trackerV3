@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useAuth } from './AuthContext'
+import { useAuth } from '../components/AuthContext'
 import { T } from '../lib/data'
 
 function getTitle(pathname, isCoach) {
@@ -134,4 +134,5 @@ export default function Topbar({ isMobile = false, onMenuClick }) {
       </div>
     </header>
   )
+
 }
