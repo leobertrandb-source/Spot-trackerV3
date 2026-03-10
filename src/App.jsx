@@ -1,38 +1,38 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 
-import { AuthProvider, useAuth } from './components/AuthContext'
-import { DirtyProvider } from './components/DirtyContext'
-import { Grain, Layout } from './components/UI'
+import { AuthProvider, useAuth } from '../components/AuthContext'
+import { DirtyProvider } from '../components/DirtyContext'
+import { Grain, Layout } from '../components/UI'
 
-import Sidebar from './components/Sidebar'
-import Topbar from './components/Topbar'
+import Sidebar from '../components/Sidebar'
+import Topbar from '../components/Topbar'
 
-import AuthPage from './pages/AuthPage'
-import InviteAcceptPage from './pages/InviteAcceptPage'
+import AuthPage from '../pages/AuthPage'
+import InviteAcceptPage from '../pages/InviteAcceptPage'
 
-import GoalSelectionPage from './pages/GoalSelectionPage'
-import GoalHomePage from './pages/GoalHomePage'
+import GoalSelectionPage from '../pages/GoalSelectionPage'
+import GoalHomePage from '../pages/GoalHomePage'
 
-import AujourdhuiPage from './pages/AujourdhuiPage'
-import SaisiePage from './pages/SaisiePage'
-import ProgressionPage from './pages/ProgressionPage'
+import AujourdhuiPage from '../pages/AujourdhuiPage'
+import SaisiePage from '../pages/SaisiePage'
+import ProgressionPage from '../pages/ProgressionPage'
 
-import NutritionPage from './pages/NutritionPage'
-import RecipesPage from './pages/RecipesPage'
+import NutritionPage from '../pages/NutritionPage'
+import RecipesPage from '../pages/RecipesPage'
 import RecipeDetailPage from './pages/RecipeDetailPage'
-import MealPlanPage from './pages/MealPlanPage'
+import MealPlanPage from '../pages/MealPlanPage'
 
-import CoachPage from './pages/CoachPage'
-import CoachClientsPage from './pages/CoachClientsPage'
-import CoachClientDetailPage from './pages/CoachClientDetailPage'
-import ProgramBuilderPage from './pages/ProgramBuilderPage'
+import CoachPage from '../pages/CoachPage'
+import CoachClientsPage from '../pages/CoachClientsPage'
+import CoachClientDetailPage from '../pages/CoachClientDetailPage'
+import ProgramBuilderPage from '../pages/ProgramBuilderPage'
 
-import ProgrammeBodybuildingPage from './pages/ProgrammeBodybuildingPage'
-import ProgrammePerteDePoidsPage from './pages/ProgrammePerteDePoidsPage'
-import ProgrammeAthletiquePage from './pages/ProgrammeAthletiquePage'
+import ProgrammeBodybuildingPage from '../pages/ProgrammeBodybuildingPage'
+import ProgrammePerteDePoidsPage from '../pages/ProgrammePerteDePoidsPage'
+import ProgrammeAthletiquePage from '../pages/ProgrammeAthletiquePage'
 
-import { T } from './lib/data'
+import { T } from '../lib/data'
 
 function LoadingScreen() {
   return (
