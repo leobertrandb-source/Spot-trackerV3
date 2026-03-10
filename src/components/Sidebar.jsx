@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from '../components/AuthContext'
 import { Grain, Layout } from '../components/UI'
 import { DirtyProvider } from '../components/DirtyContext'
 import Sidebar from '../components/Sidebar'
-import Topbar from './components/Topbar'
+import Topbar from '../components/Topbar'
 
 import AuthPage from '../pages/AuthPage'
 import InviteAcceptPage from '../pages/InviteAcceptPage'
