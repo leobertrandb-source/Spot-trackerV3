@@ -1,250 +1,334 @@
-import { useEffect, useMemo, useState } from "react"
-import { supabase } from "../lib/supabase"
-import { PageWrap, Card, Label, Btn, Input } from "../components/UI"
-import { T } from "../lib/data"
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
+import { PageWrap, Input } from '../components/UI'
+import { T } from '../lib/data'
 
-function splitCalories(total, n) {
-  // répartition réaliste
-  if (n === 3) return [0.3, 0.4, 0.3].map(p => Math.round(total * p))
-  if (n === 4) return [0.25, 0.3, 0.2, 0.25].map(p => Math.round(total * p))
-  // fallback
-  return Array.from({ length: n }, () => Math.round(total / n))
+function MacroBadge({ children }) {
+  return (
+    <div
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: '7px 10px',
+        borderRadius: 999,
+        background: 'rgba(255,255,255,0.08)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: 800,
+        letterSpacing: 0.3,
+        backdropFilter: 'blur(8px)',
+      }}
+    >
+      {children}
+    </div>
+  )
 }
 
-function clamp(v, min, max) {
-  return Math.max(min, Math.min(max, v))
+function RecipeCard({ recipe, onOpen }) {
+  const proteins = Number(recipe.proteins || recipe.protein || 0)
+  const carbs = Number(recipe.carbs || 0)
+  const fats = Number(recipe.fats || recipe.fat || 0)
+  const calories = Number(recipe.calories || 0)
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(recipe.id)}
+      style={{
+        background: 'transparent',
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
+        textAlign: 'left',
+      }}
+    >
+      <div
+        style={{
+          position: 'relative',
+          minHeight: 360,
+          borderRadius: 26,
+          overflow: 'hidden',
+          border: '1px solid rgba(255,255,255,0.08)',
+          background: recipe.image_url
+            ? `linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.78)), url("${recipe.image_url}") center/cover no-repeat`
+            : 'linear-gradient(135deg, rgba(26,32,29,0.96), rgba(9,12,10,0.98))',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.22)',
+          transition: 'transform .22s ease, box-shadow .22s ease, border-color .22s ease',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-4px)'
+          e.currentTarget.style.boxShadow = '0 28px 60px rgba(0,0,0,0.28)'
+          e.currentTarget.style.borderColor = 'rgba(45,255,155,0.20)'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.transform = 'translateY(0px)'
+          e.currentTarget.style.boxShadow = '0 20px 50px rgba(0,0,0,0.22)'
+          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: recipe.image_url
+              ? 'linear-gradient(180deg, rgba(0,0,0,0.00), rgba(0,0,0,0.82))'
+              : 'radial-gradient(circle at 18% 15%, rgba(45,255,155,0.14), transparent 35%)',
+          }}
+        />
+
+        {!recipe.image_url ? (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              opacity: 0.08,
+              backgroundImage:
+                'radial-gradient(rgba(255,255,255,0.75) 0.7px, transparent 0.7px)',
+              backgroundSize: '14px 14px',
+            }}
+          />
+        ) : null}
+
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            padding: 18,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '8px 12px',
+                borderRadius: 999,
+                background: 'rgba(10,12,11,0.42)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                color: '#fff',
+                fontSize: 12,
+                fontWeight: 900,
+                letterSpacing: 0.5,
+                backdropFilter: 'blur(12px)',
+              }}
+            >
+              {calories} kcal
+            </div>
+          </div>
+
+          <div>
+            <div
+              style={{
+                color: '#fff',
+                fontSize: 28,
+                fontWeight: 900,
+                lineHeight: 1.05,
+                marginBottom: 14,
+                maxWidth: 420,
+              }}
+            >
+              {recipe.title || recipe.name || 'Recette'}
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+              <MacroBadge>P {proteins.toFixed(0)}g</MacroBadge>
+              <MacroBadge>C {carbs.toFixed(0)}g</MacroBadge>
+              <MacroBadge>F {fats.toFixed(0)}g</MacroBadge>
+            </div>
+
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 14px',
+                borderRadius: 999,
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.10)',
+                color: '#fff',
+                fontSize: 12,
+                fontWeight: 900,
+                letterSpacing: 0.6,
+                textTransform: 'uppercase',
+                backdropFilter: 'blur(12px)',
+              }}
+            >
+              Voir recette
+            </div>
+          </div>
+        </div>
+      </div>
+    </button>
+  )
 }
 
-export default function MealPlanPage() {
+export default function RecipesPage() {
+  const navigate = useNavigate()
   const [recipes, setRecipes] = useState([])
   const [loading, setLoading] = useState(true)
-
-  const [planDate, setPlanDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [targetCalories, setTargetCalories] = useState(2300)
-  const [mealsCount, setMealsCount] = useState(3)
-
-  const [plan, setPlan] = useState(null)
-  const [saving, setSaving] = useState(false)
-  const [pushing, setPushing] = useState(false)
+  const [q, setQ] = useState('')
 
   useEffect(() => {
-    async function load() {
+    let active = true
+
+    async function loadRecipes() {
       setLoading(true)
-      const { data, error } = await supabase.from("recipes").select("*").order("title")
-      if (error) console.error(error)
+
+      let query = supabase
+        .from('recipes')
+        .select('*')
+        .order('title', { ascending: true })
+
+      if (q.trim()) {
+        query = query.ilike('title', `%${q.trim()}%`)
+      }
+
+      const { data, error } = await query
+
+      if (!active) return
+
+      if (error) {
+        console.error(error)
+        setRecipes([])
+        setLoading(false)
+        return
+      }
+
       setRecipes(data || [])
       setLoading(false)
     }
-    load()
-  }, [])
 
-  const mealTargets = useMemo(() => splitCalories(Number(targetCalories) || 0, Number(mealsCount) || 3), [targetCalories, mealsCount])
+    const timeout = setTimeout(() => {
+      loadRecipes()
+    }, 250)
 
-  function pickRecipeCloseTo(calTarget, usedIds) {
-    // choix simple: recette dont calories base est proche de calTarget
-    // + évite répétitions
-    const candidates = recipes
-      .filter(r => !usedIds.has(r.id))
-      .map(r => ({ r, diff: Math.abs((r.calories || 0) - calTarget) }))
-      .sort((a,b) => a.diff - b.diff)
+    return () => {
+      active = false
+      clearTimeout(timeout)
+    }
+  }, [q])
 
-    return candidates[0]?.r || null
+  function openRecipe(id) {
+    navigate(`/nutrition/recette/${id}`)
   }
-
-  async function generatePlan() {
-    if (!recipes.length) {
-      alert("Aucune recette disponible.")
-      return
-    }
-
-    const used = new Set()
-    const meals = []
-
-    for (let i = 0; i < mealTargets.length; i++) {
-      const calTarget = clamp(mealTargets[i], 200, 1200)
-
-      const recipe = pickRecipeCloseTo(calTarget, used) || recipes[Math.floor(Math.random() * recipes.length)]
-      used.add(recipe.id)
-
-      const ratio = calTarget / Math.max(1, Number(recipe.calories || 1))
-
-      // charge ingrédients de la recette
-      const { data: ing, error: iErr } = await supabase
-        .from("recipe_ingredients")
-        .select("*")
-        .eq("recipe_id", recipe.id)
-        .order("sort_order", { ascending: true })
-
-      if (iErr) console.error(iErr)
-
-      const ingredients = (ing || []).map(x => ({
-        name: x.name,
-        unit: x.unit,
-        quantity: +(Number(x.quantity || 0) * ratio).toFixed(1),
-      }))
-
-      const macros = {
-        calories: Math.round(Number(recipe.calories || 0) * ratio),
-        proteins: +(Number(recipe.proteins || 0) * ratio).toFixed(1),
-        carbs: +(Number(recipe.carbs || 0) * ratio).toFixed(1),
-        fats: +(Number(recipe.fats || 0) * ratio).toFixed(1),
-      }
-
-      meals.push({
-        mealIndex: i + 1,
-        recipe_id: recipe.id,
-        title: recipe.title,
-        targetCalories: calTarget,
-        ratio: +ratio.toFixed(4),
-        macros,
-        ingredients,
-      })
-    }
-
-    setPlan({
-      planDate,
-      targetCalories: Number(targetCalories),
-      mealsCount: Number(mealsCount),
-      meals,
-    })
-  }
-
-  async function savePlan() {
-    if (!plan) return
-    setSaving(true)
-
-    const { data: auth } = await supabase.auth.getUser()
-    const user = auth?.user
-    if (!user?.id) {
-      alert("Non connecté.")
-      setSaving(false)
-      return
-    }
-
-    const { error } = await supabase
-      .from("daily_meal_plans")
-      .upsert({
-        user_id: user.id,
-        plan_date: plan.planDate,
-        target_calories: plan.targetCalories,
-        meals: plan.meals,
-      }, { onConflict: "user_id,plan_date" })
-
-    if (error) {
-      console.error(error)
-      alert(error.message)
-      setSaving(false)
-      return
-    }
-
-    alert("Plan sauvegardé ✅")
-    setSaving(false)
-  }
-
-  async function pushToNutrition() {
-    if (!plan) return
-    setPushing(true)
-
-    const { data: auth } = await supabase.auth.getUser()
-    const user = auth?.user
-    if (!user?.id) {
-      alert("Non connecté.")
-      setPushing(false)
-      return
-    }
-
-    const rows = plan.meals.map(m => ({
-      user_id: user.id,
-      log_date: plan.planDate,
-      meal_name: m.title,
-      calories: m.macros.calories,
-      proteins: m.macros.proteins,
-      carbs: m.macros.carbs,
-      fats: m.macros.fats,
-      water: 0,
-      recipe_id: m.recipe_id,
-      recipe_details: {
-        title: m.title,
-        targetCalories: m.targetCalories,
-        ratio: m.ratio,
-        ingredients: m.ingredients,
-      }
-    }))
-
-    const { error } = await supabase.from("nutrition_logs").insert(rows)
-    if (error) {
-      console.error(error)
-      alert(error.message)
-      setPushing(false)
-      return
-    }
-
-    alert("Ajouté dans Nutrition ✅")
-    setPushing(false)
-  }
-
-  const totals = useMemo(() => {
-    if (!plan?.meals?.length) return null
-    return plan.meals.reduce((acc, m) => {
-      acc.calories += m.macros.calories
-      acc.proteins += Number(m.macros.proteins || 0)
-      acc.carbs += Number(m.macros.carbs || 0)
-      acc.fats += Number(m.macros.fats || 0)
-      return acc
-    }, { calories: 0, proteins: 0, carbs: 0, fats: 0 })
-  }, [plan])
-
-  if (loading) return <PageWrap>Chargement…</PageWrap>
 
   return (
     <PageWrap>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 34, fontWeight: 900, letterSpacing: 2 }}>PLAN JOURNALIER</div>
-        <div style={{ color: T.textMid }}>Génère automatiquement tes repas à partir des recettes.</div>
-      </div>
+      <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+        <div
+          style={{
+            position: 'relative',
+            overflow: 'hidden',
+            borderRadius: 28,
+            padding: '24px 24px 26px',
+            background:
+              'radial-gradient(circle at 15% 20%, rgba(45,255,155,0.14), transparent 28%), linear-gradient(135deg, rgba(22,27,24,0.96), rgba(10,14,12,0.98))',
+            border: '1px solid rgba(255,255,255,0.08)',
+            boxShadow: '0 24px 60px rgba(0,0,0,0.24)',
+            marginBottom: 20,
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              opacity: 0.07,
+              backgroundImage:
+                'radial-gradient(rgba(255,255,255,0.72) 0.7px, transparent 0.7px)',
+              backgroundSize: '14px 14px',
+              pointerEvents: 'none',
+            }}
+          />
 
-      <Card>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
-          <Input label="Date" type="date" value={planDate} onChange={setPlanDate} />
-          <Input label="Calories du jour" type="number" value={String(targetCalories)} onChange={(v)=>setTargetCalories(Number(v))} />
-          <Input label="Nombre de repas" type="number" value={String(mealsCount)} onChange={(v)=>setMealsCount(Number(v))} />
-        </div>
-
-        <div style={{ marginTop: 12, display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
-          <Btn onClick={generatePlan}>Générer</Btn>
-          <Btn onClick={savePlan} disabled={!plan || saving}>{saving ? "Sauvegarde…" : "Sauvegarder"}</Btn>
-          <Btn onClick={pushToNutrition} disabled={!plan || pushing}>{pushing ? "Ajout…" : "Ajouter à Nutrition"}</Btn>
-        </div>
-      </Card>
-
-      {plan ? (
-        <>
-          <Card glow>
-            <Label>Résumé</Label>
-            <div style={{ marginTop: 10, color: T.textMid }}>
-              Total: <b style={{ color: T.text }}>{totals.calories} kcal</b> • P {totals.proteins.toFixed(0)}g • C {totals.carbs.toFixed(0)}g • F {totals.fats.toFixed(0)}g
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div
+              style={{
+                display: 'inline-flex',
+                padding: '8px 12px',
+                borderRadius: 999,
+                border: `1px solid ${(T.accent || '#43E97B') + '28'}`,
+                background: 'rgba(45,255,155,0.10)',
+                color: T.accentLight || T.accent || '#43E97B',
+                fontWeight: 800,
+                fontSize: 12,
+                letterSpacing: 1,
+                textTransform: 'uppercase',
+                marginBottom: 14,
+              }}
+            >
+              Bibliothèque premium
             </div>
-          </Card>
 
-          {plan.meals.map(m => (
-            <Card key={m.mealIndex}>
-              <Label>Repas {m.mealIndex} — {m.title}</Label>
-              <div style={{ color: T.textMid, marginTop: 6 }}>
-                {m.macros.calories} kcal • P {m.macros.proteins} • C {m.macros.carbs} • F {m.macros.fats}
+            <div
+              style={{
+                fontSize: 40,
+                fontWeight: 900,
+                letterSpacing: 1.5,
+                color: T.text,
+                lineHeight: 1,
+              }}
+            >
+              RECETTES
+            </div>
+
+            <div
+              style={{
+                color: T.textMid,
+                marginTop: 10,
+                fontSize: 15,
+                lineHeight: 1.65,
+                maxWidth: 760,
+              }}
+            >
+              Explore tes recettes, ajuste les calories, recalcule les quantités et ajoute-les directement à ta journée.
+            </div>
+
+            <div style={{ marginTop: 18, maxWidth: 420 }}>
+              <Input
+                label="Recherche"
+                value={q}
+                onChange={setQ}
+                placeholder="Poulet, saumon, pancakes..."
+              />
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div style={{ color: T.textMid, padding: 16 }}>Chargement…</div>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))',
+              gap: 18,
+            }}
+          >
+            {recipes.map((recipe) => (
+              <RecipeCard key={recipe.id} recipe={recipe} onOpen={openRecipe} />
+            ))}
+
+            {!recipes.length ? (
+              <div
+                style={{
+                  padding: 18,
+                  borderRadius: 20,
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  background: 'rgba(255,255,255,0.02)',
+                  color: T.textMid,
+                }}
+              >
+                Aucune recette trouvée.
               </div>
-              <div style={{ height: 10 }} />
-              <div style={{ display: "grid", gap: 6 }}>
-                {m.ingredients.map((i, idx) => (
-                  <div key={idx} style={{ display: "flex", justifyContent: "space-between", border: `1px solid ${T.border}`, borderRadius: T.radius, padding: "10px 12px" }}>
-                    <div>{i.name}</div>
-                    <div style={{ fontWeight: 900, color: T.textMid }}>{i.quantity} {i.unit}</div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          ))}
-        </>
-      ) : null}
+            ) : null}
+          </div>
+        )}
+      </div>
     </PageWrap>
   )
 }
