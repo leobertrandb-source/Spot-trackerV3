@@ -13,6 +13,8 @@ import SaisiePage from './pages/SaisiePage'
 import HistoriquePage from './pages/HistoriquePage'
 import ProgressionPage from './pages/ProgressionPage'
 import CoachPage from './pages/CoachPage'
+import CoachClientsPage from './pages/CoachClientsPage'
+import CoachClientDetailPage from './pages/CoachClientDetailPage'
 import AujourdhuiPage from './pages/AujourdhuiPage'
 import NutritionPage from './pages/NutritionPage'
 import ProgramBuilderPage from './pages/ProgramBuilderPage'
@@ -65,14 +67,10 @@ window.addEventListener('resize', handleResize)
 return () => window.removeEventListener('resize', handleResize)
 }, [])
 
-// Très important :
-// si pas d'utilisateur, on affiche la page de connexion immédiatement
 if (!user) {
 return <AuthPage />
 }
 
-// Si l'utilisateur existe mais que le profil n'est pas encore chargé
-// on affiche un loading simple
 if (loading) {
 return <AppLoadingScreen />
 }
@@ -234,6 +232,28 @@ path="/coach"
 element={
 isCoach ? (
 <CoachPage />
+) : (
+<Navigate to={athleteHome} replace />
+)
+}
+/>
+
+<Route
+path="/coach/clients"
+element={
+isCoach ? (
+<CoachClientsPage />
+) : (
+<Navigate to={athleteHome} replace />
+)
+}
+/>
+
+<Route
+path="/coach/client/:id"
+element={
+isCoach ? (
+<CoachClientDetailPage />
 ) : (
 <Navigate to={athleteHome} replace />
 )
