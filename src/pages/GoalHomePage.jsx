@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { resolveImageUrl } from '../lib/media'
 import { useAuth } from '../components/AuthContext'
 import { PageWrap, Card, Btn, Badge } from '../components/UI'
 import { T, SEANCE_ICONS } from '../lib/data'
@@ -11,17 +12,14 @@ function todayString() {
 
 function goalLabel(goalType) {
   const value = String(goalType || '').toLowerCase()
-
   if (value.includes('body')) return 'Prise de masse'
   if (value.includes('perte')) return 'Perte de poids'
   if (value.includes('athlet')) return 'Performance athlétique'
-
   return goalType || 'Objectif non défini'
 }
 
 function formatDate(value) {
   if (!value) return '—'
-
   try {
     return new Date(value).toLocaleDateString('fr-FR')
   } catch {
@@ -79,7 +77,6 @@ function pickSuggestedRecipe(recipes = [], goalType) {
     }
 
     score += Math.min(2, Number(recipe.protein || recipe.proteins || 0) / 20)
-
     return score
   }
 
@@ -91,7 +88,6 @@ export default function GoalHomePage() {
 
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
-
   const [todayAssignment, setTodayAssignment] = useState(null)
   const [nutritionGoals, setNutritionGoals] = useState(null)
   const [todayNutritionLogs, setTodayNutritionLogs] = useState([])
@@ -110,13 +106,7 @@ export default function GoalHomePage() {
     setErrorMessage('')
 
     try {
-      const [
-        assignmentRes,
-        goalsRes,
-        logsRes,
-        sessionsRes,
-        recipesRes,
-      ] = await Promise.all([
+      const [assignmentRes, goalsRes, logsRes, sessionsRes, recipesRes] = await Promise.all([
         supabase
           .from('assignments')
           .select('*, programs(name, seance_type, program_exercises(*))')
@@ -179,61 +169,57 @@ export default function GoalHomePage() {
     loadDashboard()
   }, [loadDashboard])
 
-  const nutritionTotals = useMemo(() => {
-    return sumMacros(todayNutritionLogs)
-  }, [todayNutritionLogs])
+  const nutritionTotals = useMemo(() => sumMacros(todayNutritionLogs), [todayNutritionLogs])
 
   const nutritionSummary = useMemo(() => {
     const goals = nutritionGoals || {}
 
     return {
-      caloriesGoal:
-        Number(goals.calories || goals.calories_target || 0) || 0,
-      proteinsGoal:
-        Number(goals.proteins || goals.protein_target || 0) || 0,
-      carbsGoal:
-        Number(goals.carbs || goals.carbs_target || 0) || 0,
-      fatsGoal:
-        Number(goals.fats || goals.fats_target || 0) || 0,
-      waterGoal:
-        Number(goals.water || goals.water_target || 0) || 0,
+      caloriesGoal: Number(goals.calories || goals.calories_target || 0) || 0,
+      proteinsGoal: Number(goals.proteins || goals.protein_target || 0) || 0,
+      carbsGoal: Number(goals.carbs || goals.carbs_target || 0) || 0,
+      fatsGoal: Number(goals.fats || goals.fats_target || 0) || 0,
+      waterGoal: Number(goals.water || goals.water_target || 0) || 0,
     }
   }, [nutritionGoals])
 
   const sessionSummary = useMemo(() => {
     const program = todayAssignment?.programs || null
-    const programExercises = program?.program_exercises || []
+    const exercises = program?.program_exercises || []
 
     return {
       exists: !!program,
       name: program?.name || null,
       type: program?.seance_type || null,
-      exerciseCount: programExercises.length,
+      exerciseCount: exercises.length,
     }
   }, [todayAssignment])
 
-  const suggestedRecipe = useMemo(() => {
-    return pickSuggestedRecipe(recipes, profile?.goal_type)
-  }, [recipes, profile?.goal_type])
+  const suggestedRecipe = useMemo(
+    () => pickSuggestedRecipe(recipes, profile?.goal_type),
+    [recipes, profile?.goal_type]
+  )
+
+  const suggestedRecipeImage = useMemo(() => {
+    if (!suggestedRecipe) return ''
+    return resolveImageUrl({
+      imageUrl: suggestedRecipe.image_url,
+      imagePath: suggestedRecipe.image_path,
+      imageBucket: suggestedRecipe.image_bucket || 'recipe-images',
+    })
+  }, [suggestedRecipe])
 
   const lastSession = recentSessions[0] || null
 
   const nutritionCompletion = useMemo(() => {
-    const caloriesGoal = nutritionSummary.caloriesGoal || 0
-    if (!caloriesGoal) return 0
-    return Math.min(100, Math.round((nutritionTotals.calories / caloriesGoal) * 100))
+    const goal = nutritionSummary.caloriesGoal || 0
+    if (!goal) return 0
+    return Math.min(100, Math.round((nutritionTotals.calories / goal) * 100))
   }, [nutritionTotals.calories, nutritionSummary.caloriesGoal])
 
   return (
     <PageWrap>
-      <div
-        style={{
-          maxWidth: 1180,
-          margin: '0 auto',
-          display: 'grid',
-          gap: 18,
-        }}
-      >
+      <div style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gap: 18 }}>
         <Card
           glow
           style={{
@@ -292,13 +278,7 @@ export default function GoalHomePage() {
               background: 'rgba(255,90,90,0.06)',
             }}
           >
-            <div
-              style={{
-                color: '#FFB3B3',
-                fontWeight: 800,
-                fontSize: 14,
-              }}
-            >
+            <div style={{ color: '#FFB3B3', fontWeight: 800, fontSize: 14 }}>
               {errorMessage}
             </div>
           </Card>
@@ -320,102 +300,37 @@ export default function GoalHomePage() {
               }}
             >
               <Card style={{ padding: 18 }}>
-                <div
-                  style={{
-                    color: T.textSub,
-                    fontSize: 11,
-                    fontWeight: 800,
-                    letterSpacing: 1,
-                    textTransform: 'uppercase',
-                  }}
-                >
+                <div style={{ color: T.textSub, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>
                   Objectif actuel
                 </div>
-
-                <div
-                  style={{
-                    color: T.text,
-                    fontWeight: 900,
-                    fontSize: 22,
-                    marginTop: 8,
-                  }}
-                >
+                <div style={{ color: T.text, fontWeight: 900, fontSize: 22, marginTop: 8 }}>
                   {goalLabel(profile?.goal_type)}
                 </div>
               </Card>
 
               <Card style={{ padding: 18 }}>
-                <div
-                  style={{
-                    color: T.textSub,
-                    fontSize: 11,
-                    fontWeight: 800,
-                    letterSpacing: 1,
-                    textTransform: 'uppercase',
-                  }}
-                >
+                <div style={{ color: T.textSub, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>
                   Séance aujourd'hui
                 </div>
-
-                <div
-                  style={{
-                    color: T.text,
-                    fontWeight: 900,
-                    fontSize: 22,
-                    marginTop: 8,
-                  }}
-                >
+                <div style={{ color: T.text, fontWeight: 900, fontSize: 22, marginTop: 8 }}>
                   {sessionSummary.exists ? 'Oui' : 'Libre'}
                 </div>
               </Card>
 
               <Card style={{ padding: 18 }}>
-                <div
-                  style={{
-                    color: T.textSub,
-                    fontSize: 11,
-                    fontWeight: 800,
-                    letterSpacing: 1,
-                    textTransform: 'uppercase',
-                  }}
-                >
+                <div style={{ color: T.textSub, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>
                   Calories du jour
                 </div>
-
-                <div
-                  style={{
-                    color: T.text,
-                    fontWeight: 900,
-                    fontSize: 22,
-                    marginTop: 8,
-                  }}
-                >
+                <div style={{ color: T.text, fontWeight: 900, fontSize: 22, marginTop: 8 }}>
                   {Math.round(nutritionTotals.calories)} kcal
                 </div>
               </Card>
 
               <Card style={{ padding: 18 }}>
-                <div
-                  style={{
-                    color: T.textSub,
-                    fontSize: 11,
-                    fontWeight: 800,
-                    letterSpacing: 1,
-                    textTransform: 'uppercase',
-                  }}
-                >
+                <div style={{ color: T.textSub, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>
                   Dernière séance
                 </div>
-
-                <div
-                  style={{
-                    color: T.text,
-                    fontWeight: 900,
-                    fontSize: 18,
-                    marginTop: 8,
-                    lineHeight: 1.3,
-                  }}
-                >
+                <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginTop: 8, lineHeight: 1.3 }}>
                   {lastSession ? formatDate(lastSession.date) : 'Aucune'}
                 </div>
               </Card>
@@ -440,13 +355,7 @@ export default function GoalHomePage() {
                     marginBottom: 14,
                   }}
                 >
-                  <div
-                    style={{
-                      color: T.text,
-                      fontWeight: 900,
-                      fontSize: 18,
-                    }}
-                  >
+                  <div style={{ color: T.text, fontWeight: 900, fontSize: 18 }}>
                     Séance du jour
                   </div>
 
@@ -461,13 +370,7 @@ export default function GoalHomePage() {
 
                 {sessionSummary.exists ? (
                   <>
-                    <div
-                      style={{
-                        color: T.text,
-                        fontWeight: 800,
-                        fontSize: 18,
-                      }}
-                    >
+                    <div style={{ color: T.text, fontWeight: 800, fontSize: 18 }}>
                       {sessionSummary.name}
                     </div>
 
@@ -479,19 +382,10 @@ export default function GoalHomePage() {
                         lineHeight: 1.65,
                       }}
                     >
-                      {sessionSummary.exerciseCount} exercice
-                      {sessionSummary.exerciseCount > 1 ? 's' : ''} prévu
-                      {sessionSummary.exerciseCount > 1 ? 's' : ''} aujourd’hui.
+                      {sessionSummary.exerciseCount} exercice{sessionSummary.exerciseCount > 1 ? 's' : ''} prévu{sessionSummary.exerciseCount > 1 ? 's' : ''} aujourd’hui.
                     </div>
 
-                    <div
-                      style={{
-                        display: 'flex',
-                        gap: 10,
-                        flexWrap: 'wrap',
-                        marginTop: 18,
-                      }}
-                    >
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
                       <Link to="/entrainement/aujourdhui" style={{ textDecoration: 'none' }}>
                         <Btn>Commencer la séance</Btn>
                       </Link>
@@ -503,13 +397,7 @@ export default function GoalHomePage() {
                   </>
                 ) : (
                   <>
-                    <div
-                      style={{
-                        color: T.text,
-                        fontWeight: 800,
-                        fontSize: 18,
-                      }}
-                    >
+                    <div style={{ color: T.text, fontWeight: 800, fontSize: 18 }}>
                       Aucun programme assigné aujourd’hui
                     </div>
 
@@ -534,32 +422,16 @@ export default function GoalHomePage() {
               </Card>
 
               <Card style={{ padding: 20 }}>
-                <div
-                  style={{
-                    color: T.text,
-                    fontWeight: 900,
-                    fontSize: 18,
-                    marginBottom: 14,
-                  }}
-                >
+                <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 14 }}>
                   Nutrition du jour
                 </div>
 
                 <div style={{ display: 'grid', gap: 12 }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      gap: 8,
-                      flexWrap: 'wrap',
-                    }}
-                  >
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <Badge>
                       {Math.round(nutritionTotals.calories)} / {Math.round(nutritionSummary.caloriesGoal || 0)} kcal
                     </Badge>
-
-                    <Badge color={T.blue || '#5BA7FF'}>
-                      {nutritionCompletion}% atteint
-                    </Badge>
+                    <Badge color={T.blue || '#5BA7FF'}>{nutritionCompletion}% atteint</Badge>
                   </div>
 
                   <div
@@ -603,99 +475,93 @@ export default function GoalHomePage() {
                 alignItems: 'start',
               }}
             >
-              <Card style={{ padding: 20 }}>
-                <div
-                  style={{
-                    color: T.text,
-                    fontWeight: 900,
-                    fontSize: 18,
-                    marginBottom: 14,
-                  }}
-                >
-                  Recette suggérée du jour
-                </div>
-
+              <Card style={{ padding: 0, overflow: 'hidden' }}>
                 {suggestedRecipe ? (
-                  <>
-                    <div
-                      style={{
-                        color: T.text,
-                        fontWeight: 800,
-                        fontSize: 18,
-                      }}
-                    >
-                      {suggestedRecipe.title || suggestedRecipe.name || 'Recette'}
-                    </div>
-
-                    {suggestedRecipe.description ? (
-                      <div
-                        style={{
-                          color: T.textMid,
-                          fontSize: 14,
-                          lineHeight: 1.65,
-                          marginTop: 8,
-                        }}
-                      >
-                        {suggestedRecipe.description}
-                      </div>
-                    ) : null}
-
-                    <div
-                      style={{
-                        display: 'flex',
-                        gap: 8,
-                        flexWrap: 'wrap',
-                        marginTop: 14,
-                      }}
-                    >
-                      {suggestedRecipe.calories ? (
-                        <Badge>{suggestedRecipe.calories} kcal</Badge>
-                      ) : null}
-
-                      {suggestedRecipe.protein || suggestedRecipe.proteins ? (
-                        <Badge color={T.blue || '#5BA7FF'}>
-                          {suggestedRecipe.protein || suggestedRecipe.proteins} g prot
-                        </Badge>
-                      ) : null}
-                    </div>
-
-                    <div style={{ marginTop: 18 }}>
-                      <Link to="/nutrition/recettes" style={{ textDecoration: 'none' }}>
-                        <Btn variant="secondary">Voir les recettes</Btn>
-                      </Link>
-                    </div>
-                  </>
-                ) : (
                   <div
                     style={{
-                      color: T.textMid,
-                      fontSize: 14,
+                      minHeight: 360,
+                      background: suggestedRecipeImage
+                        ? `linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.78)), url("${suggestedRecipeImage}") center/cover no-repeat`
+                        : 'linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
                     }}
                   >
-                    Aucune recette disponible pour le moment.
+                    <div
+                      style={{
+                        minHeight: 360,
+                        padding: 20,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        background: suggestedRecipeImage
+                          ? 'linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.80))'
+                          : 'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.10), transparent 30%)',
+                      }}
+                    >
+                      <div style={{ color: '#fff', fontWeight: 900, fontSize: 18 }}>
+                        Recette suggérée du jour
+                      </div>
+
+                      <div>
+                        <div
+                          style={{
+                            color: '#fff',
+                            fontWeight: 900,
+                            fontSize: 28,
+                            lineHeight: 1.05,
+                          }}
+                        >
+                          {suggestedRecipe.title || suggestedRecipe.name || 'Recette'}
+                        </div>
+
+                        {suggestedRecipe.description ? (
+                          <div
+                            style={{
+                              color: 'rgba(255,255,255,0.88)',
+                              fontSize: 14,
+                              lineHeight: 1.65,
+                              marginTop: 10,
+                            }}
+                          >
+                            {suggestedRecipe.description}
+                          </div>
+                        ) : null}
+
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+                          {suggestedRecipe.calories ? <Badge>{suggestedRecipe.calories} kcal</Badge> : null}
+                          {suggestedRecipe.protein || suggestedRecipe.proteins ? (
+                            <Badge color={T.blue || '#5BA7FF'}>
+                              {suggestedRecipe.protein || suggestedRecipe.proteins} g prot
+                            </Badge>
+                          ) : null}
+                        </div>
+
+                        <div style={{ marginTop: 16 }}>
+                          <Link to="/nutrition/recettes" style={{ textDecoration: 'none' }}>
+                            <Btn variant="secondary">Voir les recettes</Btn>
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ padding: 20 }}>
+                    <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 12 }}>
+                      Recette suggérée du jour
+                    </div>
+                    <div style={{ color: T.textMid, fontSize: 14 }}>
+                      Aucune recette disponible pour le moment.
+                    </div>
                   </div>
                 )}
               </Card>
 
               <Card style={{ padding: 20 }}>
-                <div
-                  style={{
-                    color: T.text,
-                    fontWeight: 900,
-                    fontSize: 18,
-                    marginBottom: 14,
-                  }}
-                >
+                <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 14 }}>
                   Progression rapide
                 </div>
 
                 {recentSessions.length === 0 ? (
-                  <div
-                    style={{
-                      color: T.textMid,
-                      fontSize: 14,
-                    }}
-                  >
+                  <div style={{ color: T.textMid, fontSize: 14 }}>
                     Aucune séance récente.
                   </div>
                 ) : (
@@ -715,23 +581,10 @@ export default function GoalHomePage() {
                         }}
                       >
                         <div>
-                          <div
-                            style={{
-                              color: T.text,
-                              fontWeight: 800,
-                              fontSize: 14,
-                            }}
-                          >
+                          <div style={{ color: T.text, fontWeight: 800, fontSize: 14 }}>
                             {session.seance_type || 'Séance'}
                           </div>
-
-                          <div
-                            style={{
-                              color: T.textDim,
-                              fontSize: 12,
-                              marginTop: 4,
-                            }}
-                          >
+                          <div style={{ color: T.textDim, fontSize: 12, marginTop: 4 }}>
                             {formatDate(session.date)}
                           </div>
                         </div>
