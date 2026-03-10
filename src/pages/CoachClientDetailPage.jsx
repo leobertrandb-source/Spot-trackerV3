@@ -1,14 +1,25 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { PageWrap, Card, Btn } from '../components/UI'
+import { PageWrap, Card, Btn, Badge } from '../components/UI'
 import { T, SEANCE_ICONS } from '../lib/data'
 
 function estimate1RM(weight, reps) {
   const w = Number(weight || 0)
   const r = Number(reps || 0)
+
   if (!w || !r) return 0
+
   return w * (1 + r / 30)
+}
+
+function getDaysSince(dateValue) {
+  if (!dateValue) return null
+
+  const date = new Date(dateValue)
+  if (Number.isNaN(date.getTime())) return null
+
+  return Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24))
 }
 
 function getStatusFromSessions(sessions) {
@@ -18,9 +29,7 @@ function getStatusFromSessions(sessions) {
   const recent = sorted.slice(0, 3)
   const latest = recent[0]
 
-  const daysSinceLast = latest?.date
-    ? Math.floor((Date.now() - new Date(latest.date).getTime()) / (1000 * 60 * 60 * 24))
-    : null
+  const daysSinceLast = getDaysSince(latest?.date)
 
   if (daysSinceLast !== null && daysSinceLast > 10) return 'Inactif'
 
@@ -51,10 +60,43 @@ function getStatusFromSessions(sessions) {
     const maxVolume = Math.max(...volumes)
     const minVolume = Math.min(...volumes)
     const stable = maxVolume - minVolume < Math.max(1, maxVolume * 0.05)
+
     if (stable) return 'Stagnation'
   }
 
   return 'Stable'
+}
+
+function getStatusColor(status) {
+  switch (status) {
+    case 'Progression':
+      return T.accent
+    case 'Fatigue haute':
+      return T.orange
+    case 'Inactif':
+      return T.danger
+    case 'Stagnation':
+      return T.blue
+    default:
+      return T.textMid
+  }
+}
+
+function formatDate(value) {
+  if (!value) return '—'
+
+  try {
+    return new Date(value).toLocaleDateString('fr-FR')
+  } catch {
+    return String(value)
+  }
+}
+
+function getSessionVolume(session) {
+  return (session.sets || []).reduce(
+    (sum, set) => sum + Number(set.weight || 0) * Number(set.reps || 0),
+    0
+  )
 }
 
 export default function CoachClientDetailPage() {
@@ -63,18 +105,18 @@ export default function CoachClientDetailPage() {
   const [client, setClient] = useState(null)
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState('')
 
-  useEffect(() => {
-    loadClient()
-  }, [id])
-
-  async function loadClient() {
+  const loadClient = useCallback(async () => {
     if (!id) {
+      setClient(null)
+      setSessions([])
       setLoading(false)
       return
     }
 
     setLoading(true)
+    setErrorMessage('')
 
     try {
       const { data: profileData, error: profileError } = await supabase
@@ -84,7 +126,7 @@ export default function CoachClientDetailPage() {
         .maybeSingle()
 
       if (profileError) {
-        console.error(profileError)
+        throw profileError
       }
 
       setClient(profileData || null)
@@ -96,71 +138,82 @@ export default function CoachClientDetailPage() {
         .order('date', { ascending: false })
 
       if (sessionsError) {
-        console.error(sessionsError)
-        setSessions([])
-        setLoading(false)
-        return
+        throw sessionsError
       }
 
-      const sessionIds = (sessionsData || []).map((s) => s.id)
+      const sessionIds = (sessionsData || []).map((session) => session.id).filter(Boolean)
 
       let setsData = []
-      if (sessionIds.length) {
+
+      if (sessionIds.length > 0) {
         const { data, error } = await supabase
           .from('sets')
           .select('*')
           .in('session_id', sessionIds)
+          .order('set_order', { ascending: true })
 
         if (error) {
-          console.error(error)
-        } else {
-          setsData = data || []
+          throw error
         }
+
+        setsData = data || []
       }
+
+      const setsBySession = setsData.reduce((acc, set) => {
+        if (!acc[set.session_id]) acc[set.session_id] = []
+        acc[set.session_id].push(set)
+        return acc
+      }, {})
 
       const builtSessions = (sessionsData || []).map((session) => ({
         ...session,
-        sets: setsData.filter((set) => set.session_id === session.id),
+        sets: setsBySession[session.id] || [],
       }))
 
       setSessions(builtSessions)
     } catch (error) {
-      console.error(error)
+      console.error('Erreur chargement fiche client :', error)
       setClient(null)
       setSessions([])
+      setErrorMessage("Impossible de charger la fiche client pour le moment.")
     } finally {
       setLoading(false)
     }
-  }
+  }, [id])
+
+  useEffect(() => {
+    loadClient()
+  }, [loadClient])
 
   const stats = useMemo(() => {
     const sessionsCount = sessions.length
-    const totalSets = sessions.reduce((sum, session) => sum + (session.sets?.length || 0), 0)
-    const totalVolume = sessions.reduce(
-      (sum, session) =>
-        sum +
-        (session.sets || []).reduce(
-          (sessionSum, set) => sessionSum + Number(set.weight || 0) * Number(set.reps || 0),
-          0
-        ),
-      0
-    )
+
+    const totalSets = sessions.reduce((sum, session) => {
+      return sum + (session.sets?.length || 0)
+    }, 0)
+
+    const totalVolume = sessions.reduce((sum, session) => {
+      return sum + getSessionVolume(session)
+    }, 0)
 
     const bestWeight = sessions.reduce((max, session) => {
-      const localBest = (session.sets || []).reduce(
-        (innerMax, set) => Math.max(innerMax, Number(set.weight || 0)),
-        0
-      )
-      return Math.max(max, localBest)
+      const sessionBest = (session.sets || []).reduce((innerMax, set) => {
+        return Math.max(innerMax, Number(set.weight || 0))
+      }, 0)
+
+      return Math.max(max, sessionBest)
     }, 0)
 
     const best1RM = sessions.reduce((max, session) => {
-      const localBest = (session.sets || []).reduce(
-        (innerMax, set) => Math.max(innerMax, estimate1RM(set.weight, set.reps)),
-        0
-      )
-      return Math.max(max, localBest)
+      const sessionBest = (session.sets || []).reduce((innerMax, set) => {
+        return Math.max(innerMax, estimate1RM(set.weight, set.reps))
+      }, 0)
+
+      return Math.max(max, sessionBest)
     }, 0)
+
+    const lastSessionDate = sessions[0]?.date || null
+    const daysSinceLast = getDaysSince(lastSessionDate)
 
     return {
       sessionsCount,
@@ -169,13 +222,56 @@ export default function CoachClientDetailPage() {
       bestWeight,
       best1RM,
       status: getStatusFromSessions(sessions),
+      lastSessionDate,
+      daysSinceLast,
     }
+  }, [sessions])
+
+  const topExercises = useMemo(() => {
+    const exerciseMap = new Map()
+
+    sessions.forEach((session) => {
+      ;(session.sets || []).forEach((set) => {
+        const exercise = String(set.exercise || 'Exercice').trim()
+        const current = exerciseMap.get(exercise) || {
+          name: exercise,
+          sets: 0,
+          volume: 0,
+          bestWeight: 0,
+        }
+
+        current.sets += 1
+        current.volume += Number(set.weight || 0) * Number(set.reps || 0)
+        current.bestWeight = Math.max(current.bestWeight, Number(set.weight || 0))
+
+        exerciseMap.set(exercise, current)
+      })
+    })
+
+    return [...exerciseMap.values()]
+      .sort((a, b) => b.volume - a.volume)
+      .slice(0, 5)
   }, [sessions])
 
   return (
     <PageWrap>
-      <div style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gap: 18 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+      <div
+        style={{
+          maxWidth: 1180,
+          margin: '0 auto',
+          display: 'grid',
+          gap: 18,
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 12,
+            flexWrap: 'wrap',
+            alignItems: 'center',
+          }}
+        >
           <div>
             <div
               style={{
@@ -200,10 +296,51 @@ export default function CoachClientDetailPage() {
             </div>
           </div>
 
-          <Link to="/coach/clients" style={{ textDecoration: 'none' }}>
-            <Btn>Retour aux clients</Btn>
-          </Link>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={loadClient}
+              disabled={loading}
+              style={{
+                height: 46,
+                padding: '0 16px',
+                borderRadius: 14,
+                border: `1px solid ${T.border}`,
+                background: 'rgba(255,255,255,0.03)',
+                color: T.text,
+                fontWeight: 800,
+                cursor: loading ? 'default' : 'pointer',
+                opacity: loading ? 0.7 : 1,
+              }}
+            >
+              {loading ? 'Chargement...' : 'Rafraîchir'}
+            </button>
+
+            <Link to="/coach/clients" style={{ textDecoration: 'none' }}>
+              <Btn>Retour aux clients</Btn>
+            </Link>
+          </div>
         </div>
+
+        {errorMessage ? (
+          <Card
+            style={{
+              padding: 16,
+              border: '1px solid rgba(255,120,120,0.22)',
+              background: 'rgba(255,90,90,0.06)',
+            }}
+          >
+            <div
+              style={{
+                color: '#FFB3B3',
+                fontWeight: 800,
+                fontSize: 14,
+              }}
+            >
+              {errorMessage}
+            </div>
+          </Card>
+        ) : null}
 
         {loading ? (
           <Card style={{ padding: 20 }}>
@@ -216,6 +353,7 @@ export default function CoachClientDetailPage() {
         ) : (
           <>
             <Card
+              glow
               style={{
                 padding: '22px 20px',
                 background:
@@ -243,26 +381,51 @@ export default function CoachClientDetailPage() {
                   </div>
 
                   <div style={{ color: T.textDim, fontSize: 13, marginTop: 6 }}>
-                    {client.email}
+                    {client.email || 'Email non renseigné'}
                   </div>
 
-                  <div style={{ color: T.textMid, fontSize: 13, marginTop: 10 }}>
-                    Objectif : {client.goal_type || 'Non défini'}
+                  <div
+                    style={{
+                      marginTop: 10,
+                      display: 'flex',
+                      gap: 8,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <Badge>{client.role || 'athlete'}</Badge>
+                    {client.goal_type ? <Badge color={T.blue}>{client.goal_type}</Badge> : null}
                   </div>
                 </div>
 
                 <div
                   style={{
-                    padding: '8px 12px',
-                    borderRadius: 999,
-                    border: `1px solid ${T.border}`,
-                    background: 'rgba(255,255,255,0.03)',
-                    color: T.text,
-                    fontWeight: 800,
-                    fontSize: 12,
+                    display: 'grid',
+                    gap: 8,
+                    justifyItems: 'end',
                   }}
                 >
-                  {stats.status}
+                  <div
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 999,
+                      border: `1px solid ${(getStatusColor(stats.status) || T.border) + '30'}`,
+                      background: `${getStatusColor(stats.status)}18`,
+                      color: getStatusColor(stats.status),
+                      fontWeight: 800,
+                      fontSize: 12,
+                    }}
+                  >
+                    {stats.status}
+                  </div>
+
+                  <div
+                    style={{
+                      color: T.textMid,
+                      fontSize: 12,
+                    }}
+                  >
+                    Dernière séance : {stats.lastSessionDate ? formatDate(stats.lastSessionDate) : '—'}
+                  </div>
                 </div>
               </div>
             </Card>
@@ -275,7 +438,15 @@ export default function CoachClientDetailPage() {
               }}
             >
               <Card style={{ padding: 16 }}>
-                <div style={{ color: T.textSub, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1 }}>
+                <div
+                  style={{
+                    color: T.textSub,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: 1,
+                  }}
+                >
                   Séances
                 </div>
                 <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
@@ -284,7 +455,15 @@ export default function CoachClientDetailPage() {
               </Card>
 
               <Card style={{ padding: 16 }}>
-                <div style={{ color: T.textSub, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1 }}>
+                <div
+                  style={{
+                    color: T.textSub,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: 1,
+                  }}
+                >
                   Séries
                 </div>
                 <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
@@ -293,7 +472,15 @@ export default function CoachClientDetailPage() {
               </Card>
 
               <Card style={{ padding: 16 }}>
-                <div style={{ color: T.textSub, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1 }}>
+                <div
+                  style={{
+                    color: T.textSub,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: 1,
+                  }}
+                >
                   Meilleure charge
                 </div>
                 <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
@@ -302,7 +489,15 @@ export default function CoachClientDetailPage() {
               </Card>
 
               <Card style={{ padding: 16 }}>
-                <div style={{ color: T.textSub, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1 }}>
+                <div
+                  style={{
+                    color: T.textSub,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: 1,
+                  }}
+                >
                   1RM estimé
                 </div>
                 <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
@@ -311,7 +506,15 @@ export default function CoachClientDetailPage() {
               </Card>
 
               <Card style={{ padding: 16 }}>
-                <div style={{ color: T.textSub, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1 }}>
+                <div
+                  style={{
+                    color: T.textSub,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: 1,
+                  }}
+                >
                   Volume total
                 </div>
                 <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
@@ -320,89 +523,176 @@ export default function CoachClientDetailPage() {
               </Card>
             </div>
 
-            <Card style={{ padding: '18px 18px' }}>
-              <div
-                style={{
-                  color: T.text,
-                  fontFamily: T.fontDisplay,
-                  fontWeight: 800,
-                  fontSize: 18,
-                  marginBottom: 12,
-                }}
-              >
-                Dernières séances
-              </div>
-
-              {sessions.length === 0 ? (
-                <div style={{ color: T.textMid, fontSize: 14 }}>
-                  Aucune séance enregistrée.
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1.35fr) minmax(320px, 0.9fr)',
+                gap: 18,
+              }}
+            >
+              <Card style={{ padding: '18px 18px' }}>
+                <div
+                  style={{
+                    color: T.text,
+                    fontFamily: T.fontDisplay,
+                    fontWeight: 800,
+                    fontSize: 18,
+                    marginBottom: 12,
+                  }}
+                >
+                  Dernières séances
                 </div>
-              ) : (
-                <div style={{ display: 'grid', gap: 10 }}>
-                  {sessions.slice(0, 8).map((session) => {
-                    const totalVolume = (session.sets || []).reduce(
-                      (sum, set) => sum + Number(set.weight || 0) * Number(set.reps || 0),
-                      0
-                    )
 
-                    return (
+                {sessions.length === 0 ? (
+                  <div style={{ color: T.textMid, fontSize: 14 }}>
+                    Aucune séance enregistrée.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {sessions.slice(0, 8).map((session) => {
+                      const totalVolume = getSessionVolume(session)
+                      const avgRpeValues = (session.sets || [])
+                        .map((set) => Number(set.rpe || 0))
+                        .filter(Boolean)
+
+                      const avgRpe = avgRpeValues.length
+                        ? avgRpeValues.reduce((a, b) => a + b, 0) / avgRpeValues.length
+                        : null
+
+                      return (
+                        <div
+                          key={session.id}
+                          style={{
+                            padding: '12px 14px',
+                            borderRadius: 14,
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.06)',
+                            display: 'grid',
+                            gap: 8,
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              gap: 12,
+                              alignItems: 'center',
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <div style={{ fontSize: 18 }}>
+                                {SEANCE_ICONS[session.seance_type] || '💪'}
+                              </div>
+
+                              <div>
+                                <div
+                                  style={{
+                                    color: T.text,
+                                    fontWeight: 800,
+                                    fontSize: 14,
+                                  }}
+                                >
+                                  {session.seance_type || 'Séance'}
+                                </div>
+
+                                <div
+                                  style={{
+                                    color: T.textDim,
+                                    fontSize: 12,
+                                    marginTop: 4,
+                                  }}
+                                >
+                                  {formatDate(session.date)}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div
+                              style={{
+                                color: T.textMid,
+                                fontSize: 12,
+                                fontWeight: 800,
+                              }}
+                            >
+                              {session.sets.length} séries • {Math.round(totalVolume)} kg
+                              {avgRpe ? ` • RPE ${avgRpe.toFixed(1)}` : ''}
+                            </div>
+                          </div>
+
+                          {session.notes ? (
+                            <div
+                              style={{
+                                color: T.textMid,
+                                fontSize: 12,
+                                lineHeight: 1.55,
+                              }}
+                            >
+                              Notes : {session.notes}
+                            </div>
+                          ) : null}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </Card>
+
+              <Card style={{ padding: 18 }}>
+                <div
+                  style={{
+                    color: T.text,
+                    fontFamily: T.fontDisplay,
+                    fontWeight: 800,
+                    fontSize: 18,
+                    marginBottom: 12,
+                  }}
+                >
+                  Exercices les plus travaillés
+                </div>
+
+                {topExercises.length === 0 ? (
+                  <div style={{ color: T.textMid, fontSize: 14 }}>
+                    Pas encore assez de données d'exercices.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {topExercises.map((exercise) => (
                       <div
-                        key={session.id}
+                        key={exercise.name}
                         style={{
                           padding: '12px 14px',
                           borderRadius: 14,
                           background: 'rgba(255,255,255,0.03)',
                           border: '1px solid rgba(255,255,255,0.06)',
-                          display: 'grid',
-                          gap: 8,
                         }}
                       >
                         <div
                           style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            gap: 12,
-                            alignItems: 'center',
-                            flexWrap: 'wrap',
+                            color: T.text,
+                            fontWeight: 800,
+                            fontSize: 14,
                           }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div style={{ fontSize: 18 }}>
-                              {SEANCE_ICONS[session.seance_type] || '💪'}
-                            </div>
-
-                            <div>
-                              <div style={{ color: T.text, fontWeight: 800, fontSize: 14 }}>
-                                {session.seance_type || 'Séance'}
-                              </div>
-                              <div style={{ color: T.textDim, fontSize: 12, marginTop: 4 }}>
-                                {session.date}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div
-                            style={{
-                              color: T.textMid,
-                              fontSize: 12,
-                              fontWeight: 800,
-                            }}
-                          >
-                            {session.sets.length} séries • {Math.round(totalVolume)} kg
-                          </div>
+                          {exercise.name}
                         </div>
 
-                        {session.notes ? (
-                          <div style={{ color: T.textMid, fontSize: 12, lineHeight: 1.55 }}>
-                            Notes : {session.notes}
-                          </div>
-                        ) : null}
+                        <div
+                          style={{
+                            color: T.textDim,
+                            fontSize: 12,
+                            marginTop: 6,
+                          }}
+                        >
+                          {exercise.sets} séries • {Math.round(exercise.volume)} kg de volume • meilleur set à{' '}
+                          {exercise.bestWeight ? `${exercise.bestWeight} kg` : '—'}
+                        </div>
                       </div>
-                    )
-                  })}
-                </div>
-              )}
-            </Card>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
           </>
         )}
       </div>
