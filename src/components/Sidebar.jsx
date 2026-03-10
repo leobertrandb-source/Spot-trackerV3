@@ -1,287 +1,215 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { useEffect, useState } from 'react'
-import { AuthProvider, useAuth } from '../components/AuthContext'
-import { Grain, Layout } from '../components/UI'
-import { DirtyProvider } from '../components/DirtyContext'
-import Sidebar from '../components/Sidebar'
-import Topbar from '../components/Topbar'
-
-import AuthPage from '../pages/AuthPage'
-import InviteAcceptPage from '../pages/InviteAcceptPage'
-
-import SaisiePage from '../pages/SaisiePage'
-import ProgressionPage from '../pages/ProgressionPage'
-import CoachPage from '../pages/CoachPage'
-import CoachClientsPage from '../pages/CoachClientsPage'
-import CoachClientDetailPage from '../pages/CoachClientDetailPage'
-import AujourdhuiPage from '../pages/AujourdhuiPage'
-import NutritionPage from '../pages/NutritionPage'
-import ProgramBuilderPage from '../pages/ProgramBuilderPage'
-import RecipesPage from '../pages/RecipesPage'
-import RecipeDetailPage from '../pages/RecipeDetailPage'
-import MealPlanPage from '../pages/MealPlanPage'
-
-import GoalSelectionPage from '../pages/GoalSelectionPage'
-import GoalHomePage from '../pages/GoalHomePage'
-import ProgrammeBodybuildingPage from '../pages/ProgrammeBodybuildingPage'
-import ProgrammePerteDePoidsPage from '../pages/ProgrammePerteDePoidsPage'
-import ProgrammeAthletiquePage from '../pages/ProgrammeAthletiquePage'
-
+import { Link, useLocation } from 'react-router-dom'
+import { useAuth } from './AuthContext'
 import { T } from '../lib/data'
 
-function AppLoadingScreen() {
+function NavItem({ to, label, active, onClick }) {
   return (
-    <div
+    <Link
+      to={to}
+      onClick={onClick}
       style={{
-        minHeight: '100vh',
-        background: T.bg,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontFamily: T.fontDisplay,
-        fontSize: 11,
-        letterSpacing: 3,
-        color: T.textDim,
-        textTransform: 'uppercase',
+        display: 'block',
+        padding: '12px 14px',
+        borderRadius: 14,
+        textDecoration: 'none',
+        background: active ? 'rgba(45,255,155,0.10)' : 'transparent',
+        border: active ? `1px solid ${T.accent + '33'}` : `1px solid transparent`,
+        color: active ? (T.accentLight || T.accent || '#43E97B') : T.text,
+        fontWeight: 800,
+        fontSize: 14,
       }}
     >
-      Chargement...
-    </div>
+      {label}
+    </Link>
   )
 }
 
-function PrivateAppShell() {
-  const { user, profile, loading } = useAuth()
+function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
   const location = useLocation()
-
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900)
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
-
-  useEffect(() => {
-    const media = window.matchMedia('(max-width: 899px)')
-
-    const update = () => {
-      const mobile = media.matches
-      setIsMobile(mobile)
-
-      if (!mobile) {
-        setMobileSidebarOpen(false)
-      }
-    }
-
-    update()
-
-    if (media.addEventListener) {
-      media.addEventListener('change', update)
-      return () => media.removeEventListener('change', update)
-    }
-
-    media.addListener(update)
-    return () => media.removeListener(update)
-  }, [])
-
-  useEffect(() => {
-    setMobileSidebarOpen(false)
-  }, [location.pathname])
-
-  if (loading) {
-    return <AppLoadingScreen />
-  }
-
-  if (!user) {
-    return <AuthPage />
-  }
+  const { profile, user, signOut } = useAuth()
 
   const isCoach = profile?.role === 'coach'
-  const hasGoal = !!profile?.goal_type
 
-  const athleteHome = hasGoal ? '/mon-espace' : '/objectif'
-  const defaultRoute = isCoach ? '/coach' : athleteHome
+  const coachLinks = [
+    { to: '/coach', label: 'Dashboard coach' },
+    { to: '/coach/clients', label: 'Clients' },
+    { to: '/programmes', label: 'Programmes' },
+  ]
+
+  const athleteLinks = [
+    { to: '/mon-espace', label: 'Mon espace' },
+    { to: '/entrainement/aujourdhui', label: 'Séance du jour' },
+    { to: '/entrainement/libre', label: 'Séance libre' },
+    { to: '/progression', label: 'Progression' },
+    { to: '/nutrition/macros', label: 'Nutrition' },
+    { to: '/nutrition/recettes', label: 'Recettes' },
+    { to: '/nutrition/plan', label: 'Plan repas' },
+  ]
+
+  const links = isCoach ? coachLinks : athleteLinks
+
+  async function handleLogout() {
+    try {
+      const result = await signOut?.()
+      if (result?.error) {
+        console.error(result.error)
+        window.alert('Impossible de se déconnecter.')
+      }
+      if (onClose) onClose()
+    } catch (error) {
+      console.error(error)
+      window.alert('Impossible de se déconnecter.')
+    }
+  }
+
+  const content = (
+    <aside
+      style={{
+        width: 280,
+        height: '100vh',
+        background: 'linear-gradient(180deg, #0f1514, #0a0d0c)',
+        borderRight: `1px solid ${T.border}`,
+        padding: 16,
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 14,
+        overflowY: 'auto',
+      }}
+    >
+      <div
+        style={{
+          padding: 16,
+          borderRadius: 18,
+          border: `1px solid ${T.border}`,
+          background: 'rgba(255,255,255,0.03)',
+        }}
+      >
+        <div
+          style={{
+            color: T.text,
+            fontFamily: T.fontDisplay,
+            fontWeight: 900,
+            fontSize: 22,
+            lineHeight: 1,
+          }}
+        >
+          LE SPOT
+        </div>
+
+        <div
+          style={{
+            marginTop: 8,
+            color: T.textDim,
+            fontSize: 11,
+            textTransform: 'uppercase',
+            letterSpacing: 1.2,
+            fontWeight: 800,
+          }}
+        >
+          {isCoach ? 'Mode coach' : 'Mode athlète'}
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gap: 6 }}>
+        {links.map((item) => {
+          const active =
+            location.pathname === item.to ||
+            location.pathname.startsWith(item.to + '/')
+
+          return (
+            <NavItem
+              key={item.to}
+              to={item.to}
+              label={item.label}
+              active={active}
+              onClick={isMobile ? onClose : undefined}
+            />
+          )
+        })}
+      </div>
+
+      <div style={{ marginTop: 'auto', display: 'grid', gap: 10 }}>
+        <div
+          style={{
+            padding: 12,
+            borderRadius: 16,
+            border: `1px solid ${T.border}`,
+            background: 'rgba(255,255,255,0.03)',
+          }}
+        >
+          <div
+            style={{
+              color: T.text,
+              fontWeight: 800,
+              fontSize: 14,
+              lineHeight: 1.4,
+            }}
+          >
+            {profile?.full_name || user?.email || 'Utilisateur'}
+          </div>
+
+          <div
+            style={{
+              color: T.textDim,
+              fontSize: 12,
+              marginTop: 6,
+            }}
+          >
+            {isCoach ? 'Coach' : 'Athlète'}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          style={{
+            height: 46,
+            borderRadius: 14,
+            border: `1px solid ${T.border}`,
+            background: 'rgba(255,255,255,0.03)',
+            color: T.text,
+            fontWeight: 800,
+            cursor: 'pointer',
+          }}
+        >
+          Déconnexion
+        </button>
+      </div>
+    </aside>
+  )
+
+  if (!isMobile) {
+    return content
+  }
 
   return (
-    <DirtyProvider>
-      {isMobile ? (
-        <Sidebar
-          isMobile
-          mobileOpen={mobileSidebarOpen}
-          onClose={() => setMobileSidebarOpen(false)}
+    <>
+      {mobileOpen ? (
+        <div
+          onClick={onClose}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.55)',
+            zIndex: 60,
+          }}
         />
       ) : null}
 
-      <Layout
-        sidebar={!isMobile ? <Sidebar /> : null}
-        topbar={
-          <Topbar
-            isMobile={isMobile}
-            onMenuClick={() => setMobileSidebarOpen((v) => !v)}
-          />
-        }
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: mobileOpen ? 0 : -300,
+          zIndex: 70,
+          transition: 'left .25s ease',
+        }}
       >
-        <Routes>
-          <Route path="/" element={<Navigate to={defaultRoute} replace />} />
-
-          <Route
-            path="/objectif"
-            element={isCoach ? <Navigate to="/coach" replace /> : <GoalSelectionPage />}
-          />
-
-          <Route
-            path="/mon-espace"
-            element={
-              isCoach ? (
-                <Navigate to="/coach" replace />
-              ) : hasGoal ? (
-                <GoalHomePage />
-              ) : (
-                <Navigate to="/objectif" replace />
-              )
-            }
-          />
-
-          <Route
-            path="/entrainement/aujourdhui"
-            element={isCoach ? <Navigate to="/coach" replace /> : <AujourdhuiPage />}
-          />
-
-          <Route
-            path="/entrainement/libre"
-            element={isCoach ? <Navigate to="/coach" replace /> : <SaisiePage />}
-          />
-
-          <Route
-            path="/progression"
-            element={isCoach ? <Navigate to="/coach" replace /> : <ProgressionPage />}
-          />
-
-          <Route
-            path="/nutrition/macros"
-            element={isCoach ? <Navigate to="/coach" replace /> : <NutritionPage />}
-          />
-
-          <Route
-            path="/nutrition/recettes"
-            element={isCoach ? <Navigate to="/coach" replace /> : <RecipesPage />}
-          />
-
-          <Route
-            path="/nutrition/recette/:id"
-            element={isCoach ? <Navigate to="/coach" replace /> : <RecipeDetailPage />}
-          />
-
-          <Route
-            path="/nutrition/plan"
-            element={isCoach ? <Navigate to="/coach" replace /> : <MealPlanPage />}
-          />
-
-          <Route
-            path="/coach"
-            element={isCoach ? <CoachPage /> : <Navigate to={athleteHome} replace />}
-          />
-
-          <Route
-            path="/coach/clients"
-            element={isCoach ? <CoachClientsPage /> : <Navigate to={athleteHome} replace />}
-          />
-
-          <Route
-            path="/coach/client/:id"
-            element={isCoach ? <CoachClientDetailPage /> : <Navigate to={athleteHome} replace />}
-          />
-
-          <Route
-            path="/programmes"
-            element={isCoach ? <ProgramBuilderPage /> : <Navigate to={athleteHome} replace />}
-          />
-
-          <Route
-            path="/programme/bodybuilding"
-            element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammeBodybuildingPage />}
-          />
-
-          <Route
-            path="/programme/perte-de-poids"
-            element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammePerteDePoidsPage />}
-          />
-
-          <Route
-            path="/programme/athletique"
-            element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammeAthletiquePage />}
-          />
-
-          {/* anciens alias éventuels */}
-          <Route
-            path="/historique"
-            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/progression" replace />}
-          />
-          <Route
-            path="/entrainement/historique"
-            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/progression" replace />}
-          />
-          <Route
-            path="/nutrition"
-            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/nutrition/macros" replace />}
-          />
-          <Route
-            path="/recettes"
-            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/nutrition/recettes" replace />}
-          />
-          <Route
-            path="/plan"
-            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/nutrition/plan" replace />}
-          />
-          <Route
-            path="/aujourdhui"
-            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/entrainement/aujourdhui" replace />}
-          />
-          <Route
-            path="/saisie"
-            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/entrainement/libre" replace />}
-          />
-
-          <Route path="*" element={<Navigate to={defaultRoute} replace />} />
-        </Routes>
-      </Layout>
-    </DirtyProvider>
+        {content}
+      </div>
+    </>
   )
 }
 
-function InviteRoute() {
-  const { user, profile, loading } = useAuth()
-
-  if (loading) {
-    return <AppLoadingScreen />
-  }
-
-  if (!user) {
-    return <InviteAcceptPage />
-  }
-
-  const redirectTo =
-    profile?.role === 'coach'
-      ? '/coach'
-      : profile?.goal_type
-        ? '/mon-espace'
-        : '/objectif'
-
-  return <Navigate to={redirectTo} replace />
-}
-
-function RootRouter() {
-  return (
-    <Routes>
-      <Route path="/invite/:token" element={<InviteRoute />} />
-      <Route path="*" element={<PrivateAppShell />} />
-    </Routes>
-  )
-}
-
-export default function App() {
-  return (
-    <AuthProvider>
-      <Grain />
-      <BrowserRouter>
-        <RootRouter />
-      </BrowserRouter>
-    </AuthProvider>
-  )
-}
+export default Sidebar
