@@ -10,7 +10,6 @@ import AuthPage from './pages/AuthPage'
 import InviteAcceptPage from './pages/InviteAcceptPage'
 
 import SaisiePage from './pages/SaisiePage'
-import HistoriquePage from './pages/HistoriquePage'
 import ProgressionPage from './pages/ProgressionPage'
 import CoachPage from './pages/CoachPage'
 import CoachClientsPage from './pages/CoachClientsPage'
@@ -140,72 +139,6 @@ function PrivateAppShell() {
           />
 
           <Route
-            path="/aujourdhui"
-            element={
-              isCoach ? (
-                <Navigate to="/coach" replace />
-              ) : (
-                <Navigate to="/entrainement/aujourdhui" replace />
-              )
-            }
-          />
-
-          <Route
-            path="/saisie"
-            element={
-              isCoach ? (
-                <Navigate to="/coach" replace />
-              ) : (
-                <Navigate to="/entrainement/libre" replace />
-              )
-            }
-          />
-
-          <Route
-            path="/historique"
-            element={
-              isCoach ? (
-                <Navigate to="/coach" replace />
-              ) : (
-                <Navigate to="/entrainement/historique" replace />
-              )
-            }
-          />
-
-          <Route
-            path="/nutrition"
-            element={
-              isCoach ? (
-                <Navigate to="/coach" replace />
-              ) : (
-                <Navigate to="/nutrition/macros" replace />
-              )
-            }
-          />
-
-          <Route
-            path="/recettes"
-            element={
-              isCoach ? (
-                <Navigate to="/coach" replace />
-              ) : (
-                <Navigate to="/nutrition/recettes" replace />
-              )
-            }
-          />
-
-          <Route
-            path="/plan"
-            element={
-              isCoach ? (
-                <Navigate to="/coach" replace />
-              ) : (
-                <Navigate to="/nutrition/plan" replace />
-              )
-            }
-          />
-
-          <Route
             path="/entrainement/aujourdhui"
             element={isCoach ? <Navigate to="/coach" replace /> : <AujourdhuiPage />}
           />
@@ -216,18 +149,13 @@ function PrivateAppShell() {
           />
 
           <Route
-            path="/entrainement/historique"
-            element={isCoach ? <Navigate to="/coach" replace /> : <HistoriquePage />}
+            path="/progression"
+            element={isCoach ? <Navigate to="/coach" replace /> : <ProgressionPage />}
           />
 
           <Route
             path="/nutrition/macros"
             element={isCoach ? <Navigate to="/coach" replace /> : <NutritionPage />}
-          />
-
-          <Route
-            path="/nutrition/plan"
-            element={isCoach ? <Navigate to="/coach" replace /> : <MealPlanPage />}
           />
 
           <Route
@@ -241,8 +169,8 @@ function PrivateAppShell() {
           />
 
           <Route
-            path="/progression"
-            element={isCoach ? <Navigate to="/coach" replace /> : <ProgressionPage />}
+            path="/nutrition/plan"
+            element={isCoach ? <Navigate to="/coach" replace /> : <MealPlanPage />}
           />
 
           <Route
@@ -278,6 +206,36 @@ function PrivateAppShell() {
           <Route
             path="/programme/athletique"
             element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammeAthletiquePage />}
+          />
+
+          {/* anciens alias éventuels */}
+          <Route
+            path="/historique"
+            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/progression" replace />}
+          />
+          <Route
+            path="/entrainement/historique"
+            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/progression" replace />}
+          />
+          <Route
+            path="/nutrition"
+            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/nutrition/macros" replace />}
+          />
+          <Route
+            path="/recettes"
+            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/nutrition/recettes" replace />}
+          />
+          <Route
+            path="/plan"
+            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/nutrition/plan" replace />}
+          />
+          <Route
+            path="/aujourdhui"
+            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/entrainement/aujourdhui" replace />}
+          />
+          <Route
+            path="/saisie"
+            element={isCoach ? <Navigate to="/coach" replace /> : <Navigate to="/entrainement/libre" replace />}
           />
 
           <Route path="*" element={<Navigate to={defaultRoute} replace />} />
