@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { resolveImageUrl, getGoalHomeImage } from '../lib/media'
+import { SmartImage, getGoalHomeCandidates, resolveImageUrl } from '../lib/media'
 import { useAuth } from '../components/AuthContext'
 import { PageWrap, Card, Btn, Badge } from '../components/UI'
 import { T, SEANCE_ICONS } from '../lib/data'
@@ -83,27 +83,52 @@ function pickSuggestedRecipe(recipes = [], goalType) {
   return [...recipes].sort((a, b) => scoreRecipe(b) - scoreRecipe(a))[0]
 }
 
-function VisualCard({ imageUrl, children }) {
+function VisualCard({ title, candidates, children }) {
   return (
     <Card style={{ padding: 0, overflow: 'hidden' }}>
-      <div
-        style={{
-          minHeight: 300,
-          background: imageUrl
-            ? `linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.78)), url("${imageUrl}") center/cover no-repeat`
-            : 'linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
-        }}
-      >
+      <div style={{ minHeight: 300, position: 'relative' }}>
+        <SmartImage
+          candidates={candidates}
+          alt={title}
+          style={{
+            position: 'absolute',
+            inset: 0,
+          }}
+          imgStyle={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block',
+          }}
+          fallback={
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background:
+                  'linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
+              }}
+            />
+          }
+        />
+
         <div
           style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.82))',
+          }}
+        />
+
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 1,
             minHeight: 300,
             padding: 20,
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
-            background: imageUrl
-              ? 'linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.82))'
-              : 'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.10), transparent 30%)',
           }}
         >
           {children}
@@ -117,7 +142,8 @@ export default function GoalHomePage() {
   const { user, profile } = useAuth()
 
   const [loading, setLoading] = useState(true)
-  const [errorMessage, setErrorMessage] = useState('')
+  const [warningMessage, setWarningMessage] = useState('')
+
   const [todayAssignment, setTodayAssignment] = useState(null)
   const [nutritionGoals, setNutritionGoals] = useState(null)
   const [todayNutritionLogs, setTodayNutritionLogs] = useState([])
@@ -126,17 +152,19 @@ export default function GoalHomePage() {
 
   const today = useMemo(() => todayString(), [])
 
-  const loadDashboard = useCallback(async () => {
-    if (!user?.id) {
-      setLoading(false)
-      return
-    }
+  useEffect(() => {
+    let active = true
 
-    setLoading(true)
-    setErrorMessage('')
+    async function loadDashboard() {
+      if (!user?.id) {
+        setLoading(false)
+        return
+      }
 
-    try {
-      const [assignmentRes, goalsRes, logsRes, sessionsRes, recipesRes] = await Promise.all([
+      setLoading(true)
+      setWarningMessage('')
+
+      const results = await Promise.allSettled([
         supabase
           .from('assignments')
           .select('*, programs(name, seance_type, program_exercises(*))')
@@ -171,33 +199,66 @@ export default function GoalHomePage() {
           .limit(40),
       ])
 
-      if (assignmentRes.error) throw assignmentRes.error
-      if (goalsRes.error) throw goalsRes.error
-      if (logsRes.error) throw logsRes.error
-      if (sessionsRes.error) throw sessionsRes.error
-      if (recipesRes.error) throw recipesRes.error
+      if (!active) return
 
-      setTodayAssignment(assignmentRes.data?.[0] || null)
-      setNutritionGoals(goalsRes.data || null)
-      setTodayNutritionLogs(logsRes.data || [])
-      setRecentSessions(sessionsRes.data || [])
-      setRecipes(recipesRes.data || [])
-    } catch (error) {
-      console.error('Erreur chargement dashboard athlète :', error)
-      setErrorMessage("Impossible de charger ton espace du jour.")
-      setTodayAssignment(null)
-      setNutritionGoals(null)
-      setTodayNutritionLogs([])
-      setRecentSessions([])
-      setRecipes([])
-    } finally {
+      const [
+        assignmentRes,
+        goalsRes,
+        logsRes,
+        sessionsRes,
+        recipesRes,
+      ] = results
+
+      let hasAnyError = false
+
+      if (assignmentRes.status === 'fulfilled' && !assignmentRes.value.error) {
+        setTodayAssignment(assignmentRes.value.data?.[0] || null)
+      } else {
+        setTodayAssignment(null)
+        hasAnyError = true
+      }
+
+      if (goalsRes.status === 'fulfilled' && !goalsRes.value.error) {
+        setNutritionGoals(goalsRes.value.data || null)
+      } else {
+        setNutritionGoals(null)
+        hasAnyError = true
+      }
+
+      if (logsRes.status === 'fulfilled' && !logsRes.value.error) {
+        setTodayNutritionLogs(logsRes.value.data || [])
+      } else {
+        setTodayNutritionLogs([])
+        hasAnyError = true
+      }
+
+      if (sessionsRes.status === 'fulfilled' && !sessionsRes.value.error) {
+        setRecentSessions(sessionsRes.value.data || [])
+      } else {
+        setRecentSessions([])
+        hasAnyError = true
+      }
+
+      if (recipesRes.status === 'fulfilled' && !recipesRes.value.error) {
+        setRecipes(recipesRes.value.data || [])
+      } else {
+        setRecipes([])
+        hasAnyError = true
+      }
+
+      if (hasAnyError) {
+        setWarningMessage("Certaines données n'ont pas pu être chargées.")
+      }
+
       setLoading(false)
     }
-  }, [user?.id, today])
 
-  useEffect(() => {
     loadDashboard()
-  }, [loadDashboard])
+
+    return () => {
+      active = false
+    }
+  }, [user?.id, today])
 
   const nutritionTotals = useMemo(() => sumMacros(todayNutritionLogs), [todayNutritionLogs])
 
@@ -211,6 +272,7 @@ export default function GoalHomePage() {
   const sessionSummary = useMemo(() => {
     const program = todayAssignment?.programs || null
     const exercises = program?.program_exercises || []
+
     return {
       exists: !!program,
       name: program?.name || null,
@@ -233,9 +295,9 @@ export default function GoalHomePage() {
     })
   }, [suggestedRecipe])
 
-  const workoutImage = useMemo(() => getGoalHomeImage('workout'), [])
-  const nutritionImage = useMemo(() => getGoalHomeImage('nutrition'), [])
-  const progressImage = useMemo(() => getGoalHomeImage('progress'), [])
+  const workoutCandidates = useMemo(() => getGoalHomeCandidates('workout'), [])
+  const nutritionCandidates = useMemo(() => getGoalHomeCandidates('nutrition'), [])
+  const progressCandidates = useMemo(() => getGoalHomeCandidates('progress'), [])
 
   const nutritionCompletion = useMemo(() => {
     const goal = nutritionSummary.caloriesGoal || 0
@@ -296,17 +358,25 @@ export default function GoalHomePage() {
           </div>
         </Card>
 
-        {errorMessage ? (
-          <Card style={{ padding: 16 }}>
-            <div style={{ color: '#FFB3B3', fontWeight: 800, fontSize: 14 }}>
-              {errorMessage}
+        {warningMessage ? (
+          <Card
+            style={{
+              padding: 16,
+              border: '1px solid rgba(255,180,84,0.22)',
+              background: 'rgba(255,180,84,0.06)',
+            }}
+          >
+            <div style={{ color: '#FFD59A', fontWeight: 800, fontSize: 14 }}>
+              {warningMessage}
             </div>
           </Card>
         ) : null}
 
         {loading ? (
           <Card style={{ padding: 20 }}>
-            <div style={{ color: T.textDim, fontSize: 14 }}>Chargement du dashboard...</div>
+            <div style={{ color: T.textDim, fontSize: 14 }}>
+              Chargement du dashboard...
+            </div>
           </Card>
         ) : (
           <>
@@ -361,7 +431,7 @@ export default function GoalHomePage() {
                 gap: 18,
               }}
             >
-              <VisualCard imageUrl={workoutImage}>
+              <VisualCard title="Séance du jour" candidates={workoutCandidates}>
                 <div style={{ color: '#fff', fontWeight: 900, fontSize: 18 }}>
                   Séance du jour
                 </div>
@@ -402,7 +472,7 @@ export default function GoalHomePage() {
                 </div>
               </VisualCard>
 
-              <VisualCard imageUrl={nutritionImage}>
+              <VisualCard title="Nutrition du jour" candidates={nutritionCandidates}>
                 <div style={{ color: '#fff', fontWeight: 900, fontSize: 18 }}>
                   Nutrition du jour
                 </div>
@@ -449,25 +519,47 @@ export default function GoalHomePage() {
                 gap: 18,
               }}
             >
-              <VisualCard imageUrl={suggestedRecipeImage}>
-                <div style={{ color: '#fff', fontWeight: 900, fontSize: 18 }}>
-                  Recette suggérée du jour
-                </div>
+              <Card style={{ padding: 0, overflow: 'hidden' }}>
+                <div
+                  style={{
+                    minHeight: 360,
+                    background: suggestedRecipeImage
+                      ? `linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.78)), url("${suggestedRecipeImage}") center/cover no-repeat`
+                      : 'linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
+                  }}
+                >
+                  <div
+                    style={{
+                      minHeight: 360,
+                      padding: 20,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      background: suggestedRecipeImage
+                        ? 'linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.80))'
+                        : 'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.10), transparent 30%)',
+                    }}
+                  >
+                    <div style={{ color: '#fff', fontWeight: 900, fontSize: 18 }}>
+                      Recette suggérée du jour
+                    </div>
 
-                <div>
-                  <div style={{ color: '#fff', fontWeight: 900, fontSize: 28, lineHeight: 1.05 }}>
-                    {suggestedRecipe?.title || suggestedRecipe?.name || 'Aucune recette'}
+                    <div>
+                      <div style={{ color: '#fff', fontWeight: 900, fontSize: 28, lineHeight: 1.05 }}>
+                        {suggestedRecipe?.title || suggestedRecipe?.name || 'Aucune recette'}
+                      </div>
+
+                      <div style={{ marginTop: 16 }}>
+                        <Link to="/nutrition/recettes" style={{ textDecoration: 'none' }}>
+                          <Btn variant="secondary">Voir les recettes</Btn>
+                        </Link>
+                      </div>
+                    </div>
                   </div>
-
-                  <div style={{ marginTop: 16 }}>
-                    <Link to="/nutrition/recettes" style={{ textDecoration: 'none' }}>
-                      <Btn variant="secondary">Voir les recettes</Btn>
-                    </Link>
-                  </div>
                 </div>
-              </VisualCard>
+              </Card>
 
-              <VisualCard imageUrl={progressImage}>
+              <VisualCard title="Progression rapide" candidates={progressCandidates}>
                 <div style={{ color: '#fff', fontWeight: 900, fontSize: 18 }}>
                   Progression rapide
                 </div>
