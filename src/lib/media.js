@@ -43,4 +43,21 @@ export function getGoalHomeImage(key) {
   }
 
   return ''
+  export function resolveExerciseImage(slug) {
+  if (!slug) return ''
+
+  const candidates = [
+    `exercises/${slug}.jpg`,
+    `exercises/${slug}.jpeg`,
+    `exercises/${slug}.png`,
+    `exercises/${slug}.webp`,
+  ]
+
+  for (const path of candidates) {
+    const { data } = supabase.storage.from('ui-assets').getPublicUrl(path)
+    if (data?.publicUrl) {
+      return data.publicUrl
+    }
+
 }
+
