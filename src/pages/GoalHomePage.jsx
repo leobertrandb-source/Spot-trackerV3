@@ -1,1016 +1,690 @@
-import { useState, useEffect } from 'react'
-import { useDirty } from '../components/DirtyContext'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-import { Card, Label, Input, Btn, Badge, PageWrap } from '../components/UI'
-import { SEANCE_ICONS, T } from '../lib/data'
+import { PageWrap, Card, Btn, Badge } from '../components/UI'
+import { T, SEANCE_ICONS } from '../lib/data'
 
-// ── Bibliothèque latérale pour l'athlète ──────────────────────────
-function ExoLibrary({ onAdd, isMobile = false }) {
-  const [search, setSearch] = useState('')
-  const [libraryExercises, setLibraryExercises] = useState([])
-  const [loadingLibrary, setLoadingLibrary] = useState(true)
-  const [libraryError, setLibraryError] = useState('')
-  const [selectedExercise, setSelectedExercise] = useState(null)
+function todayString() {
+  return new Date().toISOString().slice(0, 10)
+}
 
-  useEffect(() => {
-    loadExercises()
-  }, [])
+function goalLabel(goalType) {
+  const value = String(goalType || '').toLowerCase()
 
-  async function loadExercises() {
-    setLoadingLibrary(true)
-    setLibraryError('')
+  if (value.includes('body')) return 'Prise de masse'
+  if (value.includes('perte')) return 'Perte de poids'
+  if (value.includes('athlet')) return 'Performance athlétique'
+  return goalType || 'Objectif non défini'
+}
 
-    const { data, error } = await supabase
-      .from('exercises')
-      .select('*')
-      .eq('is_active', true)
-      .order('name', { ascending: true })
+function getMacroCalories({ protein, carbs, fats }) {
+  return protein * 4 + carbs * 4 + fats * 9
+}
 
-    if (error) {
-      console.error('Erreur chargement exercices:', error)
-      setLibraryError("Impossible de charger les exercices.")
-      setLoadingLibrary(false)
-      return
-    }
+function recipeMatchesGoal(recipe, goalType) {
+  const goal = String(goalType || '').toLowerCase()
+  const title = String(recipe?.title || recipe?.name || '').toLowerCase()
+  const tags = String(recipe?.tags || '').toLowerCase()
+  const combined = `${title} ${tags}`
 
-    const loaded = data || []
-    setLibraryExercises(loaded)
-
-    if (loaded.length && !selectedExercise) {
-      setSelectedExercise(loaded[0])
-    }
-
-    setLoadingLibrary(false)
+  if (goal.includes('perte')) {
+    return (
+      combined.includes('light') ||
+      combined.includes('lean') ||
+      combined.includes('salade') ||
+      combined.includes('healthy')
+    )
   }
 
-  const filtered = libraryExercises.filter((e) =>
-    e.name?.toLowerCase().includes(search.toLowerCase())
-  )
+  if (goal.includes('body')) {
+    return (
+      combined.includes('proté') ||
+      combined.includes('protein') ||
+      combined.includes('riz') ||
+      combined.includes('poulet') ||
+      combined.includes('beef')
+    )
+  }
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <Input
-        label="Ajouter un exercice"
-        value={search}
-        onChange={setSearch}
-        placeholder="Rechercher..."
-      />
+  if (goal.includes('athlet')) {
+    return (
+      combined.includes('énergie') ||
+      combined.includes('energy') ||
+      combined.includes('pâtes') ||
+      combined.includes('riz') ||
+      combined.includes('avoine')
+    )
+  }
 
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 6,
-          maxHeight: isMobile ? 260 : 320,
-          overflowY: 'auto',
-        }}
-      >
-        {loadingLibrary ? (
-          <div
-            style={{
-              padding: '8px 4px',
-              color: T.textDim,
-              fontSize: 12,
-            }}
-          >
-            Chargement...
-          </div>
-        ) : libraryError ? (
-          <div
-            style={{
-              padding: '8px 4px',
-              color: T.danger,
-              fontSize: 12,
-            }}
-          >
-            {libraryError}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div
-            style={{
-              padding: '8px 4px',
-              color: T.textDim,
-              fontSize: 12,
-            }}
-          >
-            Aucun exercice trouvé.
-          </div>
-        ) : (
-          filtered.map((exo) => {
-            const isSelected = selectedExercise?.id === exo.id
-
-            return (
-              <div
-                key={exo.id}
-                draggable={!isMobile}
-                onDragStart={(e) => e.dataTransfer.setData('exercise', exo.name)}
-                onClick={() => setSelectedExercise(exo)}
-                style={{
-                  padding: isMobile ? '9px 10px' : '8px 10px',
-                  background: isSelected ? T.accentGlow : T.surface,
-                  border: `1px solid ${isSelected ? T.accent : T.border}`,
-                  borderRadius: T.radiusSm,
-                  fontSize: 12,
-                  color: T.textMid,
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                  transition: 'all .15s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                }}
-                onMouseEnter={(e) => {
-                  if (!isSelected) {
-                    e.currentTarget.style.borderColor = T.accent
-                    e.currentTarget.style.color = T.text
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isSelected) {
-                    e.currentTarget.style.borderColor = T.border
-                    e.currentTarget.style.color = T.textMid
-                  }
-                }}
-              >
-                <div
-                  style={{
-                    width: isMobile ? 46 : 42,
-                    height: isMobile ? 46 : 42,
-                    borderRadius: 10,
-                    flexShrink: 0,
-                    background: exo.image_url
-                      ? `url("${exo.image_url}") center/cover no-repeat`
-                      : 'linear-gradient(135deg, rgba(30,40,34,0.96), rgba(10,14,12,0.98))',
-                    border: `1px solid ${T.border}`,
-                  }}
-                />
-
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div
-                    style={{
-                      color: T.text,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      lineHeight: 1.3,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {exo.name}
-                  </div>
-
-                  <div
-                    style={{
-                      color: T.textDim,
-                      fontSize: 11,
-                      marginTop: 3,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {exo.muscle_group || '—'} • {exo.equipment || '—'}
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onAdd(exo.name)
-                  }}
-                  style={{
-                    background: T.accent,
-                    border: 'none',
-                    borderRadius: 8,
-                    width: isMobile ? 28 : 24,
-                    height: isMobile ? 28 : 24,
-                    color: '#fff',
-                    fontWeight: 900,
-                    cursor: 'pointer',
-                    flexShrink: 0,
-                  }}
-                  title="Ajouter à la séance"
-                >
-                  +
-                </button>
-              </div>
-            )
-          })
-        )}
-      </div>
-
-      {selectedExercise && (
-        <Card style={{ marginTop: 12, padding: isMobile ? 12 : 14 }}>
-          <div
-            style={{
-              height: isMobile ? 130 : 150,
-              borderRadius: 12,
-              marginBottom: 12,
-              background: selectedExercise.image_url
-                ? `url("${selectedExercise.image_url}") center/cover no-repeat`
-                : 'linear-gradient(135deg, rgba(30,40,34,0.96), rgba(10,14,12,0.98))',
-              border: `1px solid ${T.border}`,
-            }}
-          />
-
-          <div
-            style={{
-              color: T.text,
-              fontWeight: 800,
-              fontSize: isMobile ? 15 : 16,
-              lineHeight: 1.3,
-            }}
-          >
-            {selectedExercise.name}
-          </div>
-
-          <div
-            style={{
-              fontSize: 12,
-              color: T.textDim,
-              marginTop: 5,
-              lineHeight: 1.5,
-            }}
-          >
-            {selectedExercise.muscle_group || '—'} • {selectedExercise.equipment || '—'} •{' '}
-            {selectedExercise.level || '—'}
-          </div>
-
-          {selectedExercise.description && (
-            <div
-              style={{
-                fontSize: 13,
-                marginTop: 12,
-                color: T.textMid,
-                lineHeight: 1.65,
-              }}
-            >
-              {selectedExercise.description}
-            </div>
-          )}
-
-          {selectedExercise.instructions?.length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <div
-                style={{
-                  color: T.text,
-                  fontWeight: 700,
-                  fontSize: 13,
-                  marginBottom: 6,
-                }}
-              >
-                Exécution
-              </div>
-
-              <ul
-                style={{
-                  margin: 0,
-                  paddingLeft: 18,
-                  color: T.textMid,
-                  fontSize: 13,
-                  lineHeight: 1.65,
-                }}
-              >
-                {selectedExercise.instructions.map((step, i) => (
-                  <li key={i}>{step}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {selectedExercise.tips?.length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <div
-                style={{
-                  color: T.text,
-                  fontWeight: 700,
-                  fontSize: 13,
-                  marginBottom: 6,
-                }}
-              >
-                Conseils
-              </div>
-
-              <ul
-                style={{
-                  margin: 0,
-                  paddingLeft: 18,
-                  color: T.textMid,
-                  fontSize: 13,
-                  lineHeight: 1.65,
-                }}
-              >
-                {selectedExercise.tips.map((tip, i) => (
-                  <li key={i}>{tip}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <div style={{ marginTop: 14 }}>
-            <Btn onClick={() => onAdd(selectedExercise.name)}>
-              Ajouter à la séance
-            </Btn>
-          </div>
-        </Card>
-      )}
-    </div>
-  )
+  return true
 }
 
-// ── Bloc d'un exercice avec saisie de séries ──────────────────────
-function ExerciseBlock({ exo, onRemove, onUpdateSet, onAddSet, onRemoveSet, isMobile = false }) {
-  const gridColumns = isMobile ? '34px 1fr 1fr 1fr 24px' : '40px 1fr 1fr 1fr 28px'
-
-  return (
-    <div
-      style={{
-        background: T.surface,
-        border: `1px solid ${T.border}`,
-        borderRadius: T.radiusSm,
-        overflow: 'hidden',
-        transition: 'border-color .2s',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = T.borderHi
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = T.border
-      }}
-    >
-      <div
-        style={{
-          padding: isMobile ? '10px 12px' : '11px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 10,
-          borderBottom: `1px solid ${T.border}`,
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            minWidth: 0,
-            flexWrap: 'wrap',
-          }}
-        >
-          <span style={{ color: T.accent, fontSize: 10 }}>▸</span>
-
-          <div
-            style={{
-              fontFamily: T.fontDisplay,
-              fontWeight: 800,
-              fontSize: isMobile ? 13 : 14,
-              color: T.text,
-              minWidth: 0,
-            }}
-          >
-            {exo.exercise}
-          </div>
-
-          {exo.sets_target && (
-            <Badge color={T.accent}>
-              {exo.sets_target}×{exo.reps_target || '?'}
-              {exo.rpe_target ? ` @RPE${exo.rpe_target}` : ''}
-            </Badge>
-          )}
-        </div>
-
-        <button
-          onClick={onRemove}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: T.textDim,
-            cursor: 'pointer',
-            fontSize: 16,
-            lineHeight: 1,
-            padding: '2px 6px',
-            flexShrink: 0,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = T.danger
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = T.textDim
-          }}
-        >
-          ×
-        </button>
-      </div>
-
-      <div style={{ padding: isMobile ? '10px 10px 12px' : '10px 14px 14px' }}>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: gridColumns,
-            gap: 8,
-            marginBottom: 8,
-          }}
-        >
-          {['Série', 'Rép.', 'Charge kg', 'RPE'].map((h) => (
-            <div
-              key={h}
-              style={{
-                fontFamily: T.fontDisplay,
-                fontWeight: 700,
-                fontSize: isMobile ? 8 : 9,
-                letterSpacing: 1.3,
-                color: T.textDim,
-                textTransform: 'uppercase',
-              }}
-            >
-              {h}
-            </div>
-          ))}
-          <div />
-        </div>
-
-        {exo.sets.map((set, si) => (
-          <div
-            key={si}
-            style={{
-              display: 'grid',
-              gridTemplateColumns: gridColumns,
-              gap: 8,
-              marginBottom: 7,
-              alignItems: 'center',
-            }}
-          >
-            <div
-              style={{
-                fontFamily: T.fontDisplay,
-                fontWeight: 900,
-                fontSize: isMobile ? 14 : 16,
-                color: T.accentDim,
-                textAlign: 'center',
-              }}
-            >
-              {si + 1}
-            </div>
-
-            <Input
-              label=""
-              value={set.reps}
-              onChange={(v) => onUpdateSet(si, 'reps', v)}
-              type="number"
-              placeholder={exo.reps_target || '10'}
-              min="0"
-            />
-
-            <Input
-              label=""
-              value={set.weight}
-              onChange={(v) => onUpdateSet(si, 'weight', v)}
-              type="number"
-              placeholder="60"
-              min="0"
-              step="0.5"
-            />
-
-            <Input
-              label=""
-              value={set.rpe}
-              onChange={(v) => onUpdateSet(si, 'rpe', v)}
-              type="number"
-              placeholder={exo.rpe_target || '8'}
-              min="1"
-              step="0.5"
-            />
-
-            <button
-              onClick={() => onRemoveSet(si)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: T.textDim,
-                cursor: 'pointer',
-                fontSize: isMobile ? 13 : 14,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = T.danger
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = T.textDim
-              }}
-            >
-              ×
-            </button>
-          </div>
-        ))}
-
-        <button
-          onClick={onAddSet}
-          style={{
-            background: 'transparent',
-            border: `1px dashed ${T.accent}33`,
-            borderRadius: T.radiusSm,
-            color: T.accentDim,
-            padding: isMobile ? '7px 12px' : '6px 14px',
-            fontFamily: T.fontDisplay,
-            fontWeight: 700,
-            fontSize: 11,
-            letterSpacing: 1,
-            textTransform: 'uppercase',
-            cursor: 'pointer',
-            marginTop: 4,
-            transition: 'all .2s',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = T.accent
-            e.currentTarget.style.color = T.accent
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = T.accent + '33'
-            e.currentTarget.style.color = T.accentDim
-          }}
-        >
-          + Série
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ── Page principale ────────────────────────────────────────────────
-export default function AujourdhuiPage() {
-  const { user } = useAuth()
-  const today = new Date().toISOString().split('T')[0]
+export default function GoalHomePage() {
+  const { user, profile } = useAuth()
 
   const [assignment, setAssignment] = useState(null)
+  const [nutrition, setNutrition] = useState(null)
+  const [recipeOfDay, setRecipeOfDay] = useState(null)
+  const [recentSessions, setRecentSessions] = useState([])
+
   const [loading, setLoading] = useState(true)
-  const [isDragOver, setIsDragOver] = useState(false)
-  const [exercises, setExercises] = useState([])
-  const [notes, setNotes] = useState('')
-  const [status, setStatus] = useState(null)
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 900)
-  const { markDirty, markClean } = useDirty()
+  const [errorMessage, setErrorMessage] = useState('')
 
-  useEffect(() => {
-    function handleResize() {
-      setIsMobile(window.innerWidth < 900)
-    }
+  const today = useMemo(() => todayString(), [])
 
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
-
-  useEffect(() => {
-    if (user?.id) {
-      loadToday()
-    }
-  }, [user?.id])
-
-  async function loadToday() {
-    const { data: assigns } = await supabase
-      .from('assignments')
-      .select('*, programs(name, seance_type, program_exercises(*))')
-      .eq('athlete_id', user.id)
-      .eq('assigned_date', today)
-      .order('created_at', { ascending: false })
-      .limit(1)
-
-    setLoading(false)
-
-    if (assigns?.length) {
-      const a = assigns[0]
-      setAssignment(a)
-
-      const exos = (a.programs?.program_exercises || [])
-        .sort((x, y) => x.exercise_order - y.exercise_order)
-        .map((e) => ({
-          exercise: e.exercise,
-          sets_target: e.sets_target,
-          reps_target: e.reps_target,
-          rpe_target: e.rpe_target,
-          sets: Array.from({ length: e.sets_target || 1 }, () => ({
-            reps: '',
-            weight: '',
-            rpe: '',
-          })),
-        }))
-
-      setExercises(exos)
-    }
-  }
-
-  function addExercise(name) {
-    markDirty()
-    setExercises((p) => [
-      ...p,
-      {
-        exercise: name,
-        sets_target: null,
-        reps_target: null,
-        rpe_target: null,
-        sets: [{ reps: '', weight: '', rpe: '' }],
-      },
-    ])
-  }
-
-  function removeExercise(i) {
-    setExercises((p) => p.filter((_, idx) => idx !== i))
-  }
-
-  function updateSet(exoIdx, setIdx, field, val) {
-    markDirty()
-    setExercises((p) =>
-      p.map((e, ei) =>
-        ei !== exoIdx
-          ? e
-          : {
-              ...e,
-              sets: e.sets.map((s, si) =>
-                si !== setIdx ? s : { ...s, [field]: val }
-              ),
-            }
-      )
-    )
-  }
-
-  function addSet(exoIdx) {
-    setExercises((p) =>
-      p.map((e, ei) =>
-        ei !== exoIdx
-          ? e
-          : {
-              ...e,
-              sets: [...e.sets, { reps: '', weight: '', rpe: '' }],
-            }
-      )
-    )
-  }
-
-  function removeSet(exoIdx, setIdx) {
-    setExercises((p) =>
-      p.map((e, ei) =>
-        ei !== exoIdx
-          ? e
-          : {
-              ...e,
-              sets: e.sets.filter((_, si) => si !== setIdx),
-            }
-      )
-    )
-  }
-
-  function handleDrop(e) {
-    if (isMobile) return
-    e.preventDefault()
-    setIsDragOver(false)
-    const name = e.dataTransfer.getData('exercise')
-    if (name) addExercise(name)
-  }
-
-  async function handleSave() {
-    const allSets = exercises.flatMap((e) =>
-      e.sets.filter((s) => s.reps || s.weight)
-    )
-
-    if (!allSets.length) {
-      return alert('Saisis au moins une série.')
-    }
-
-    setStatus('saving')
-
-    const seanceType = assignment?.programs?.seance_type || 'Séance libre'
-
-    const { data: session, error } = await supabase
-      .from('sessions')
-      .insert({
-        user_id: user.id,
-        date: today,
-        seance_type: seanceType,
-        notes,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      setStatus('error')
+  const loadDashboard = useCallback(async () => {
+    if (!user?.id) {
+      setLoading(false)
       return
     }
 
-    const setsToInsert = []
+    setLoading(true)
+    setErrorMessage('')
 
-    exercises.forEach((e) => {
-      e.sets.forEach((s) => {
-        if (s.reps || s.weight) {
-          setsToInsert.push({
-            session_id: session.id,
-            exercise: e.exercise,
-            reps: s.reps ? parseInt(s.reps) : null,
-            weight: s.weight ? parseFloat(s.weight) : null,
-            rpe: s.rpe ? parseFloat(s.rpe) : null,
-            set_order: setsToInsert.length,
-          })
-        }
-      })
-    })
+    try {
+      const [
+        assignmentRes,
+        profileRes,
+        recipesRes,
+        sessionsRes,
+      ] = await Promise.all([
+        supabase
+          .from('assignments')
+          .select('*, programs(name, seance_type, program_exercises(*))')
+          .eq('athlete_id', user.id)
+          .eq('assigned_date', today)
+          .order('created_at', { ascending: false })
+          .limit(1),
 
-    const { error: e2 } = await supabase.from('sets').insert(setsToInsert)
+        supabase
+          .from('profiles')
+          .select('calories_target, protein_target, carbs_target, fats_target, goal_type')
+          .eq('id', user.id)
+          .maybeSingle(),
 
-    if (e2) {
-      setStatus('error')
-      return
+        supabase
+          .from('recipes')
+          .select('*')
+          .limit(30),
+
+        supabase
+          .from('sessions')
+          .select('id, date, seance_type')
+          .eq('user_id', user.id)
+          .order('date', { ascending: false })
+          .limit(5),
+      ])
+
+      if (assignmentRes.error) throw assignmentRes.error
+      if (profileRes.error) throw profileRes.error
+      if (recipesRes.error) throw recipesRes.error
+      if (sessionsRes.error) throw sessionsRes.error
+
+      const currentAssignment = assignmentRes.data?.[0] || null
+      const nutritionData = profileRes.data || null
+      const allRecipes = recipesRes.data || []
+      const sessionsData = sessionsRes.data || []
+
+      const matchedRecipe =
+        allRecipes.find((recipe) =>
+          recipeMatchesGoal(recipe, nutritionData?.goal_type || profile?.goal_type)
+        ) || allRecipes[0] || null
+
+      setAssignment(currentAssignment)
+      setNutrition(nutritionData)
+      setRecipeOfDay(matchedRecipe)
+      setRecentSessions(sessionsData)
+    } catch (error) {
+      console.error('Erreur dashboard athlète :', error)
+      setErrorMessage("Impossible de charger le dashboard du jour.")
+      setAssignment(null)
+      setNutrition(null)
+      setRecipeOfDay(null)
+      setRecentSessions([])
+    } finally {
+      setLoading(false)
     }
+  }, [user?.id, today, profile?.goal_type])
 
-    setStatus('saved')
-    markClean()
-    setTimeout(() => setStatus(null), 4000)
-  }
+  useEffect(() => {
+    loadDashboard()
+  }, [loadDashboard])
 
-  if (loading) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: 300,
-          color: T.textDim,
-          fontFamily: T.fontDisplay,
-          fontSize: 12,
-          letterSpacing: 2,
-        }}
-      >
-        Chargement...
-      </div>
-    )
-  }
+  const nutritionSummary = useMemo(() => {
+    const protein = Number(nutrition?.protein_target || 0)
+    const carbs = Number(nutrition?.carbs_target || 0)
+    const fats = Number(nutrition?.fats_target || 0)
+    const calories = Number(nutrition?.calories_target || 0)
+    const calculated = getMacroCalories({ protein, carbs, fats })
 
-  const dateLabel = new Date().toLocaleDateString('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  })
+    return {
+      protein,
+      carbs,
+      fats,
+      calories: calories || calculated,
+    }
+  }, [nutrition])
+
+  const sessionSummary = useMemo(() => {
+    const exercises = assignment?.programs?.program_exercises || []
+
+    return {
+      name: assignment?.programs?.name || null,
+      type: assignment?.programs?.seance_type || null,
+      count: exercises.length,
+    }
+  }, [assignment])
 
   return (
     <PageWrap>
-      <div style={{ marginBottom: 8 }}>
-        <div
-          style={{
-            fontFamily: T.fontDisplay,
-            fontWeight: 900,
-            fontSize: isMobile ? 28 : 36,
-            letterSpacing: isMobile ? 1.2 : 2,
-            color: T.text,
-            lineHeight: 1,
-          }}
-        >
-          AUJOURD'HUI
-        </div>
-
-        <div
-          style={{
-            fontSize: isMobile ? 13 : 14,
-            color: T.textMid,
-            marginTop: 6,
-            textTransform: 'capitalize',
-          }}
-        >
-          {dateLabel}
-        </div>
-      </div>
-
-      {assignment ? (
-        <div
-          style={{
-            background: `linear-gradient(135deg, ${T.accentGlow}, transparent)`,
-            border: `1px solid ${T.accent}44`,
-            borderRadius: T.radiusLg,
-            padding: isMobile ? '12px 14px' : '14px 20px',
-            display: 'flex',
-            alignItems: isMobile ? 'flex-start' : 'center',
-            gap: 14,
-            flexWrap: isMobile ? 'wrap' : 'nowrap',
-          }}
-        >
-          <div style={{ fontSize: isMobile ? 22 : 26 }}>
-            {SEANCE_ICONS[assignment.programs?.seance_type] || '💪'}
-          </div>
-
-          <div style={{ minWidth: 0 }}>
-            <div
-              style={{
-                fontFamily: T.fontDisplay,
-                fontWeight: 800,
-                fontSize: isMobile ? 15 : 16,
-                color: T.accent,
-              }}
-            >
-              {assignment.programs?.name}
-            </div>
-
-            <div
-              style={{
-                fontSize: 12,
-                color: T.textMid,
-                marginTop: 2,
-                lineHeight: 1.5,
-              }}
-            >
-              {assignment.programs?.seance_type}
-              {assignment.note && (
-                <span
-                  style={{
-                    marginLeft: 10,
-                    fontStyle: 'italic',
-                    color: T.textDim,
-                  }}
-                >
-                  "{assignment.note}"
-                </span>
-              )}
-            </div>
-          </div>
-
-          {!isMobile ? (
-            <div
-              style={{
-                marginLeft: 'auto',
-                fontFamily: T.fontDisplay,
-                fontSize: 11,
-                color: T.textDim,
-                letterSpacing: 1,
-              }}
-            >
-              Programme assigné par ton coach
-            </div>
-          ) : (
-            <div
-              style={{
-                width: '100%',
-                fontFamily: T.fontDisplay,
-                fontSize: 10,
-                color: T.textDim,
-                letterSpacing: 1,
-              }}
-            >
-              Programme assigné par ton coach
-            </div>
-          )}
-        </div>
-      ) : (
-        <div
-          style={{
-            background: T.card,
-            border: `1px dashed ${T.border}`,
-            borderRadius: T.radiusLg,
-            padding: isMobile ? '14px 14px' : '16px 20px',
-            fontFamily: T.fontDisplay,
-            fontSize: 12,
-            color: T.textDim,
-            letterSpacing: 1,
-            textAlign: 'center',
-            lineHeight: 1.6,
-          }}
-        >
-          Aucune séance assignée pour aujourd'hui — crée ta propre séance ci-dessous
-        </div>
-      )}
-
       <div
         style={{
+          maxWidth: 1180,
+          margin: '0 auto',
           display: 'grid',
-          gridTemplateColumns: isMobile ? '1fr' : '1fr 320px',
-          gap: isMobile ? 16 : 20,
-          marginTop: 16,
+          gap: 18,
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div
-            onDragOver={
-              isMobile
-                ? undefined
-                : (e) => {
-                    e.preventDefault()
-                    setIsDragOver(true)
-                  }
-            }
-            onDragLeave={isMobile ? undefined : () => setIsDragOver(false)}
-            onDrop={handleDrop}
-            style={{
-              minHeight: exercises.length ? 'auto' : isMobile ? 84 : 100,
-              border: exercises.length
-                ? 'none'
-                : `2px dashed ${isDragOver ? T.accent : T.border}`,
-              borderRadius: T.radiusSm,
-              padding: exercises.length ? 0 : isMobile ? '20px 14px' : '28px 20px',
-              background:
-                isDragOver && !exercises.length ? T.accentGlow : 'transparent',
-              transition: 'all .2s',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 12,
-            }}
-          >
-            {exercises.length === 0 ? (
-              <div
-                style={{
-                  textAlign: 'center',
-                  color: T.textDim,
-                  fontFamily: T.fontDisplay,
-                  fontSize: isMobile ? 10 : 11,
-                  letterSpacing: isMobile ? 1.2 : 2,
-                  textTransform: 'uppercase',
-                  lineHeight: 1.6,
-                }}
-              >
-                {isMobile
-                  ? 'Ajoute des exercices depuis la bibliothèque ci-dessous'
-                  : isDragOver
-                    ? '↓ Relâche ici'
-                    : 'Glisse des exercices depuis la liste ou clique sur + →'}
-              </div>
-            ) : (
-              exercises.map((exo, i) => (
-                <ExerciseBlock
-                  key={i}
-                  exo={exo}
-                  onRemove={() => removeExercise(i)}
-                  onUpdateSet={(si, f, v) => updateSet(i, si, f, v)}
-                  onAddSet={() => addSet(i)}
-                  onRemoveSet={(si) => removeSet(i, si)}
-                  isMobile={isMobile}
-                />
-              ))
-            )}
-          </div>
-
-          {exercises.length > 0 && (
-            <Card style={{ padding: isMobile ? '14px 14px' : '16px 20px' }}>
-              <Input
-                label="Notes de séance"
-                value={notes}
-                onChange={setNotes}
-                placeholder="Ressenti, douleurs, contexte..."
-              />
-
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  marginTop: 14,
-                  gap: 14,
-                  alignItems: isMobile ? 'stretch' : 'center',
-                  flexDirection: isMobile ? 'column' : 'row',
-                }}
-              >
-                {status === 'saved' && (
-                  <div
-                    style={{
-                      color: T.accent,
-                      fontFamily: T.fontDisplay,
-                      fontWeight: 700,
-                      fontSize: 13,
-                      letterSpacing: 1,
-                    }}
-                  >
-                    ✓ Séance enregistrée !
-                  </div>
-                )}
-
-                {status === 'error' && (
-                  <div
-                    style={{
-                      color: T.danger,
-                      fontFamily: T.fontDisplay,
-                      fontSize: 12,
-                    }}
-                  >
-                    Erreur — vérifie ta connexion
-                  </div>
-                )}
-
-                <Btn
-                  onClick={handleSave}
-                  disabled={status === 'saving' || status === 'saved'}
-                >
-                  {status === 'saving' ? 'Enregistrement...' : 'Terminer la séance'}
-                </Btn>
-              </div>
-            </Card>
-          )}
-        </div>
-
         <Card
+          glow
           style={{
-            padding: isMobile ? '14px 12px' : '18px 16px',
-            alignSelf: 'start',
-            position: isMobile ? 'static' : 'sticky',
-            top: isMobile ? 'auto' : 20,
+            padding: '24px 22px',
+            background:
+              'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.10), transparent 30%), linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
           }}
         >
-          <Label style={{ marginBottom: 12 }}>Exercices</Label>
-          <ExoLibrary onAdd={addExercise} isMobile={isMobile} />
+          <div
+            style={{
+              display: 'inline-flex',
+              padding: '8px 12px',
+              borderRadius: 999,
+              border: `1px solid ${T.accent + '28'}`,
+              background: 'rgba(45,255,155,0.10)',
+              color: T.accentLight,
+              fontWeight: 800,
+              fontSize: 12,
+              letterSpacing: 1,
+              textTransform: 'uppercase',
+              marginBottom: 14,
+            }}
+          >
+            Dashboard du jour
+          </div>
+
+          <div
+            style={{
+              color: T.text,
+              fontFamily: T.fontDisplay,
+              fontWeight: 900,
+              fontSize: 30,
+              lineHeight: 1,
+            }}
+          >
+            MON ESPACE
+          </div>
+
+          <div
+            style={{
+              color: T.textMid,
+              fontSize: 14,
+              lineHeight: 1.7,
+              marginTop: 10,
+            }}
+          >
+            Bienvenue {profile?.full_name || 'athlète'}. Voici ce que tu dois faire aujourd’hui.
+          </div>
         </Card>
+
+        {errorMessage ? (
+          <Card
+            style={{
+              padding: 16,
+              border: '1px solid rgba(255,120,120,0.22)',
+              background: 'rgba(255,90,90,0.06)',
+            }}
+          >
+            <div
+              style={{
+                color: '#FFB3B3',
+                fontWeight: 800,
+                fontSize: 14,
+              }}
+            >
+              {errorMessage}
+            </div>
+          </Card>
+        ) : null}
+
+        {loading ? (
+          <Card style={{ padding: 20 }}>
+            <div style={{ color: T.textDim, fontSize: 14 }}>
+              Chargement du dashboard...
+            </div>
+          </Card>
+        ) : (
+          <>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: 12,
+              }}
+            >
+              <Card style={{ padding: 18 }}>
+                <div
+                  style={{
+                    color: T.textSub,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    letterSpacing: 1,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Objectif actuel
+                </div>
+
+                <div
+                  style={{
+                    color: T.text,
+                    fontWeight: 900,
+                    fontSize: 22,
+                    marginTop: 8,
+                  }}
+                >
+                  {goalLabel(profile?.goal_type)}
+                </div>
+              </Card>
+
+              <Card style={{ padding: 18 }}>
+                <div
+                  style={{
+                    color: T.textSub,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    letterSpacing: 1,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Séance aujourd'hui
+                </div>
+
+                <div
+                  style={{
+                    color: T.text,
+                    fontWeight: 900,
+                    fontSize: 22,
+                    marginTop: 8,
+                  }}
+                >
+                  {sessionSummary.name ? 'Oui' : 'Libre'}
+                </div>
+              </Card>
+
+              <Card style={{ padding: 18 }}>
+                <div
+                  style={{
+                    color: T.textSub,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    letterSpacing: 1,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Calories cible
+                </div>
+
+                <div
+                  style={{
+                    color: T.text,
+                    fontWeight: 900,
+                    fontSize: 22,
+                    marginTop: 8,
+                  }}
+                >
+                  {nutritionSummary.calories
+                    ? `${Math.round(nutritionSummary.calories)} kcal`
+                    : '—'}
+                </div>
+              </Card>
+
+              <Card style={{ padding: 18 }}>
+                <div
+                  style={{
+                    color: T.textSub,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    letterSpacing: 1,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Dernières séances
+                </div>
+
+                <div
+                  style={{
+                    color: T.text,
+                    fontWeight: 900,
+                    fontSize: 22,
+                    marginTop: 8,
+                  }}
+                >
+                  {recentSessions.length}
+                </div>
+              </Card>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1.25fr) minmax(320px, 0.9fr)',
+                gap: 18,
+                alignItems: 'start',
+              }}
+            >
+              <Card style={{ padding: 20 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    marginBottom: 14,
+                  }}
+                >
+                  <div
+                    style={{
+                      color: T.text,
+                      fontWeight: 900,
+                      fontSize: 18,
+                    }}
+                  >
+                    Séance du jour
+                  </div>
+
+                  {sessionSummary.type ? (
+                    <Badge>
+                      {(SEANCE_ICONS[sessionSummary.type] || '💪') + ' ' + sessionSummary.type}
+                    </Badge>
+                  ) : (
+                    <Badge color={T.blue}>Séance libre</Badge>
+                  )}
+                </div>
+
+                {sessionSummary.name ? (
+                  <>
+                    <div
+                      style={{
+                        color: T.text,
+                        fontWeight: 800,
+                        fontSize: 18,
+                      }}
+                    >
+                      {sessionSummary.name}
+                    </div>
+
+                    <div
+                      style={{
+                        color: T.textMid,
+                        fontSize: 14,
+                        marginTop: 8,
+                        lineHeight: 1.65,
+                      }}
+                    >
+                      {sessionSummary.count} exercice{sessionSummary.count > 1 ? 's' : ''} prévu
+                      {sessionSummary.count > 1 ? 's' : ''} aujourd’hui.
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: 10,
+                        flexWrap: 'wrap',
+                        marginTop: 18,
+                      }}
+                    >
+                      <Link to="/entrainement/aujourdhui" style={{ textDecoration: 'none' }}>
+                        <Btn>Commencer la séance</Btn>
+                      </Link>
+
+                      <Link to="/entrainement/libre" style={{ textDecoration: 'none' }}>
+                        <Btn variant="secondary">Passer en séance libre</Btn>
+                      </Link>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div
+                      style={{
+                        color: T.text,
+                        fontWeight: 800,
+                        fontSize: 18,
+                      }}
+                    >
+                      Aucun programme assigné aujourd’hui
+                    </div>
+
+                    <div
+                      style={{
+                        color: T.textMid,
+                        fontSize: 14,
+                        marginTop: 8,
+                        lineHeight: 1.65,
+                      }}
+                    >
+                      Tu peux lancer une séance libre et enregistrer ton entraînement.
+                    </div>
+
+                    <div style={{ marginTop: 18 }}>
+                      <Link to="/entrainement/libre" style={{ textDecoration: 'none' }}>
+                        <Btn>Démarrer une séance libre</Btn>
+                      </Link>
+                    </div>
+                  </>
+                )}
+              </Card>
+
+              <Card style={{ padding: 20 }}>
+                <div
+                  style={{
+                    color: T.text,
+                    fontWeight: 900,
+                    fontSize: 18,
+                    marginBottom: 14,
+                  }}
+                >
+                  Nutrition du jour
+                </div>
+
+                <div style={{ display: 'grid', gap: 10 }}>
+                  <div
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      background: 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${T.border}`,
+                      color: T.text,
+                      fontWeight: 800,
+                    }}
+                  >
+                    {nutritionSummary.calories
+                      ? `${Math.round(nutritionSummary.calories)} kcal`
+                      : 'Objectif calories non défini'}
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 8,
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <Badge>{nutritionSummary.protein || 0} g protéines</Badge>
+                    <Badge color={T.blue}>{nutritionSummary.carbs || 0} g glucides</Badge>
+                    <Badge color={T.orange}>{nutritionSummary.fats || 0} g lipides</Badge>
+                  </div>
+
+                  <div style={{ marginTop: 8 }}>
+                    <Link to="/nutrition/macros" style={{ textDecoration: 'none' }}>
+                      <Btn variant="secondary">Voir la nutrition</Btn>
+                    </Link>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+                gap: 18,
+                alignItems: 'start',
+              }}
+            >
+              <Card style={{ padding: 20 }}>
+                <div
+                  style={{
+                    color: T.text,
+                    fontWeight: 900,
+                    fontSize: 18,
+                    marginBottom: 14,
+                  }}
+                >
+                  Recette suggérée du jour
+                </div>
+
+                {recipeOfDay ? (
+                  <>
+                    <div
+                      style={{
+                        color: T.text,
+                        fontWeight: 800,
+                        fontSize: 18,
+                      }}
+                    >
+                      {recipeOfDay.title || recipeOfDay.name || 'Recette'}
+                    </div>
+
+                    {recipeOfDay.description ? (
+                      <div
+                        style={{
+                          color: T.textMid,
+                          fontSize: 14,
+                          lineHeight: 1.65,
+                          marginTop: 8,
+                        }}
+                      >
+                        {recipeOfDay.description}
+                      </div>
+                    ) : null}
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: 10,
+                        flexWrap: 'wrap',
+                        marginTop: 16,
+                      }}
+                    >
+                      {recipeOfDay.calories ? <Badge>{recipeOfDay.calories} kcal</Badge> : null}
+                      {recipeOfDay.protein ? <Badge>{recipeOfDay.protein} g prot</Badge> : null}
+                    </div>
+
+                    <div style={{ marginTop: 18 }}>
+                      <Link to="/nutrition/recettes" style={{ textDecoration: 'none' }}>
+                        <Btn variant="secondary">Voir les recettes</Btn>
+                      </Link>
+                    </div>
+                  </>
+                ) : (
+                  <div
+                    style={{
+                      color: T.textMid,
+                      fontSize: 14,
+                    }}
+                  >
+                    Aucune recette disponible pour le moment.
+                  </div>
+                )}
+              </Card>
+
+              <Card style={{ padding: 20 }}>
+                <div
+                  style={{
+                    color: T.text,
+                    fontWeight: 900,
+                    fontSize: 18,
+                    marginBottom: 14,
+                  }}
+                >
+                  Progression rapide
+                </div>
+
+                {recentSessions.length === 0 ? (
+                  <div
+                    style={{
+                      color: T.textMid,
+                      fontSize: 14,
+                    }}
+                  >
+                    Aucune séance récente.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {recentSessions.slice(0, 4).map((session) => (
+                      <div
+                        key={session.id}
+                        style={{
+                          padding: '12px 14px',
+                          borderRadius: 14,
+                          background: 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${T.border}`,
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          gap: 10,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              color: T.text,
+                              fontWeight: 800,
+                              fontSize: 14,
+                            }}
+                          >
+                            {session.seance_type || 'Séance'}
+                          </div>
+
+                          <div
+                            style={{
+                              color: T.textDim,
+                              fontSize: 12,
+                              marginTop: 4,
+                            }}
+                          >
+                            {session.date}
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: 18 }}>
+                          {SEANCE_ICONS[session.seance_type] || '💪'}
+                        </div>
+                      </div>
+                    ))}
+
+                    <div style={{ marginTop: 8 }}>
+                      <Link to="/progression" style={{ textDecoration: 'none' }}>
+                        <Btn variant="secondary">Voir ma progression</Btn>
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            </div>
+          </>
+        )}
       </div>
     </PageWrap>
   )
