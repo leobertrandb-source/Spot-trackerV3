@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { resolveImageUrl } from '../lib/media'
 import { useAuth } from '../components/AuthContext'
 import { PageWrap, Card, Btn, Badge } from '../components/UI'
 import { T } from '../lib/data'
@@ -55,6 +54,20 @@ const numeric = Number(match.replace(',', '.'))
 if (!Number.isFinite(numeric)) return match
 return String(roundSmart(numeric * ratio)).replace('.', ',')
 })
+}
+
+function getRecipeImageUrl(recipe) {
+if (!recipe) return ''
+
+if (recipe.image_url) return recipe.image_url
+
+if (recipe.image_path) {
+const bucket = recipe.image_bucket || 'recipe-images'
+const { data } = supabase.storage.from(bucket).getPublicUrl(recipe.image_path)
+return data?.publicUrl || ''
+}
+
+return ''
 }
 
 function calcPlateFillPercent(targetCalories, baseCalories) {
@@ -189,13 +202,7 @@ fats: roundSmart(toNumber(recipe.fats || recipe.fat) * ratio),
 }
 }, [recipe, ratio, targetCalories])
 
-const heroImage = useMemo(() => {
-return resolveImageUrl({
-imageUrl: recipe?.image_url,
-imagePath: recipe?.image_path,
-imageBucket: recipe?.image_bucket || 'recipe-images',
-})
-}, [recipe])
+const heroImage = useMemo(() => getRecipeImageUrl(recipe), [recipe])
 
 const ingredients = useMemo(() => {
 const lines = normalizeLines(recipe?.ingredients)
@@ -203,7 +210,7 @@ return lines.map((line) => scaleIngredientLine(line, ratio))
 }, [recipe, ratio])
 
 const instructions = useMemo(() => {
-return normalizeLines(recipe?.instructions || recipe?.steps)
+return normalizeLines(recipe?.instructions || recipe?.steps || recipe?.preparation)
 }, [recipe])
 
 const plateFill = useMemo(() => {
@@ -230,7 +237,6 @@ meal_slot: mealSlot,
 })
 
 if (error) throw error
-
 setSuccessMessage('Recette ajoutée au plan repas.')
 } catch (error) {
 console.error(error)
@@ -260,7 +266,6 @@ water: 0,
 })
 
 if (error) throw error
-
 setSuccessMessage("Recette ajoutée à la nutrition du jour.")
 } catch (error) {
 console.error(error)
@@ -274,9 +279,7 @@ if (loading) {
 return (
 <PageWrap>
 <Card style={{ padding: 20 }}>
-<div style={{ color: T.textDim, fontSize: 14 }}>
-Chargement de la recette...
-</div>
+<div style={{ color: T.textDim, fontSize: 14 }}>Chargement de la recette...</div>
 </Card>
 </PageWrap>
 )
@@ -439,8 +442,7 @@ marginBottom: 18,
 }}
 >
 Fais glisser la barre pour fixer exactement le nombre de calories
-servies. Les quantités des ingrédients sont recalculées
-automatiquement.
+servies. Les quantités des ingrédients sont recalculées automatiquement.
 </div>
 
 <div
@@ -673,7 +675,7 @@ Préparation
 
 {instructions.length === 0 ? (
 <div style={{ color: T.textDim, fontSize: 14 }}>
-Aucune étape renseignée.
+Aucune préparation renseignée.
 </div>
 ) : (
 <div style={{ display: 'grid', gap: 12 }}>
