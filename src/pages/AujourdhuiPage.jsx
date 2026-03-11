@@ -37,13 +37,154 @@ function normalizeProgramExercises(rows = []) {
     }))
 }
 
+function roundWeight(value) {
+  const n = Number(value || 0)
+  return Math.round(n * 2) / 2
+}
+
+function formatWeight(value) {
+  const n = Number(value || 0)
+  if (!Number.isFinite(n)) return '0'
+  return Number.isInteger(n) ? String(n) : n.toFixed(1)
+}
+
+function formatSuggestionText(suggestion) {
+  if (!suggestion) return ''
+  return `${formatWeight(suggestion.weight)} kg × ${suggestion.reps} reps`
+}
+
+function computeProgression(history, repTarget = 8) {
+  if (!history || history.length === 0) return null
+
+  const last = history[0]
+  const weight = Number(last.weight || 0)
+  const reps = Number(last.reps || 0)
+  const rpe = Number(last.rpe || 8)
+
+  if (!weight && !reps) {
+    return null
+  }
+
+  let suggestedWeight = weight
+  let suggestedReps = reps || repTarget || 8
+  let reason = 'Maintien'
+
+  if (rpe <= 7) {
+    suggestedWeight = roundWeight(weight * 1.03)
+    reason = 'Séance facile : augmentation de charge'
+  } else if (rpe <= 8.5 && reps < repTarget) {
+    suggestedReps = reps + 1
+    reason = 'Séance validée : ajout d’une répétition'
+  } else if (rpe <= 8.5 && reps >= repTarget) {
+    suggestedWeight = roundWeight(weight * 1.025)
+    reason = 'Séance validée : légère hausse de charge'
+  } else if (rpe <= 9.3) {
+    reason = 'Consolidation : garde la même base'
+  } else {
+    suggestedWeight = roundWeight(weight * 0.95)
+    reason = 'Fatigue détectée : deload léger'
+  }
+
+  return {
+    weight: suggestedWeight,
+    reps: suggestedReps,
+    reason,
+    lastWeight: weight,
+    lastReps: reps,
+    lastRpe: rpe,
+  }
+}
+
+async function getExerciseHistory(userId, exercise) {
+  if (!userId || !exercise) return []
+
+  const { data: sessionsData, error: sessionsError } = await supabase
+    .from('sessions')
+    .select('id, date')
+    .eq('user_id', userId)
+    .order('date', { ascending: false })
+    .limit(20)
+
+  if (sessionsError) {
+    console.error('Erreur sessions historique :', sessionsError)
+    return []
+  }
+
+  const sessions = sessionsData || []
+  const sessionIds = sessions.map((row) => row.id).filter(Boolean)
+
+  if (!sessionIds.length) return []
+
+  const { data: setsData, error: setsError } = await supabase
+    .from('sets')
+    .select('session_id, exercise, reps, weight, rpe, set_order')
+    .eq('exercise', exercise)
+    .in('session_id', sessionIds)
+
+  if (setsError) {
+    console.error('Erreur sets historique :', setsError)
+    return []
+  }
+
+  const sessionDateById = new Map(
+    sessions.map((row) => [row.id, row.date || ''])
+  )
+
+  return [...(setsData || [])]
+    .map((row) => ({
+      ...row,
+      session_date: sessionDateById.get(row.session_id) || '',
+    }))
+    .sort((a, b) => {
+      const dateCompare = String(b.session_date).localeCompare(String(a.session_date))
+      if (dateCompare !== 0) return dateCompare
+      return Number(a.set_order || 0) - Number(b.set_order || 0)
+    })
+}
+
 function SessionExerciseCard({
   item,
   index,
+  userId,
   onSetChange,
   onAddSet,
   onRemoveSet,
+  onApplySuggestion,
 }) {
+  const [suggestion, setSuggestion] = useState(null)
+  const [historyLoading, setHistoryLoading] = useState(true)
+
+  useEffect(() => {
+    let active = true
+
+    async function loadSuggestion() {
+      setHistoryLoading(true)
+
+      try {
+        const history = await getExerciseHistory(userId, item.exercise)
+        if (!active) return
+
+        const repTarget = Number(item.reps_target || 8) || 8
+        const next = computeProgression(history, repTarget)
+        setSuggestion(next)
+      } catch (error) {
+        console.error('Erreur suggestion progression :', error)
+        if (!active) return
+        setSuggestion(null)
+      } finally {
+        if (active) {
+          setHistoryLoading(false)
+        }
+      }
+    }
+
+    loadSuggestion()
+
+    return () => {
+      active = false
+    }
+  }, [userId, item.exercise, item.reps_target])
+
   return (
     <Card style={{ padding: 18 }}>
       <div
@@ -217,6 +358,97 @@ function SessionExerciseCard({
           </div>
         ))}
       </div>
+
+      <div
+        style={{
+          marginTop: 14,
+          padding: 14,
+          borderRadius: 16,
+          border: `1px solid ${T.accent + '28'}`,
+          background: 'rgba(45,255,155,0.08)',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 10,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div
+            style={{
+              color: T.text,
+              fontWeight: 900,
+              fontSize: 14,
+            }}
+          >
+            Coach intelligent
+          </div>
+
+          {suggestion ? (
+            <button
+              type="button"
+              onClick={() => onApplySuggestion(index, suggestion)}
+              style={{
+                height: 34,
+                borderRadius: 10,
+                border: `1px solid ${T.accent + '36'}`,
+                background: 'rgba(255,255,255,0.05)',
+                color: T.accentLight,
+                cursor: 'pointer',
+                padding: '0 10px',
+                fontWeight: 800,
+                fontSize: 12,
+              }}
+            >
+              Appliquer aux séries vides
+            </button>
+          ) : null}
+        </div>
+
+        {historyLoading ? (
+          <div style={{ color: T.textDim, fontSize: 13, marginTop: 8 }}>
+            Analyse de l’historique...
+          </div>
+        ) : suggestion ? (
+          <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <Badge color={T.blue || '#5BA7FF'}>
+                Dernier set : {formatWeight(suggestion.lastWeight)} kg × {suggestion.lastReps} reps
+              </Badge>
+              {suggestion.lastRpe ? (
+                <Badge color={T.orange || '#FFB454'}>RPE {suggestion.lastRpe}</Badge>
+              ) : null}
+            </div>
+
+            <div
+              style={{
+                color: T.text,
+                fontWeight: 900,
+                fontSize: 15,
+              }}
+            >
+              Suggestion : {formatSuggestionText(suggestion)}
+            </div>
+
+            <div
+              style={{
+                color: T.textMid,
+                fontSize: 13,
+                lineHeight: 1.55,
+              }}
+            >
+              {suggestion.reason}
+            </div>
+          </div>
+        ) : (
+          <div style={{ color: T.textDim, fontSize: 13, marginTop: 8 }}>
+            Pas assez d’historique pour proposer une progression sur cet exercice.
+          </div>
+        )}
+      </div>
     </Card>
   )
 }
@@ -301,7 +533,7 @@ export default function AujourdhuiPage() {
       })
     )
     touchDirty()
-  }, [successMessage, markDirty])
+  }, [markDirty, successMessage])
 
   const addSet = useCallback((exerciseIndex) => {
     setSessionExercises((current) =>
@@ -326,7 +558,7 @@ export default function AujourdhuiPage() {
       )
     )
     touchDirty()
-  }, [successMessage, markDirty])
+  }, [markDirty, successMessage])
 
   const removeSet = useCallback((exerciseIndex, setIndex) => {
     setSessionExercises((current) =>
@@ -341,7 +573,31 @@ export default function AujourdhuiPage() {
       })
     )
     touchDirty()
-  }, [successMessage, markDirty])
+  }, [markDirty, successMessage])
+
+  const applySuggestion = useCallback((exerciseIndex, suggestion) => {
+    if (!suggestion) return
+
+    setSessionExercises((current) =>
+      current.map((exercise, exIndex) => {
+        if (exIndex !== exerciseIndex) return exercise
+
+        return {
+          ...exercise,
+          sets: exercise.sets.map((setRow) => ({
+            ...setRow,
+            reps: setRow.reps || String(suggestion.reps || ''),
+            weight:
+              setRow.weight || suggestion.weight === 0
+                ? setRow.weight || String(formatWeight(suggestion.weight))
+                : setRow.weight,
+          })),
+        }
+      })
+    )
+
+    touchDirty()
+  }, [markDirty, successMessage])
 
   const totalLoggedSets = useMemo(() => {
     return sessionExercises.reduce((sum, exercise) => {
@@ -646,9 +902,11 @@ export default function AujourdhuiPage() {
                   key={`${exercise.exercise}-${index}`}
                   item={exercise}
                   index={index}
+                  userId={user?.id}
                   onSetChange={updateSet}
                   onAddSet={addSet}
                   onRemoveSet={removeSet}
+                  onApplySuggestion={applySuggestion}
                 />
               ))}
             </div>
