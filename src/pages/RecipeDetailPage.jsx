@@ -478,6 +478,29 @@ export default function RecipeDetailPage() {
   if (loading) {
     return (
       <PageWrap>
+      <style>{`
+        .recipe-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 18px;
+          align-items: start;
+        }
+        .recipe-slider-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 20px;
+          align-items: center;
+        }
+        @media (min-width: 768px) {
+          .recipe-grid {
+            grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+          }
+          .recipe-slider-grid {
+            grid-template-columns: 220px minmax(0, 1fr);
+            gap: 24px;
+          }
+        }
+      `}</style>
         <Card style={{ padding: 20 }}>
           <div style={{ color: T.textDim, fontSize: 14 }}>Chargement de la recette...</div>
         </Card>
@@ -556,11 +579,7 @@ export default function RecipeDetailPage() {
         </Card>
 
         {/* Contenu principal */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.15fr) minmax(340px, 0.85fr)',
-          gap: 18, alignItems: 'start',
-        }}>
+        <div className="recipe-grid">
           <div style={{ display: 'grid', gap: 18 }}>
 
             {/* Slider calories */}
@@ -573,10 +592,10 @@ export default function RecipeDetailPage() {
                   Les quantités des ingrédients se recalculent automatiquement en temps réel.
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '220px minmax(0, 1fr)', gap: 24, alignItems: 'center' }}>
+                <div className="recipe-slider-grid">
                   {/* Assiette animée */}
                   <div style={{
-                    width: 190, height: 190, margin: '0 auto', borderRadius: '50%',
+                    width: 160, height: 160, margin: '0 auto', borderRadius: '50%',
                     border: `2px solid ${T.border}`,
                     background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.07), rgba(255,255,255,0.02))',
                     boxShadow: 'inset 0 16px 40px rgba(0,0,0,0.28)',
@@ -639,7 +658,7 @@ export default function RecipeDetailPage() {
                       })}
                     </div>
 
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
                       <MacroPill label="Protéines" value={`${roundSmart(scaled.proteins)} g`} color={T.blue || '#5BA7FF'} />
                       <MacroPill label="Glucides"  value={`${roundSmart(scaled.carbs)} g`}    color={T.orange || '#FFB454'} />
                       <MacroPill label="Lipides"   value={`${roundSmart(scaled.fats)} g`}     color={T.border} />
