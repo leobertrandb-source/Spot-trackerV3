@@ -246,7 +246,7 @@ function SessionExerciseCard({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '100px 120px 100px 44px',
+            gridTemplateColumns: 'repeat(4, 1fr)',
             gap: 8,
             padding: '0 2px',
           }}
@@ -603,6 +603,23 @@ export default function AujourdhuiPage() {
 
   return (
     <PageWrap>
+      <style>{`
+        .auj-set-row {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+        }
+        .auj-macros {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        }
+        @media (max-width: 480px) {
+          .auj-set-row {
+            grid-template-columns: 1fr 1fr 1fr 40px;
+            gap: 6px;
+          }
+        }
+      `}</style>
       <div
         style={{
           maxWidth: 1180,
