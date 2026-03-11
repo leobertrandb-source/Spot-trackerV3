@@ -199,10 +199,9 @@ function MacroPill({ label, value, color }) {
   )
 }
 
-function IngredientRow({ line, ratio }) {
-  const scaled = scaleIngredientLine(line, ratio)
-  const { amount } = parseIngredientLine(line)
-  const changed = amount !== null && Math.abs(ratio - 1) > 0.01
+function IngredientRow({ ingredient, ratio }) {
+  const scaledQty = roundSmart(Number(ingredient.quantity || 0) * ratio)
+  const changed = Math.abs(ratio - 1) > 0.01
 
   return (
     <div style={{
@@ -213,7 +212,10 @@ function IngredientRow({ line, ratio }) {
       transition: 'all 0.2s ease',
     }}>
       <span style={{ color: T.text, fontSize: 14, lineHeight: 1.5 }}>
-        {scaled}
+        <span style={{ fontWeight: 700, color: changed ? T.accentLight : T.text }}>
+          {scaledQty} {ingredient.unit}
+        </span>
+        {' '}{ingredient.name}
       </span>
       {changed && (
         <span style={{
@@ -349,7 +351,7 @@ export default function RecipeDetailPage() {
       setLoading(true)
       setErrorMessage('')
       setSuccessMessage('')
-      const { data, error } = await supabase.from('recipes').select('*').eq('id', id).maybeSingle()
+      const { data, error } = await supabase.from('recipes').select('*, recipe_ingredients(*)').eq('id', id).maybeSingle()
       if (!active) return
       if (error) {
         setErrorMessage("Impossible de charger cette recette.")
@@ -384,8 +386,11 @@ export default function RecipeDetailPage() {
 
   const heroImage = useMemo(() => getRecipeImageUrl(recipe), [recipe])
 
-  // Ingrédients bruts (non scalés) pour l'affichage et l'IA
-  const rawIngredients = useMemo(() => normalizeLines(recipe?.ingredients), [recipe])
+  // Ingrédients depuis la table recipe_ingredients
+  const rawIngredients = useMemo(() => {
+    const rows = recipe?.recipe_ingredients || []
+    return rows.map(row => `${row.quantity} ${row.unit} ${row.name}`.trim())
+  }, [recipe])
 
   // Instructions existantes enrichies
   const rawInstructions = useMemo(
@@ -660,8 +665,8 @@ export default function RecipeDetailPage() {
                 <div style={{ color: T.textDim, fontSize: 14 }}>Aucun ingrédient renseigné.</div>
               ) : (
                 <div style={{ display: 'grid', gap: 8 }}>
-                  {rawIngredients.map((line, i) => (
-                    <IngredientRow key={`${i}-${line}`} line={line} ratio={ratio} />
+                  {(recipe?.recipe_ingredients || []).map((ing) => (
+                    <IngredientRow key={ing.id} ingredient={ing} ratio={ratio} />
                   ))}
                 </div>
               )}
