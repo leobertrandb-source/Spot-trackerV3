@@ -45,6 +45,7 @@ function ProgressBar({ weeks, max = 8 }) {
 }
 
 export default function SmartCoachCard({ suggestion, onApply, loading }) {
+  // Responsive géré via flexWrap
 
   // État loading
   if (loading) {
