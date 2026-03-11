@@ -145,25 +145,28 @@ function enrichStep(text, index) {
 // ─── Génération IA des étapes ────────────────────────────────────────────────
 
 async function generateStepsWithAI(recipeName, ingredients) {
-  // Appel via Supabase Edge Function (clé Anthropic sécurisée côté serveur)
-  const { data: { session } } = await supabase.auth.getSession()
-  const token = session?.access_token
+  const supabaseUrl = supabase.supabaseUrl
+  const supabaseKey = supabase.supabaseKey
 
-  const response = await supabase.functions.invoke('generate-recipe-steps', {
-    body: {
+  const res = await fetch(`${supabaseUrl}/functions/v1/generate-recipe-steps`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${supabaseKey}`,
+    },
+    body: JSON.stringify({
       name: recipeName,
       ingredients: ingredients.slice(0, 20),
-    },
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }),
   })
 
-  if (response.error) {
-    console.error('Edge function error:', response.error)
+  if (!res.ok) {
+    console.error('Edge function error:', res.status, await res.text())
     return []
   }
 
-  const steps = response.data?.steps
-  if (Array.isArray(steps)) return steps.map(String).filter(Boolean)
+  const data = await res.json()
+  if (Array.isArray(data.steps)) return data.steps.map(String).filter(Boolean)
 
   return []
 }
