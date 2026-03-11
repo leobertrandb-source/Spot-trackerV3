@@ -266,23 +266,25 @@ whiteSpace: 'nowrap',
 {children}
 </span>
 )
-  export function StatCard({ label, value, icon }) {
+}
+
+export function StatCard({ label, value, icon }) {
 return (
 <div
 style={{
 padding: 18,
 borderRadius: 18,
 border: `1px solid ${T.border}`,
-background: "rgba(255,255,255,0.03)",
-display: "flex",
-flexDirection: "column",
+background: 'rgba(255,255,255,0.03)',
+display: 'flex',
+flexDirection: 'column',
 gap: 8,
 }}
 >
 <div
 style={{
 fontSize: 12,
-textTransform: "uppercase",
+textTransform: 'uppercase',
 letterSpacing: 1,
 color: T.textDim,
 fontWeight: 800,
@@ -301,7 +303,7 @@ color: T.text,
 {value}
 </div>
 
-{icon && (
+{icon ? (
 <div
 style={{
 fontSize: 20,
@@ -310,8 +312,7 @@ opacity: 0.7,
 >
 {icon}
 </div>
-)}
+) : null}
 </div>
 )
-}
 }
