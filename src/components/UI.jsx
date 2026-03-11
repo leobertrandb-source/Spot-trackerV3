@@ -258,45 +258,12 @@ borderRadius: 999,
 background: `${color || T.accent}18`,
 border: `1px solid ${(color || T.accent) + '30'}`,
 color: color || T.accentLight || T.accent,
-fontSize: 11,
+fontSize: 12,
 fontWeight: 800,
+whiteSpace: 'nowrap',
 }}
 >
 {children}
 </span>
-)
-}
-
-export function StatCard({ label, value, accent = false }) {
-return (
-<Card
-style={{
-padding: 16,
-background: accent ? 'rgba(45,255,155,0.06)' : T.card,
-}}
->
-<div
-style={{
-color: T.textSub || T.textDim,
-fontSize: 11,
-fontWeight: 800,
-letterSpacing: 1,
-textTransform: 'uppercase',
-}}
->
-{label}
-</div>
-
-<div
-style={{
-color: accent ? T.accentLight || T.accent : T.text,
-fontSize: 24,
-fontWeight: 900,
-marginTop: 8,
-}}
->
-{value}
-</div>
-</Card>
 )
 }
