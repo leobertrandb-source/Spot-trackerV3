@@ -145,40 +145,25 @@ function enrichStep(text, index) {
 // ─── Génération IA des étapes ────────────────────────────────────────────────
 
 async function generateStepsWithAI(recipeName, ingredients) {
-  const ingredientsText = ingredients.slice(0, 20).join(', ')
+  // Appel via Supabase Edge Function (clé Anthropic sécurisée côté serveur)
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
 
-  const prompt = `Tu es un chef cuisinier expert. Génère les étapes détaillées de préparation pour cette recette.
-
-Recette : ${recipeName}
-Ingrédients : ${ingredientsText}
-
-Réponds UNIQUEMENT avec un tableau JSON d'étapes, sans aucun texte avant ou après. Format exact :
-["Étape 1 détaillée.", "Étape 2 détaillée.", "Étape 3 détaillée."]
-
-Chaque étape doit :
-- Être précise et actionnable (verbe d'action au début)
-- Mentionner les durées quand c'est pertinent (ex: "Faire revenir 5 minutes")
-- Être en français
-- Contenir 1 à 2 phrases maximum`
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
+  const response = await supabase.functions.invoke('generate-recipe-steps', {
+    body: {
+      name: recipeName,
+      ingredients: ingredients.slice(0, 20),
+    },
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
 
-  const data = await response.json()
-  const raw = data.content?.find(b => b.type === 'text')?.text || '[]'
+  if (response.error) {
+    console.error('Edge function error:', response.error)
+    return []
+  }
 
-  try {
-    const clean = raw.replace(/```json|```/g, '').trim()
-    const parsed = JSON.parse(clean)
-    if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean)
-  } catch {}
+  const steps = response.data?.steps
+  if (Array.isArray(steps)) return steps.map(String).filter(Boolean)
 
   return []
 }
