@@ -1,33 +1,38 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { SmartImage, getGoalHomeCandidates, resolveImageUrl } from '../lib/media'
 import { useAuth } from '../components/AuthContext'
-import { PageWrap, Card, Btn, Badge } from '../components/UI'
+import { PageWrap, Card, Btn, Badge, StatCard } from '../components/UI'
 import { T, SEANCE_ICONS } from '../lib/data'
 
 function todayString() {
   return new Date().toISOString().split('T')[0]
 }
 
-function goalLabel(goalType) {
-  const value = String(goalType || '').toLowerCase()
-  if (value.includes('body')) return 'Prise de masse'
-  if (value.includes('perte')) return 'Perte de poids'
-  if (value.includes('athlet')) return 'Performance athlétique'
-  return goalType || 'Objectif non défini'
-}
-
 function formatDate(value) {
   if (!value) return '—'
   try {
-    return new Date(value).toLocaleDateString('fr-FR')
+    return new Date(value).toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
   } catch {
     return String(value)
   }
 }
 
-function sumMacros(logs = []) {
+function goalLabel(goalType) {
+  const value = String(goalType || '').toLowerCase()
+
+  if (value.includes('body')) return 'Prise de masse'
+  if (value.includes('perte')) return 'Perte de poids'
+  if (value.includes('athlet')) return 'Performance athlétique'
+
+  return goalType || 'Objectif non défini'
+}
+
+function sumNutrition(logs = []) {
   return logs.reduce(
     (acc, log) => ({
       calories: acc.calories + Number(log.calories || 0),
@@ -38,6 +43,26 @@ function sumMacros(logs = []) {
     }),
     { calories: 0, proteins: 0, carbs: 0, fats: 0, water: 0 }
   )
+}
+
+function getUiAsset(path) {
+  if (!path) return ''
+  const { data } = supabase.storage.from('ui-assets').getPublicUrl(path)
+  return data?.publicUrl || ''
+}
+
+function getRecipeImage(recipe) {
+  if (!recipe) return ''
+
+  if (recipe.image_url) return recipe.image_url
+
+  if (recipe.image_path) {
+    const bucket = recipe.image_bucket || 'recipe-images'
+    const { data } = supabase.storage.from(bucket).getPublicUrl(recipe.image_path)
+    return data?.publicUrl || ''
+  }
+
+  return ''
 }
 
 function pickSuggestedRecipe(recipes = [], goalType) {
@@ -83,55 +108,43 @@ function pickSuggestedRecipe(recipes = [], goalType) {
   return [...recipes].sort((a, b) => scoreRecipe(b) - scoreRecipe(a))[0]
 }
 
-function VisualCard({ title, candidates, children }) {
+function VisualHero({ title, imageUrl, badge, minHeight = 320, children }) {
   return (
     <Card style={{ padding: 0, overflow: 'hidden' }}>
-      <div style={{ minHeight: 300, position: 'relative' }}>
-        <SmartImage
-          candidates={candidates}
-          alt={title}
-          style={{
-            position: 'absolute',
-            inset: 0,
-          }}
-          imgStyle={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            display: 'block',
-          }}
-          fallback={
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                background:
-                  'linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
-              }}
-            />
-          }
-        />
-
+      <div
+        style={{
+          minHeight,
+          background: imageUrl
+            ? `linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.80)), url("${imageUrl}") center/cover no-repeat`
+            : 'linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
+        }}
+      >
         <div
           style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.82))',
-          }}
-        />
-
-        <div
-          style={{
-            position: 'relative',
-            zIndex: 1,
-            minHeight: 300,
+            minHeight,
             padding: 20,
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
+            background: imageUrl
+              ? 'linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.82))'
+              : 'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.10), transparent 30%)',
           }}
         >
-          {children}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 10,
+              alignItems: 'center',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ color: '#fff', fontWeight: 900, fontSize: 18 }}>{title}</div>
+            {badge || null}
+          </div>
+
+          <div>{children}</div>
         </div>
       </div>
     </Card>
@@ -152,120 +165,111 @@ export default function GoalHomePage() {
 
   const today = useMemo(() => todayString(), [])
 
-  useEffect(() => {
-    let active = true
-
-    async function loadDashboard() {
-      if (!user?.id) {
-        setLoading(false)
-        return
-      }
-
-      setLoading(true)
-      setWarningMessage('')
-
-      const results = await Promise.allSettled([
-        supabase
-          .from('assignments')
-          .select('*, programs(name, seance_type, program_exercises(*))')
-          .eq('athlete_id', user.id)
-          .eq('assigned_date', today)
-          .order('created_at', { ascending: false })
-          .limit(1),
-
-        supabase
-          .from('nutrition_goals')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle(),
-
-        supabase
-          .from('nutrition_logs')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('log_date', today)
-          .order('created_at'),
-
-        supabase
-          .from('sessions')
-          .select('id, date, seance_type, notes')
-          .eq('user_id', user.id)
-          .order('date', { ascending: false })
-          .limit(5),
-
-        supabase
-          .from('recipes')
-          .select('*')
-          .limit(40),
-      ])
-
-      if (!active) return
-
-      const [
-        assignmentRes,
-        goalsRes,
-        logsRes,
-        sessionsRes,
-        recipesRes,
-      ] = results
-
-      let hasAnyError = false
-
-      if (assignmentRes.status === 'fulfilled' && !assignmentRes.value.error) {
-        setTodayAssignment(assignmentRes.value.data?.[0] || null)
-      } else {
-        setTodayAssignment(null)
-        hasAnyError = true
-      }
-
-      if (goalsRes.status === 'fulfilled' && !goalsRes.value.error) {
-        setNutritionGoals(goalsRes.value.data || null)
-      } else {
-        setNutritionGoals(null)
-        hasAnyError = true
-      }
-
-      if (logsRes.status === 'fulfilled' && !logsRes.value.error) {
-        setTodayNutritionLogs(logsRes.value.data || [])
-      } else {
-        setTodayNutritionLogs([])
-        hasAnyError = true
-      }
-
-      if (sessionsRes.status === 'fulfilled' && !sessionsRes.value.error) {
-        setRecentSessions(sessionsRes.value.data || [])
-      } else {
-        setRecentSessions([])
-        hasAnyError = true
-      }
-
-      if (recipesRes.status === 'fulfilled' && !recipesRes.value.error) {
-        setRecipes(recipesRes.value.data || [])
-      } else {
-        setRecipes([])
-        hasAnyError = true
-      }
-
-      if (hasAnyError) {
-        setWarningMessage("Certaines données n'ont pas pu être chargées.")
-      }
-
+  const loadDashboard = useCallback(async () => {
+    if (!user?.id) {
       setLoading(false)
+      return
     }
 
-    loadDashboard()
+    setLoading(true)
+    setWarningMessage('')
 
-    return () => {
-      active = false
+    const results = await Promise.allSettled([
+      supabase
+        .from('assignments')
+        .select('*, programs(name, seance_type, program_exercises(*))')
+        .eq('athlete_id', user.id)
+        .eq('assigned_date', today)
+        .order('created_at', { ascending: false })
+        .limit(1),
+
+      supabase
+        .from('nutrition_goals')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+
+      supabase
+        .from('nutrition_logs')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('log_date', today)
+        .order('created_at'),
+
+      supabase
+        .from('sessions')
+        .select('id, date, seance_type, notes')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false })
+        .limit(8),
+
+      supabase
+        .from('recipes')
+        .select('*')
+        .limit(50),
+    ])
+
+    const [assignmentRes, goalsRes, logsRes, sessionsRes, recipesRes] = results
+    let hasError = false
+
+    if (assignmentRes.status === 'fulfilled' && !assignmentRes.value.error) {
+      setTodayAssignment(assignmentRes.value.data?.[0] || null)
+    } else {
+      setTodayAssignment(null)
+      hasError = true
     }
+
+    if (goalsRes.status === 'fulfilled' && !goalsRes.value.error) {
+      setNutritionGoals(goalsRes.value.data || null)
+    } else {
+      setNutritionGoals(null)
+      hasError = true
+    }
+
+    if (logsRes.status === 'fulfilled' && !logsRes.value.error) {
+      setTodayNutritionLogs(logsRes.value.data || [])
+    } else {
+      setTodayNutritionLogs([])
+      hasError = true
+    }
+
+    if (sessionsRes.status === 'fulfilled' && !sessionsRes.value.error) {
+      setRecentSessions(sessionsRes.value.data || [])
+    } else {
+      setRecentSessions([])
+      hasError = true
+    }
+
+    if (recipesRes.status === 'fulfilled' && !recipesRes.value.error) {
+      setRecipes(recipesRes.value.data || [])
+    } else {
+      setRecipes([])
+      hasError = true
+    }
+
+    if (hasError) {
+      setWarningMessage("Certaines données n'ont pas pu être chargées.")
+    }
+
+    setLoading(false)
   }, [user?.id, today])
 
-  const nutritionTotals = useMemo(() => sumMacros(todayNutritionLogs), [todayNutritionLogs])
+  useEffect(() => {
+    loadDashboard()
+  }, [loadDashboard])
+
+  const nutritionTotals = useMemo(
+    () => sumNutrition(todayNutritionLogs),
+    [todayNutritionLogs]
+  )
 
   const nutritionSummary = useMemo(() => {
     const goals = nutritionGoals || {}
     return {
       caloriesGoal: Number(goals.calories || goals.calories_target || 0) || 0,
+      proteinsGoal: Number(goals.proteins || goals.protein_target || 0) || 0,
+      carbsGoal: Number(goals.carbs || goals.carbs_target || 0) || 0,
+      fatsGoal: Number(goals.fats || goals.fats_target || 0) || 0,
     }
   }, [nutritionGoals])
 
@@ -286,28 +290,47 @@ export default function GoalHomePage() {
     [recipes, profile?.goal_type]
   )
 
-  const suggestedRecipeImage = useMemo(() => {
-    if (!suggestedRecipe) return ''
-    return resolveImageUrl({
-      imageUrl: suggestedRecipe.image_url,
-      imagePath: suggestedRecipe.image_path,
-      imageBucket: suggestedRecipe.image_bucket || 'recipe-images',
-    })
-  }, [suggestedRecipe])
+  const suggestedRecipeImage = useMemo(
+    () => getRecipeImage(suggestedRecipe),
+    [suggestedRecipe]
+  )
 
-  const workoutCandidates = useMemo(() => getGoalHomeCandidates('workout'), [])
-  const nutritionCandidates = useMemo(() => getGoalHomeCandidates('nutrition'), [])
-  const progressCandidates = useMemo(() => getGoalHomeCandidates('progress'), [])
+  const workoutImage = useMemo(() => getUiAsset('goalHome/workout.jpg'), [])
+  const nutritionImage = useMemo(() => getUiAsset('goalHome/nutrition.jpg'), [])
+  const progressImage = useMemo(() => getUiAsset('goalHome/progress.jpg'), [])
 
   const nutritionCompletion = useMemo(() => {
     const goal = nutritionSummary.caloriesGoal || 0
     if (!goal) return 0
-    return Math.min(100, Math.round((nutritionTotals.calories / goal) * 100))
+    return Math.max(0, Math.min(100, Math.round((nutritionTotals.calories / goal) * 100)))
   }, [nutritionTotals.calories, nutritionSummary.caloriesGoal])
+
+  const lastSession = recentSessions[0] || null
+
+  const progressionInsight = useMemo(() => {
+    if (!recentSessions.length) {
+      return {
+        title: 'Aucune séance récente',
+        subtitle: 'Commence une séance pour faire vivre ton suivi.',
+      }
+    }
+
+    if (recentSessions.length === 1) {
+      return {
+        title: 'Une séance récente enregistrée',
+        subtitle: `Dernière activité le ${formatDate(recentSessions[0].date)}.`,
+      }
+    }
+
+    return {
+      title: `${recentSessions.length} séances récentes`,
+      subtitle: `Dernière séance le ${formatDate(recentSessions[0].date)}.`,
+    }
+  }, [recentSessions])
 
   return (
     <PageWrap>
-      <div style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gap: 18 }}>
+      <div style={{ display: 'grid', gap: 18 }}>
         <Card
           glow
           style={{
@@ -339,7 +362,7 @@ export default function GoalHomePage() {
               color: T.text,
               fontFamily: T.fontDisplay,
               fontWeight: 900,
-              fontSize: 30,
+              fontSize: 32,
               lineHeight: 1,
             }}
           >
@@ -387,191 +410,242 @@ export default function GoalHomePage() {
                 gap: 12,
               }}
             >
-              <Card style={{ padding: 18 }}>
-                <div style={{ color: T.textSub, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>
-                  Objectif actuel
-                </div>
-                <div style={{ color: T.text, fontWeight: 900, fontSize: 22, marginTop: 8 }}>
-                  {goalLabel(profile?.goal_type)}
-                </div>
-              </Card>
+              <StatCard
+                label="Objectif actuel"
+                value={goalLabel(profile?.goal_type)}
+                icon="🎯"
+                accent
+              />
 
-              <Card style={{ padding: 18 }}>
-                <div style={{ color: T.textSub, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>
-                  Séance aujourd'hui
-                </div>
-                <div style={{ color: T.text, fontWeight: 900, fontSize: 22, marginTop: 8 }}>
-                  {sessionSummary.exists ? 'Oui' : 'Libre'}
-                </div>
-              </Card>
+              <StatCard
+                label="Séance aujourd'hui"
+                value={sessionSummary.exists ? sessionSummary.name || 'Oui' : 'Libre'}
+                icon={SEANCE_ICONS[sessionSummary.type] || '🏋️'}
+              />
 
-              <Card style={{ padding: 18 }}>
-                <div style={{ color: T.textSub, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>
-                  Calories du jour
-                </div>
-                <div style={{ color: T.text, fontWeight: 900, fontSize: 22, marginTop: 8 }}>
-                  {Math.round(nutritionTotals.calories)} kcal
-                </div>
-              </Card>
+              <StatCard
+                label="Calories du jour"
+                value={`${Math.round(nutritionTotals.calories)} kcal`}
+                icon="🔥"
+              />
 
-              <Card style={{ padding: 18 }}>
-                <div style={{ color: T.textSub, fontSize: 11, fontWeight: 800, textTransform: 'uppercase' }}>
-                  Dernière séance
-                </div>
-                <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginTop: 8 }}>
-                  {recentSessions[0] ? formatDate(recentSessions[0].date) : 'Aucune'}
-                </div>
-              </Card>
+              <StatCard
+                label="Dernière séance"
+                value={lastSession ? formatDate(lastSession.date) : 'Aucune'}
+                icon="📈"
+              />
             </div>
 
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1.2fr) minmax(320px, 0.85fr)',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
                 gap: 18,
               }}
             >
-              <VisualCard title="Séance du jour" candidates={workoutCandidates}>
-                <div style={{ color: '#fff', fontWeight: 900, fontSize: 18 }}>
-                  Séance du jour
-                </div>
-
-                <div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
-                    {sessionSummary.type ? (
-                      <Badge>
-                        {(SEANCE_ICONS[sessionSummary.type] || '💪') + ' ' + sessionSummary.type}
-                      </Badge>
-                    ) : (
-                      <Badge color={T.blue || '#5BA7FF'}>Séance libre</Badge>
-                    )}
-                  </div>
-
-                  <div style={{ color: '#fff', fontWeight: 900, fontSize: 28, lineHeight: 1.05 }}>
-                    {sessionSummary.exists ? sessionSummary.name : 'Aucun programme assigné'}
-                  </div>
-
-                  <div
-                    style={{
-                      color: 'rgba(255,255,255,0.86)',
-                      fontSize: 14,
-                      lineHeight: 1.65,
-                      marginTop: 10,
-                    }}
-                  >
-                    {sessionSummary.exists
-                      ? `${sessionSummary.exerciseCount} exercice${sessionSummary.exerciseCount > 1 ? 's' : ''} prévu${sessionSummary.exerciseCount > 1 ? 's' : ''} aujourd’hui.`
-                      : 'Tu peux lancer une séance libre et enregistrer ton entraînement.'}
-                  </div>
-
-                  <div style={{ marginTop: 16 }}>
-                    <Link to={sessionSummary.exists ? '/entrainement/aujourdhui' : '/entrainement/libre'} style={{ textDecoration: 'none' }}>
-                      <Btn>{sessionSummary.exists ? 'Commencer la séance' : 'Démarrer une séance libre'}</Btn>
-                    </Link>
-                  </div>
-                </div>
-              </VisualCard>
-
-              <VisualCard title="Nutrition du jour" candidates={nutritionCandidates}>
-                <div style={{ color: '#fff', fontWeight: 900, fontSize: 18 }}>
-                  Nutrition du jour
-                </div>
-
-                <div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <VisualHero
+                title="Séance du jour"
+                imageUrl={workoutImage}
+                badge={
+                  sessionSummary.type ? (
                     <Badge>
-                      {Math.round(nutritionTotals.calories)} / {Math.round(nutritionSummary.caloriesGoal || 0)} kcal
+                      {(SEANCE_ICONS[sessionSummary.type] || '💪') + ' ' + sessionSummary.type}
                     </Badge>
-                    <Badge color={T.blue || '#5BA7FF'}>{nutritionCompletion}% atteint</Badge>
-                  </div>
-
-                  <div
-                    style={{
-                      height: 10,
-                      borderRadius: 999,
-                      background: 'rgba(255,255,255,0.14)',
-                      overflow: 'hidden',
-                      marginTop: 14,
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: '100%',
-                        width: `${nutritionCompletion}%`,
-                        background: T.accent,
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ marginTop: 16 }}>
-                    <Link to="/nutrition/macros" style={{ textDecoration: 'none' }}>
-                      <Btn variant="secondary">Voir la nutrition</Btn>
-                    </Link>
-                  </div>
+                  ) : (
+                    <Badge color={T.blue || '#5BA7FF'}>Séance libre</Badge>
+                  )
+                }
+              >
+                <div style={{ color: '#fff', fontWeight: 900, fontSize: 28, lineHeight: 1.05 }}>
+                  {sessionSummary.exists ? sessionSummary.name : 'Aucun programme assigné'}
                 </div>
-              </VisualCard>
-            </div>
 
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
-                gap: 18,
-              }}
-            >
-              <Card style={{ padding: 0, overflow: 'hidden' }}>
                 <div
                   style={{
-                    minHeight: 360,
-                    background: suggestedRecipeImage
-                      ? `linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.78)), url("${suggestedRecipeImage}") center/cover no-repeat`
-                      : 'linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
+                    color: 'rgba(255,255,255,0.86)',
+                    fontSize: 14,
+                    lineHeight: 1.65,
+                    marginTop: 10,
+                    maxWidth: 560,
+                  }}
+                >
+                  {sessionSummary.exists
+                    ? `${sessionSummary.exerciseCount} exercice${sessionSummary.exerciseCount > 1 ? 's' : ''} prévus aujourd’hui avec suivi intelligent.`
+                    : 'Aucun programme prévu aujourd’hui. Tu peux lancer une séance libre avec le coach intelligent actif sur tes exercices.'}
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
+                  <Link
+                    to={sessionSummary.exists ? '/entrainement/aujourdhui' : '/entrainement/libre'}
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <Btn>
+                      {sessionSummary.exists ? 'Commencer la séance' : 'Démarrer une séance libre'}
+                    </Btn>
+                  </Link>
+
+                  <Link to="/progression" style={{ textDecoration: 'none' }}>
+                    <Btn variant="secondary">Voir ma progression</Btn>
+                  </Link>
+                </div>
+              </VisualHero>
+
+              <VisualHero
+                title="Nutrition du jour"
+                imageUrl={nutritionImage}
+                badge={<Badge color={T.blue || '#5BA7FF'}>{nutritionCompletion}% atteint</Badge>}
+              >
+                <div style={{ color: '#fff', fontWeight: 900, fontSize: 28, lineHeight: 1.05 }}>
+                  {Math.round(nutritionTotals.calories)} / {Math.round(nutritionSummary.caloriesGoal || 0)} kcal
+                </div>
+
+                <div
+                  style={{
+                    height: 10,
+                    borderRadius: 999,
+                    background: 'rgba(255,255,255,0.14)',
+                    overflow: 'hidden',
+                    marginTop: 14,
+                    maxWidth: 420,
                   }}
                 >
                   <div
                     style={{
-                      minHeight: 360,
-                      padding: 20,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      background: suggestedRecipeImage
-                        ? 'linear-gradient(180deg, rgba(0,0,0,0.10), rgba(0,0,0,0.80))'
-                        : 'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.10), transparent 30%)',
+                      height: '100%',
+                      width: `${nutritionCompletion}%`,
+                      background: T.accent,
                     }}
-                  >
-                    <div style={{ color: '#fff', fontWeight: 900, fontSize: 18 }}>
-                      Recette suggérée du jour
-                    </div>
-
-                    <div>
-                      <div style={{ color: '#fff', fontWeight: 900, fontSize: 28, lineHeight: 1.05 }}>
-                        {suggestedRecipe?.title || suggestedRecipe?.name || 'Aucune recette'}
-                      </div>
-
-                      <div style={{ marginTop: 16 }}>
-                        <Link to="/nutrition/recettes" style={{ textDecoration: 'none' }}>
-                          <Btn variant="secondary">Voir les recettes</Btn>
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-
-              <VisualCard title="Progression rapide" candidates={progressCandidates}>
-                <div style={{ color: '#fff', fontWeight: 900, fontSize: 18 }}>
-                  Progression rapide
+                  />
                 </div>
 
-                <div>
-                  <div style={{ marginTop: 16 }}>
-                    <Link to="/progression" style={{ textDecoration: 'none' }}>
-                      <Btn variant="secondary">Voir ma progression</Btn>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+                  <Badge>{Math.round(nutritionTotals.proteins)} g prot</Badge>
+                  <Badge color={T.blue || '#5BA7FF'}>{Math.round(nutritionTotals.carbs)} g gluc</Badge>
+                  <Badge color={T.orange || '#FFB454'}>{Math.round(nutritionTotals.fats)} g lip</Badge>
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
+                  <Link to="/nutrition/macros" style={{ textDecoration: 'none' }}>
+                    <Btn>Voir la nutrition</Btn>
+                  </Link>
+
+                  <Link to="/nutrition/plan" style={{ textDecoration: 'none' }}>
+                    <Btn variant="secondary">Plan repas</Btn>
+                  </Link>
+                </div>
+              </VisualHero>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gap: 18,
+              }}
+            >
+              <VisualHero
+                title="Recette suggérée du jour"
+                imageUrl={suggestedRecipeImage}
+                badge={suggestedRecipe?.calories ? <Badge>{suggestedRecipe.calories} kcal</Badge> : null}
+                minHeight={340}
+              >
+                <div style={{ color: '#fff', fontWeight: 900, fontSize: 28, lineHeight: 1.05 }}>
+                  {suggestedRecipe?.title || suggestedRecipe?.name || 'Aucune recette disponible'}
+                </div>
+
+                <div
+                  style={{
+                    color: 'rgba(255,255,255,0.86)',
+                    fontSize: 14,
+                    lineHeight: 1.65,
+                    marginTop: 10,
+                    maxWidth: 560,
+                  }}
+                >
+                  {suggestedRecipe?.description ||
+                    'Une suggestion adaptée à ton objectif pour nourrir ta progression.'}
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
+                  <Link to="/nutrition/recettes" style={{ textDecoration: 'none' }}>
+                    <Btn>Voir les recettes</Btn>
+                  </Link>
+
+                  {suggestedRecipe?.id ? (
+                    <Link
+                      to={`/nutrition/recette/${suggestedRecipe.id}`}
+                      style={{ textDecoration: 'none' }}
+                    >
+                      <Btn variant="secondary">Ouvrir</Btn>
                     </Link>
-                  </div>
+                  ) : null}
                 </div>
-              </VisualCard>
+              </VisualHero>
+
+              <VisualHero
+                title="Progression rapide"
+                imageUrl={progressImage}
+                badge={<Badge color={T.orange || '#FFB454'}>{recentSessions.length} séances</Badge>}
+                minHeight={340}
+              >
+                <div style={{ color: '#fff', fontWeight: 900, fontSize: 24, lineHeight: 1.1 }}>
+                  {progressionInsight.title}
+                </div>
+
+                <div
+                  style={{
+                    color: 'rgba(255,255,255,0.82)',
+                    fontSize: 14,
+                    lineHeight: 1.65,
+                    marginTop: 10,
+                  }}
+                >
+                  {progressionInsight.subtitle}
+                </div>
+
+                {recentSessions.length ? (
+                  <div style={{ display: 'grid', gap: 8, marginTop: 16 }}>
+                    {recentSessions.slice(0, 3).map((session) => (
+                      <div
+                        key={session.id}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: 14,
+                          background: 'rgba(255,255,255,0.08)',
+                          border: '1px solid rgba(255,255,255,0.12)',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          gap: 10,
+                          alignItems: 'center',
+                        }}
+                      >
+                        <div>
+                          <div style={{ color: '#fff', fontWeight: 800, fontSize: 14 }}>
+                            {session.seance_type || 'Séance'}
+                          </div>
+                          <div style={{ color: 'rgba(255,255,255,0.70)', fontSize: 12, marginTop: 4 }}>
+                            {formatDate(session.date)}
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: 18 }}>
+                          {SEANCE_ICONS[session.seance_type] || '💪'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
+                  <Link to="/progression" style={{ textDecoration: 'none' }}>
+                    <Btn>Voir ma progression</Btn>
+                  </Link>
+
+                  <Link to="/entrainement/libre" style={{ textDecoration: 'none' }}>
+                    <Btn variant="secondary">Nouvelle séance</Btn>
+                  </Link>
+                </div>
+              </VisualHero>
             </div>
           </>
         )}
