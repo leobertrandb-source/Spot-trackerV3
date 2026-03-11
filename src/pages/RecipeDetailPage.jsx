@@ -14,18 +14,26 @@ function toNumber(value) {
   return Number.isFinite(n) ? n : 0
 }
 
-function scaleValue(value, ratio) {
-  return Math.round(toNumber(value) * ratio * 10) / 10
+function roundSmart(value) {
+  if (!Number.isFinite(value)) return 0
+  if (value >= 100) return Math.round(value)
+  if (value >= 10) return Math.round(value * 10) / 10
+  return Math.round(value * 100) / 100
 }
 
 function normalizeLines(value) {
   if (!value) return []
-  if (Array.isArray(value)) return value
+
+  if (Array.isArray(value)) {
+    return value.map((line) => String(line).trim()).filter(Boolean)
+  }
 
   if (typeof value === 'string') {
     try {
       const parsed = JSON.parse(value)
-      if (Array.isArray(parsed)) return parsed
+      if (Array.isArray(parsed)) {
+        return parsed.map((line) => String(line).trim()).filter(Boolean)
+      }
     } catch {}
 
     return value
@@ -35,6 +43,18 @@ function normalizeLines(value) {
   }
 
   return []
+}
+
+function scaleIngredientLine(line, ratio) {
+  if (!line || !Number.isFinite(ratio) || ratio <= 0 || ratio === 1) {
+    return String(line || '')
+  }
+
+  return String(line).replace(/\d+([.,]\d+)?/g, (match) => {
+    const numeric = Number(match.replace(',', '.'))
+    if (!Number.isFinite(numeric)) return match
+    return String(roundSmart(numeric * ratio)).replace('.', ',')
+  })
 }
 
 export default function RecipeDetailPage() {
@@ -48,7 +68,10 @@ export default function RecipeDetailPage() {
   const [savingNutrition, setSavingNutrition] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+
+  const [portionMode, setPortionMode] = useState('portions')
   const [portions, setPortions] = useState('1')
+  const [targetCalories, setTargetCalories] = useState('')
   const [mealSlot, setMealSlot] = useState(MEAL_SLOTS[1])
 
   useEffect(() => {
@@ -78,18 +101,33 @@ export default function RecipeDetailPage() {
       setLoading(false)
     }
 
-    if (id) loadRecipe()
-    else setLoading(false)
+    if (id) {
+      loadRecipe()
+    } else {
+      setLoading(false)
+    }
 
     return () => {
       active = false
     }
   }, [id])
 
+  const baseCalories = useMemo(() => {
+    return toNumber(recipe?.calories)
+  }, [recipe])
+
   const ratio = useMemo(() => {
-    const p = Math.max(0.1, toNumber(portions) || 1)
-    return p
-  }, [portions])
+    if (!recipe) return 1
+
+    if (portionMode === 'calories') {
+      const target = toNumber(targetCalories)
+      if (!target || !baseCalories) return 1
+      return target / baseCalories
+    }
+
+    const p = toNumber(portions)
+    return p > 0 ? p : 1
+  }, [recipe, portionMode, portions, targetCalories, baseCalories])
 
   const scaled = useMemo(() => {
     if (!recipe) {
@@ -97,12 +135,16 @@ export default function RecipeDetailPage() {
     }
 
     return {
-      calories: scaleValue(recipe.calories, ratio),
-      proteins: scaleValue(recipe.proteins || recipe.protein, ratio),
-      carbs: scaleValue(recipe.carbs, ratio),
-      fats: scaleValue(recipe.fats || recipe.fat, ratio),
+      calories: roundSmart(toNumber(recipe.calories) * ratio),
+      proteins: roundSmart(toNumber(recipe.proteins || recipe.protein) * ratio),
+      carbs: roundSmart(toNumber(recipe.carbs) * ratio),
+      fats: roundSmart(toNumber(recipe.fats || recipe.fat) * ratio),
     }
   }, [recipe, ratio])
+
+  const displayPortions = useMemo(() => {
+    return roundSmart(ratio)
+  }, [ratio])
 
   const heroImage = useMemo(() => {
     return resolveImageUrl({
@@ -112,11 +154,14 @@ export default function RecipeDetailPage() {
     })
   }, [recipe])
 
-  const ingredients = useMemo(() => normalizeLines(recipe?.ingredients), [recipe])
-  const instructions = useMemo(
-    () => normalizeLines(recipe?.instructions || recipe?.steps),
-    [recipe]
-  )
+  const ingredients = useMemo(() => {
+    const lines = normalizeLines(recipe?.ingredients)
+    return lines.map((line) => scaleIngredientLine(line, ratio))
+  }, [recipe, ratio])
+
+  const instructions = useMemo(() => {
+    return normalizeLines(recipe?.instructions || recipe?.steps)
+  }, [recipe])
 
   async function addToMealPlan() {
     if (!user?.id || !recipe?.id) return
@@ -134,6 +179,7 @@ export default function RecipeDetailPage() {
       })
 
       if (error) throw error
+
       setSuccessMessage('Recette ajoutée au plan repas.')
     } catch (error) {
       console.error(error)
@@ -154,15 +200,17 @@ export default function RecipeDetailPage() {
       const { error } = await supabase.from('nutrition_logs').insert({
         user_id: user.id,
         log_date: today,
-        meal_name: recipe.title || recipe.name || 'Recette',
-        calories: Math.round(scaled.calories),
-        proteins: scaled.proteins,
-        carbs: scaled.carbs,
-        fats: scaled.fats,
+        meal_name:
+          recipe.title || recipe.name || `Recette x${displayPortions}`,
+        calories: roundSmart(scaled.calories),
+        proteins: roundSmart(scaled.proteins),
+        carbs: roundSmart(scaled.carbs),
+        fats: roundSmart(scaled.fats),
         water: 0,
       })
 
       if (error) throw error
+
       setSuccessMessage("Recette ajoutée à la nutrition du jour.")
     } catch (error) {
       console.error(error)
@@ -176,7 +224,9 @@ export default function RecipeDetailPage() {
     return (
       <PageWrap>
         <Card style={{ padding: 20 }}>
-          <div style={{ color: T.textDim, fontSize: 14 }}>Chargement de la recette...</div>
+          <div style={{ color: T.textDim, fontSize: 14 }}>
+            Chargement de la recette...
+          </div>
         </Card>
       </PageWrap>
     )
@@ -190,7 +240,9 @@ export default function RecipeDetailPage() {
             Recette introuvable
           </div>
           <div style={{ marginTop: 12 }}>
-            <Btn onClick={() => navigate('/nutrition/recettes')}>Retour aux recettes</Btn>
+            <Btn onClick={() => navigate('/nutrition/recettes')}>
+              Retour aux recettes
+            </Btn>
           </div>
         </Card>
       </PageWrap>
@@ -256,7 +308,12 @@ export default function RecipeDetailPage() {
                 Retour
               </Btn>
 
-              <Badge>{Math.round(scaled.calories)} kcal</Badge>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <Badge>{roundSmart(scaled.calories)} kcal</Badge>
+                <Badge color={T.blue || '#5BA7FF'}>
+                  {displayPortions} portion{displayPortions > 1 ? 's' : ''}
+                </Badge>
+              </div>
             </div>
 
             <div>
@@ -287,9 +344,9 @@ export default function RecipeDetailPage() {
               ) : null}
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 18 }}>
-                <Badge>P {scaled.proteins}g</Badge>
-                <Badge color={T.blue || '#5BA7FF'}>C {scaled.carbs}g</Badge>
-                <Badge color={T.orange || '#FFB454'}>F {scaled.fats}g</Badge>
+                <Badge>P {roundSmart(scaled.proteins)}g</Badge>
+                <Badge color={T.blue || '#5BA7FF'}>C {roundSmart(scaled.carbs)}g</Badge>
+                <Badge color={T.orange || '#FFB454'}>F {roundSmart(scaled.fats)}g</Badge>
               </div>
             </div>
           </div>
@@ -306,33 +363,95 @@ export default function RecipeDetailPage() {
           <div style={{ display: 'grid', gap: 18 }}>
             <Card style={{ padding: 20 }}>
               <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 14 }}>
-                Détails
+                Recalibrer la recette
               </div>
 
-              <Input
-                label="Nombre de portions"
-                value={portions}
-                onChange={setPortions}
-                type="number"
-                min="0.1"
-                step="0.1"
-              />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                <button
+                  type="button"
+                  onClick={() => setPortionMode('portions')}
+                  style={{
+                    height: 38,
+                    padding: '0 14px',
+                    borderRadius: 999,
+                    border: `1px solid ${portionMode === 'portions' ? T.accent + '40' : T.border}`,
+                    background:
+                      portionMode === 'portions'
+                        ? 'rgba(45,255,155,0.10)'
+                        : 'rgba(255,255,255,0.03)',
+                    color: portionMode === 'portions' ? T.accentLight : T.textMid,
+                    cursor: 'pointer',
+                    fontWeight: 800,
+                    fontSize: 12,
+                  }}
+                >
+                  Par portions
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPortionMode('calories')}
+                  style={{
+                    height: 38,
+                    padding: '0 14px',
+                    borderRadius: 999,
+                    border: `1px solid ${portionMode === 'calories' ? T.accent + '40' : T.border}`,
+                    background:
+                      portionMode === 'calories'
+                        ? 'rgba(45,255,155,0.10)'
+                        : 'rgba(255,255,255,0.03)',
+                    color: portionMode === 'calories' ? T.accentLight : T.textMid,
+                    cursor: 'pointer',
+                    fontWeight: 800,
+                    fontSize: 12,
+                  }}
+                >
+                  Par calories
+                </button>
+              </div>
+
+              {portionMode === 'portions' ? (
+                <Input
+                  label="Nombre de portions"
+                  value={portions}
+                  onChange={setPortions}
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                />
+              ) : (
+                <Input
+                  label="Objectif calorique"
+                  value={targetCalories}
+                  onChange={setTargetCalories}
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder={`Ex : ${baseCalories || 500}`}
+                />
+              )}
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
-                <Badge>{Math.round(scaled.calories)} kcal</Badge>
-                <Badge color={T.blue || '#5BA7FF'}>{scaled.proteins} g protéines</Badge>
-                <Badge color={T.orange || '#FFB454'}>{scaled.carbs} g glucides</Badge>
-                <Badge>{scaled.fats} g lipides</Badge>
+                <Badge>{roundSmart(scaled.calories)} kcal</Badge>
+                <Badge color={T.blue || '#5BA7FF'}>
+                  {roundSmart(scaled.proteins)} g protéines
+                </Badge>
+                <Badge color={T.orange || '#FFB454'}>
+                  {roundSmart(scaled.carbs)} g glucides
+                </Badge>
+                <Badge>{roundSmart(scaled.fats)} g lipides</Badge>
               </div>
             </Card>
 
             <Card style={{ padding: 20 }}>
               <div style={{ color: T.text, fontWeight: 900, fontSize: 18, marginBottom: 14 }}>
-                Ingrédients
+                Ingrédients recalculés
               </div>
 
               {ingredients.length === 0 ? (
-                <div style={{ color: T.textDim, fontSize: 14 }}>Aucun ingrédient renseigné.</div>
+                <div style={{ color: T.textDim, fontSize: 14 }}>
+                  Aucun ingrédient renseigné.
+                </div>
               ) : (
                 <div style={{ display: 'grid', gap: 10 }}>
                   {ingredients.map((line, index) => (
@@ -361,7 +480,9 @@ export default function RecipeDetailPage() {
               </div>
 
               {instructions.length === 0 ? (
-                <div style={{ color: T.textDim, fontSize: 14 }}>Aucune étape renseignée.</div>
+                <div style={{ color: T.textDim, fontSize: 14 }}>
+                  Aucune étape renseignée.
+                </div>
               ) : (
                 <div style={{ display: 'grid', gap: 12 }}>
                   {instructions.map((step, index) => (
