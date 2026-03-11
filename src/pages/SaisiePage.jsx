@@ -3,6 +3,8 @@ import { supabase } from "../lib/supabase"
 import { PageWrap, Card, Btn, Input, Badge } from "../components/UI"
 import { useAuth } from "../components/AuthContext"
 import { T } from "../lib/data"
+import { computeSmartProgression } from "../lib/smartProgressionEngine"
+import SmartCoachCard from "../components/SmartCoachCard"
 
 function roundWeight(v) {
   return Math.round(v * 2) / 2
@@ -70,16 +72,32 @@ export default function SaisiePage() {
 
   async function loadHistory(exercise){
 
-    const { data } = await supabase
-      .from("sets")
-      .select("*")
-      .eq("exercise",exercise)
-      .order("created_at",{ascending:false})
-      .limit(1)
+    // Récupère les sessions des 8 dernières semaines
+    const { data: sessionsData } = await supabase
+      .from("sessions")
+      .select("id, date")
+      .eq("user_id", user.id)
+      .order("date", { ascending: false })
+      .limit(60)
 
-    const last = data?.[0]
+    const sessionIds = (sessionsData || []).map(s => s.id).filter(Boolean)
+    const sessionDateById = new Map((sessionsData || []).map(s => [s.id, s.date]))
 
-    setSuggestion(computeSuggestion(last))
+    let history = []
+
+    if (sessionIds.length > 0) {
+      const { data: setsData } = await supabase
+        .from("sets")
+        .select("session_id, exercise, reps, weight, rpe, set_order")
+        .eq("exercise", exercise)
+        .in("session_id", sessionIds)
+
+      history = (setsData || [])
+        .map(s => ({ ...s, session_date: sessionDateById.get(s.session_id) || "" }))
+        .sort((a, b) => String(b.session_date).localeCompare(String(a.session_date)))
+    }
+
+    setSuggestion(computeSmartProgression(history, 10))
 
   }
 
@@ -227,33 +245,13 @@ export default function SaisiePage() {
               {selected.name}
             </div>
 
-            {suggestion && (
-
-              <div
-                style={{
-                  marginTop:12,
-                  padding:12,
-                  borderRadius:12,
-                  background:"rgba(45,255,155,0.08)",
-                  border:`1px solid ${T.accent}`
-                }}
-              >
-
-                <div style={{fontWeight:800}}>
-                  Coach intelligent
-                </div>
-
-                <div style={{marginTop:4}}>
-                  Suggestion : {suggestion.weight} kg × {suggestion.reps}
-                </div>
-
-                <div style={{fontSize:12,color:T.textDim}}>
-                  {suggestion.reason}
-                </div>
-
-              </div>
-
-            )}
+            <SmartCoachCard
+              suggestion={suggestion}
+              loading={false}
+              onApply={suggestion ? () => {
+                if(sets.length === 0) setSets([{ weight: String(suggestion.weight), reps: String(suggestion.reps), rpe: "" }])
+              } : null}
+            />
 
             <div style={{marginTop:16,display:"grid",gap:10}}>
 
