@@ -153,6 +153,12 @@ export default function SaisiePage() {
   return (
 
     <PageWrap>
+      <style>{`
+        .saisie-set-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+        @media (max-width: 480px) {
+          .saisie-set-row { grid-template-columns: 1fr 1fr; }
+        }
+      `}</style>
 
       <div style={{maxWidth:900,margin:"auto",display:"grid",gap:18}}>
 
@@ -262,7 +268,8 @@ export default function SaisiePage() {
                   style={{
                     display:"grid",
                     gridTemplateColumns:"1fr 1fr 1fr",
-                    gap:8
+                    gap:8,
+                    minWidth:0
                   }}
                 >
 
