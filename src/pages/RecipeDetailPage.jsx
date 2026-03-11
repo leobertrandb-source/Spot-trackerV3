@@ -171,6 +171,15 @@ async function generateStepsWithAI(recipeName, ingredients) {
   return []
 }
 
+async function saveStepsToRecipe(recipeId, steps) {
+  if (!recipeId || !steps.length) return
+  const { error } = await supabase
+    .from('recipes')
+    .update({ instructions: JSON.stringify(steps) })
+    .eq('id', recipeId)
+  if (error) console.error('Erreur sauvegarde étapes :', error)
+}
+
 // ─── Sous-composants ─────────────────────────────────────────────────────────
 
 function MacroPill({ label, value, color }) {
@@ -404,6 +413,10 @@ export default function RecipeDetailPage() {
       const name = recipe?.title || recipe?.name || 'Recette'
       const steps = await generateStepsWithAI(name, rawIngredients)
       if (steps.length > 0) {
+        // Sauvegarde dans Supabase — une seule fois pour tous les utilisateurs
+        await saveStepsToRecipe(recipe.id, steps)
+        // Met à jour l'état local
+        setRecipe(prev => ({ ...prev, instructions: JSON.stringify(steps) }))
         setAiSteps(steps)
         setAiGenerated(true)
       }
@@ -678,7 +691,7 @@ export default function RecipeDetailPage() {
                 </div>
 
                 {/* Bouton génération IA */}
-                {(!hasInstructions || aiGenerated) && (
+                {(!hasInstructions && !aiGenerated) && (
                   <button
                     type="button"
                     onClick={handleGenerateSteps}
