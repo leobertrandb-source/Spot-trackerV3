@@ -5,6 +5,8 @@ import { useAuth } from '../components/AuthContext'
 import { useDirty } from '../components/DirtyContext'
 import { PageWrap, Card, Btn, Badge, Input } from '../components/UI'
 import { SEANCE_ICONS, T } from '../lib/data'
+import { computeSmartProgression } from '../lib/smartProgressionEngine'
+import SmartCoachCard from '../components/SmartCoachCard'
 
 function todayString() {
   return new Date().toISOString().split('T')[0]
@@ -103,7 +105,7 @@ async function getExerciseHistory(userId, exercise) {
     .select('id, date')
     .eq('user_id', userId)
     .order('date', { ascending: false })
-    .limit(20)
+    .limit(60) // ~8 semaines pour l'analyse smart
 
   if (sessionsError) {
     console.error('Erreur sessions historique :', sessionsError)
@@ -164,8 +166,8 @@ function SessionExerciseCard({
         const history = await getExerciseHistory(userId, item.exercise)
         if (!active) return
 
-        const repTarget = Number(item.reps_target || 8) || 8
-        const next = computeProgression(history, repTarget)
+        const repTarget = Number(item.reps_target || 10) || 10
+        const next = computeSmartProgression(history, repTarget)
         setSuggestion(next)
       } catch (error) {
         console.error('Erreur suggestion progression :', error)
@@ -359,96 +361,11 @@ function SessionExerciseCard({
         ))}
       </div>
 
-      <div
-        style={{
-          marginTop: 14,
-          padding: 14,
-          borderRadius: 16,
-          border: `1px solid ${T.accent + '28'}`,
-          background: 'rgba(45,255,155,0.08)',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            gap: 10,
-            alignItems: 'center',
-            flexWrap: 'wrap',
-          }}
-        >
-          <div
-            style={{
-              color: T.text,
-              fontWeight: 900,
-              fontSize: 14,
-            }}
-          >
-            Coach intelligent
-          </div>
-
-          {suggestion ? (
-            <button
-              type="button"
-              onClick={() => onApplySuggestion(index, suggestion)}
-              style={{
-                height: 34,
-                borderRadius: 10,
-                border: `1px solid ${T.accent + '36'}`,
-                background: 'rgba(255,255,255,0.05)',
-                color: T.accentLight,
-                cursor: 'pointer',
-                padding: '0 10px',
-                fontWeight: 800,
-                fontSize: 12,
-              }}
-            >
-              Appliquer aux séries vides
-            </button>
-          ) : null}
-        </div>
-
-        {historyLoading ? (
-          <div style={{ color: T.textDim, fontSize: 13, marginTop: 8 }}>
-            Analyse de l’historique...
-          </div>
-        ) : suggestion ? (
-          <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Badge color={T.blue || '#5BA7FF'}>
-                Dernier set : {formatWeight(suggestion.lastWeight)} kg × {suggestion.lastReps} reps
-              </Badge>
-              {suggestion.lastRpe ? (
-                <Badge color={T.orange || '#FFB454'}>RPE {suggestion.lastRpe}</Badge>
-              ) : null}
-            </div>
-
-            <div
-              style={{
-                color: T.text,
-                fontWeight: 900,
-                fontSize: 15,
-              }}
-            >
-              Suggestion : {formatSuggestionText(suggestion)}
-            </div>
-
-            <div
-              style={{
-                color: T.textMid,
-                fontSize: 13,
-                lineHeight: 1.55,
-              }}
-            >
-              {suggestion.reason}
-            </div>
-          </div>
-        ) : (
-          <div style={{ color: T.textDim, fontSize: 13, marginTop: 8 }}>
-            Pas assez d’historique pour proposer une progression sur cet exercice.
-          </div>
-        )}
-      </div>
+      <SmartCoachCard
+        suggestion={suggestion}
+        loading={historyLoading}
+        onApply={suggestion ? () => onApplySuggestion(index, suggestion) : null}
+      />
     </Card>
   )
 }
