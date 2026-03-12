@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import { PageWrap } from '../components/UI'
+import { NAV_IMAGES } from '../lib/navImages'
 
 // ─── Tokens ───────────────────────────────────────────────────────────────────
 const C = {
@@ -75,34 +76,40 @@ const ICONS = {
 function Hero({ name, goalType, todayProgram }) {
   const [vis, setVis] = useState(false)
   useEffect(() => { const t = setTimeout(() => setVis(true), 30); return () => clearTimeout(t) }, [])
+  const img = NAV_IMAGES['hero-athlete']
 
   return (
     <div style={{
-      ...GLASS_CARD, padding: '30px',
-      position: 'relative', overflow: 'hidden',
+      borderRadius: 20, overflow: 'hidden', position: 'relative',
+      minHeight: 200,
       opacity: vis ? 1 : 0, transform: vis ? 'none' : 'translateY(18px)',
       transition: 'opacity 0.5s ease, transform 0.5s ease',
     }}>
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 20, overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: -80, right: -80, width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(62,207,142,0.08) 0%, transparent 70%)', filter: 'blur(50px)' }} />
-        <div style={{ position: 'absolute', bottom: -40, left: 40, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(77,159,255,0.06) 0%, transparent 70%)', filter: 'blur(35px)' }} />
-        <svg style={{ position: 'absolute', bottom: 0, right: 0, opacity: 0.035 }} width="260" height="160" viewBox="0 0 260 160" fill="none">
-          <path d="M0 80 Q65 10 130 80 Q195 150 260 80" stroke="white" strokeWidth="50"/>
-        </svg>
-      </div>
+      {img && (
+        <img src={img} alt="" style={{
+          position: 'absolute', inset: 0, width: '100%', height: '100%',
+          objectFit: 'cover', objectPosition: 'center 25%',
+        }} />
+      )}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: img
+          ? 'linear-gradient(90deg, rgba(7,9,14,0.93) 0%, rgba(7,9,14,0.72) 55%, rgba(7,9,14,0.35) 100%)'
+          : 'linear-gradient(135deg, rgba(12,16,24,0.98), rgba(7,9,14,0.98))',
+      }} />
 
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+      <div style={{ position: 'relative', padding: '30px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2.5, textTransform: 'uppercase', color: C.accent, marginBottom: 10, fontFamily: "'DM Sans',sans-serif" }}>{greet()}</div>
-          <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 'clamp(26px,4vw,40px)', fontWeight: 900, color: C.text, lineHeight: 1.05, letterSpacing: '-1.2px' }}>
+          <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 'clamp(26px,4vw,40px)', fontWeight: 900, color: '#fff', lineHeight: 1.05, letterSpacing: '-1.2px' }}>
             {name?.split(' ')[0] || 'Athlète'}
           </div>
-          <div style={{ fontSize: 14, color: C.sub, marginTop: 8, fontFamily: "'DM Sans',sans-serif", lineHeight: 1.6 }}>
+          <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', marginTop: 8, fontFamily: "'DM Sans',sans-serif", lineHeight: 1.6 }}>
             {todayProgram ? `Séance prévue : ${todayProgram}` : "Aucun programme prévu aujourd'hui."}
           </div>
         </div>
         {goalType && (
-          <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, padding: '6px 14px', background: 'rgba(62,207,142,0.1)', border: '1px solid rgba(62,207,142,0.25)', borderRadius: 20, fontFamily: "'DM Sans',sans-serif", flexShrink: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, padding: '6px 14px', background: 'rgba(62,207,142,0.12)', border: '1px solid rgba(62,207,142,0.3)', borderRadius: 20, fontFamily: "'DM Sans',sans-serif", flexShrink: 0, backdropFilter: 'blur(8px)' }}>
             {goalLabel(goalType)}
           </div>
         )}
@@ -162,37 +169,63 @@ function MacroRing({ label, current, goal, color }) {
 
 // ─── Section card ─────────────────────────────────────────────────────────────
 
-function SectionCard({ title, sub, color, iconPath, to, ctaLabel, children, delay = 0 }) {
+function SectionCard({ title, sub, color, iconPath, to, ctaLabel, children, delay = 0, imgKey }) {
   const [vis, setVis] = useState(false)
   useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t) }, [delay])
+  const img = imgKey ? NAV_IMAGES[imgKey] : null
 
   return (
     <div style={{
-      ...GLASS_CARD, padding: '22px', display: 'grid', gap: 16, alignContent: 'start',
+      borderRadius: 20, display: 'grid', gap: 0, alignContent: 'start',
       position: 'relative', overflow: 'hidden',
+      border: `1px solid ${C.border}`,
       opacity: vis ? 1 : 0, transform: vis ? 'none' : 'translateY(14px)',
       transition: 'opacity 0.5s ease, transform 0.5s ease',
     }}>
-      <div style={{ position: 'absolute', top: -60, right: -60, width: 200, height: 200, borderRadius: '50%', background: `${color}05`, filter: 'blur(40px)', pointerEvents: 'none' }} />
-
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: `${color}18`, border: `1px solid ${color}25`, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-            <SvgIcon d={iconPath} color={color} size={16} />
-          </div>
-          <div>
-            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 14, color: C.text }}>{title}</div>
-            {sub && <div style={{ fontSize: 11, color: C.dim, marginTop: 1 }}>{sub}</div>}
-          </div>
+      {/* Bandeau image en haut */}
+      {img && (
+        <div style={{ height: 110, position: 'relative', overflow: 'hidden' }}>
+          <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 40%' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(7,9,14,0.1) 0%, rgba(7,9,14,0.85) 100%)' }} />
+          {/* Label sur l'image */}
+          <div style={{ position: 'absolute', bottom: 12, left: 16, fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 15, color: '#fff' }}>{title}</div>
         </div>
-        {to && (
-          <Link to={to} style={{ fontSize: 11, fontWeight: 700, color, textDecoration: 'none', padding: '5px 11px', borderRadius: 8, border: `1px solid ${color}25`, background: `${color}08`, whiteSpace: 'nowrap', flexShrink: 0, fontFamily: "'DM Sans',sans-serif" }}>
-            {ctaLabel || 'Voir →'}
-          </Link>
-        )}
-      </div>
+      )}
 
-      {children}
+      {/* Body */}
+      <div style={{ padding: '16px', background: C.glass, backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', display: 'grid', gap: 14 }}>
+        {!img && (
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: `${color}18`, border: `1px solid ${color}25`, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                <SvgIcon d={iconPath} color={color} size={16} />
+              </div>
+              <div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 14, color: C.text }}>{title}</div>
+                {sub && <div style={{ fontSize: 11, color: C.dim, marginTop: 1 }}>{sub}</div>}
+              </div>
+            </div>
+            {to && (
+              <Link to={to} style={{ fontSize: 11, fontWeight: 700, color, textDecoration: 'none', padding: '5px 11px', borderRadius: 8, border: `1px solid ${color}25`, background: `${color}08`, whiteSpace: 'nowrap', flexShrink: 0, fontFamily: "'DM Sans',sans-serif" }}>
+                {ctaLabel || 'Voir →'}
+              </Link>
+            )}
+          </div>
+        )}
+
+        {img && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            {sub && <div style={{ fontSize: 11, color: C.dim }}>{sub}</div>}
+            {to && (
+              <Link to={to} style={{ fontSize: 11, fontWeight: 700, color, textDecoration: 'none', padding: '4px 11px', borderRadius: 8, border: `1px solid ${color}25`, background: `${color}08`, whiteSpace: 'nowrap', fontFamily: "'DM Sans',sans-serif" }}>
+                {ctaLabel || 'Voir →'}
+              </Link>
+            )}
+          </div>
+        )}
+
+        {children}
+      </div>
     </div>
   )
 }
@@ -299,7 +332,8 @@ export default function GoalHomePage() {
             <SectionCard title="Séance du jour" color={C.accent} iconPath={ICONS.dumbbell}
               to={todayProg ? '/entrainement/aujourdhui' : '/entrainement/libre'}
               ctaLabel={todayProg ? 'Démarrer' : 'Séance libre'} delay={300}
-              sub={todayProg ? `${(todayProg.program_exercises || []).length} exercices` : "Aucun programme assigné"}>
+              sub={todayProg ? `${(todayProg.program_exercises || []).length} exercices` : "Aucun programme assigné"}
+              imgKey="/entrainement/aujourdhui">
 
               {todayProg ? (
                 <div style={{ display: 'grid', gap: 6 }}>
@@ -329,7 +363,8 @@ export default function GoalHomePage() {
             {/* Nutrition */}
             <SectionCard title="Nutrition du jour" color={C.orange} iconPath={ICONS.food}
               to="/nutrition/macros" ctaLabel="Détails" delay={360}
-              sub={`${Math.round(nutri.calories)} kcal${goals.cal ? ` / ${goals.cal}` : ''}`}>
+              sub={`${Math.round(nutri.calories)} kcal${goals.cal ? ` / ${goals.cal}` : ''}`}
+              imgKey="/nutrition/macros">
 
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -358,7 +393,8 @@ export default function GoalHomePage() {
             {/* Progression */}
             <SectionCard title="Activité récente" color={C.blue} iconPath={ICONS.chart}
               to="/progression" ctaLabel="Progression" delay={420}
-              sub={recentSessions.length > 0 ? `${recentSessions.length} dernières séances` : 'Aucune séance'}>
+              sub={recentSessions.length > 0 ? `${recentSessions.length} dernières séances` : 'Aucune séance'}
+              imgKey="/progression">
 
               {recentSessions.length === 0 ? (
                 <div style={{ fontSize: 13, color: C.dim, lineHeight: 1.6 }}>
@@ -403,7 +439,8 @@ export default function GoalHomePage() {
             {suggestedRecipe && (
               <SectionCard title="Recette du jour" color={C.yellow} iconPath={ICONS.recipe}
                 to="/nutrition/recettes" ctaLabel="Recettes" delay={480}
-                sub={suggestedRecipe.calories ? `${suggestedRecipe.calories} kcal` : null}>
+                sub={suggestedRecipe.calories ? `${suggestedRecipe.calories} kcal` : null}
+                imgKey="/nutrition/recettes">
 
                 {suggestedRecipe.image_url && (
                   <div style={{ borderRadius: 12, overflow: 'hidden', aspectRatio: '16/9' }}>
