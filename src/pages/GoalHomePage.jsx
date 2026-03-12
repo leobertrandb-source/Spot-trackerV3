@@ -127,32 +127,36 @@ function Hero({ name, goalType, todayProgram }) {
 function StatBlock({ label, value, color, iconPath, delay = 0, sub }) {
   const [vis, setVis] = useState(false)
   useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t) }, [delay])
-  const img = STAT_IMAGES[label]
+  const iconImg = STAT_IMAGES[label]
 
   return (
     <div style={{
+      ...GLASS_CARD,
       borderRadius: 16, position: 'relative', overflow: 'hidden',
       border: `1px solid ${color}20`,
       opacity: vis ? 1 : 0, transform: vis ? 'none' : 'translateY(12px)',
       transition: 'opacity 0.5s ease, transform 0.5s ease',
-      minHeight: 130,
+      padding: '16px',
     }}>
-      {/* Image de fond */}
-      {img && <img src={img} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />}
-      {/* Overlay */}
-      <div style={{ position: 'absolute', inset: 0, background: img ? `linear-gradient(145deg, rgba(7,9,14,0.92), rgba(7,9,14,0.75))` : C.glass, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }} />
+      {/* Glow fond */}
+      <div style={{ position: 'absolute', top: -20, right: -20, width: 120, height: 120, borderRadius: '50%', background: `${color}08`, filter: 'blur(30px)', pointerEvents: 'none' }} />
       {/* Ligne couleur bas */}
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${color}60, transparent)` }} />
 
-      {/* Contenu */}
-      <div style={{ position: 'relative', padding: '16px' }}>
-        <div style={{ width: 30, height: 30, borderRadius: 9, background: `${color}25`, border: `1px solid ${color}35`, display: 'grid', placeItems: 'center', marginBottom: 10 }}>
-          <SvgIcon d={iconPath} color={color} size={14} />
+      {/* Icône illustrée OU icône SVG fallback */}
+      {iconImg ? (
+        <div style={{ width: 52, height: 52, borderRadius: 14, overflow: 'hidden', marginBottom: 12, border: `1px solid ${color}25` }}>
+          <img src={iconImg} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
-        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 900, color: '#fff', lineHeight: 1, letterSpacing: '-0.5px' }}>{value}</div>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 5, fontFamily: "'DM Sans',sans-serif" }}>{label}</div>
-        {sub && <div style={{ fontSize: 10, color, fontWeight: 700, marginTop: 2 }}>{sub}</div>}
-      </div>
+      ) : (
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: `${color}18`, border: `1px solid ${color}25`, display: 'grid', placeItems: 'center', marginBottom: 12 }}>
+          <SvgIcon d={iconPath} color={color} size={16} />
+        </div>
+      )}
+
+      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 22, fontWeight: 900, color: C.text, lineHeight: 1, letterSpacing: '-0.5px' }}>{value}</div>
+      <div style={{ fontSize: 11, color: C.sub, marginTop: 5, fontFamily: "'DM Sans',sans-serif" }}>{label}</div>
+      {sub && <div style={{ fontSize: 10, color, fontWeight: 700, marginTop: 2 }}>{sub}</div>}
     </div>
   )
 }
