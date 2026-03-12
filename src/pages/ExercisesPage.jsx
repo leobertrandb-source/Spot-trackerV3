@@ -379,7 +379,8 @@ function CreateModal({ onSaved, onClose }) {
 // ─── Page principale ──────────────────────────────────────────────────────────
 
 export default function ExercisesPage() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
+  const isCoach = profile?.role === 'coach'
 
   const [exercises, setExercises] = useState([])
   const [loading, setLoading]     = useState(true)
@@ -519,7 +520,7 @@ export default function ExercisesPage() {
                 <ExerciseCard
                   exercise={ex}
                   onDelete={deleteExercise}
-                  isOwner={ex.created_by === user?.id}
+                  isOwner={isCoach || ex.created_by === user?.id}
                 />
               </div>
             ))}
