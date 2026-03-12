@@ -44,11 +44,13 @@ function fmt(v) {
 }
 
 function goalLabel(g) {
-  const v = String(g || '').toLowerCase()
-  if (v.includes('body'))   return 'Prise de masse'
-  if (v.includes('perte'))  return 'Perte de poids'
-  if (v.includes('athlet')) return 'Performance'
-  return g || 'Objectif'
+  const v = String(g || '').toLowerCase().replace(/[_-]/g, ' ')
+  if (v.includes('mass') || v.includes('body') || v.includes('bulk') || v.includes('prise')) return 'Prise de masse'
+  if (v.includes('perte') || v.includes('cut') || v.includes('loss') || v.includes('poids')) return 'Perte de poids'
+  if (v.includes('athlet') || v.includes('perf') || v.includes('sport')) return 'Performance'
+  if (v.includes('maintien') || v.includes('maint')) return 'Maintien'
+  if (v.includes('recomp')) return 'Recomposition'
+  return g ? g.replace(/_/g, ' ') : 'Objectif'
 }
 
 // ─── SVG icon helper ──────────────────────────────────────────────────────────
@@ -120,23 +122,42 @@ function Hero({ name, goalType, todayProgram }) {
 
 // ─── Stat block ───────────────────────────────────────────────────────────────
 
+const STAT_IMG_KEYS = {
+  'Objectif':              '/mon-espace',
+  'Calories aujourd\'hui': '/nutrition/macros',
+  'Séances récentes':      '/progression',
+  'Programme du jour':     '/entrainement/aujourdhui',
+}
+
 function StatBlock({ label, value, color, iconPath, delay = 0, sub }) {
   const [vis, setVis] = useState(false)
   useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t) }, [delay])
+  const img = NAV_IMAGES[STAT_IMG_KEYS[label]]
 
   return (
     <div style={{
-      ...GLASS_CARD, padding: '18px 16px', position: 'relative', overflow: 'hidden',
+      borderRadius: 16, position: 'relative', overflow: 'hidden',
+      border: `1px solid ${color}20`,
       opacity: vis ? 1 : 0, transform: vis ? 'none' : 'translateY(12px)',
       transition: 'opacity 0.5s ease, transform 0.5s ease',
+      minHeight: 130,
     }}>
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${color}45, transparent)` }} />
-      <div style={{ width: 34, height: 34, borderRadius: 10, background: `${color}18`, border: `1px solid ${color}25`, display: 'grid', placeItems: 'center', marginBottom: 12 }}>
-        <SvgIcon d={iconPath} color={color} size={16} />
+      {/* Image de fond */}
+      {img && <img src={img} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />}
+      {/* Overlay */}
+      <div style={{ position: 'absolute', inset: 0, background: img ? `linear-gradient(145deg, rgba(7,9,14,0.92), rgba(7,9,14,0.75))` : C.glass, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }} />
+      {/* Ligne couleur bas */}
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${color}60, transparent)` }} />
+
+      {/* Contenu */}
+      <div style={{ position: 'relative', padding: '16px' }}>
+        <div style={{ width: 30, height: 30, borderRadius: 9, background: `${color}25`, border: `1px solid ${color}35`, display: 'grid', placeItems: 'center', marginBottom: 10 }}>
+          <SvgIcon d={iconPath} color={color} size={14} />
+        </div>
+        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 900, color: '#fff', lineHeight: 1, letterSpacing: '-0.5px' }}>{value}</div>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 5, fontFamily: "'DM Sans',sans-serif" }}>{label}</div>
+        {sub && <div style={{ fontSize: 10, color, fontWeight: 700, marginTop: 2 }}>{sub}</div>}
       </div>
-      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 22, fontWeight: 900, color: C.text, lineHeight: 1, letterSpacing: '-0.5px' }}>{value}</div>
-      <div style={{ fontSize: 11, color: C.sub, marginTop: 5, fontFamily: "'DM Sans',sans-serif" }}>{label}</div>
-      {sub && <div style={{ fontSize: 10, color, fontWeight: 700, marginTop: 2 }}>{sub}</div>}
     </div>
   )
 }
