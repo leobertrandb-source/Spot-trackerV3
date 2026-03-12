@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import { PageWrap } from '../components/UI'
+import { NAV_IMAGES } from '../lib/navImages'
 
 // ─── Tokens ───────────────────────────────────────────────────────────────────
 const C = {
@@ -190,31 +191,39 @@ function InviteCard({ userId }) {
 function Hero({ name, clientCount }) {
   const [vis, setVis] = useState(false)
   useEffect(() => { const t = setTimeout(() => setVis(true), 30); return () => clearTimeout(t) }, [])
+  const img = NAV_IMAGES['hero-coach']
 
   return (
     <div style={{
-      ...GLASS_CARD, padding: '32px 30px',
-      position: 'relative', overflow: 'hidden',
+      borderRadius: 20, overflow: 'hidden', position: 'relative',
+      minHeight: 200,
       opacity: vis ? 1 : 0, transform: vis ? 'none' : 'translateY(18px)',
       transition: 'opacity 0.6s ease, transform 0.6s ease',
     }}>
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 20, overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: -80, right: -80, width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle, rgba(77,159,255,0.07) 0%, transparent 70%)', filter: 'blur(50px)' }} />
-        <div style={{ position: 'absolute', bottom: -50, left: 60, width: 250, height: 250, borderRadius: '50%', background: 'radial-gradient(circle, rgba(62,207,142,0.05) 0%, transparent 70%)', filter: 'blur(40px)' }} />
-        {/* Decorative lines */}
-        <svg style={{ position: 'absolute', bottom: 0, right: 0, opacity: 0.04 }} width="280" height="180" viewBox="0 0 280 180" fill="none">
-          <path d="M0 90 Q70 20 140 90 Q210 160 280 90" stroke="white" strokeWidth="50"/>
-        </svg>
-      </div>
+      {/* Image de fond */}
+      {img && (
+        <img src={img} alt="" style={{
+          position: 'absolute', inset: 0, width: '100%', height: '100%',
+          objectFit: 'cover', objectPosition: 'center 30%',
+        }} />
+      )}
+      {/* Overlay gradient */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: img
+          ? 'linear-gradient(90deg, rgba(7,9,14,0.92) 0%, rgba(7,9,14,0.75) 50%, rgba(7,9,14,0.4) 100%)'
+          : 'linear-gradient(135deg, rgba(12,16,24,0.98), rgba(7,9,14,0.98))',
+      }} />
 
-      <div style={{ position: 'relative' }}>
+      {/* Contenu */}
+      <div style={{ position: 'relative', padding: '32px 30px' }}>
         <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2.5, textTransform: 'uppercase', color: C.blue, marginBottom: 12, fontFamily: "'DM Sans',sans-serif" }}>
           {greet()}
         </div>
-        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 'clamp(28px,4vw,42px)', fontWeight: 900, color: C.text, lineHeight: 1.05, letterSpacing: '-1.5px' }}>
+        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 'clamp(28px,4vw,42px)', fontWeight: 900, color: '#fff', lineHeight: 1.05, letterSpacing: '-1.5px' }}>
           {name?.split(' ')[0] || 'Coach'}
         </div>
-        <div style={{ fontSize: 14, color: C.sub, marginTop: 10, fontFamily: "'DM Sans',sans-serif", maxWidth: 500, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)', marginTop: 10, fontFamily: "'DM Sans',sans-serif", maxWidth: 420, lineHeight: 1.6 }}>
           {clientCount === 0
             ? 'Invite ton premier client pour démarrer le suivi.'
             : `Tu suis activement ${clientCount} client${clientCount > 1 ? 's' : ''}.`}
@@ -228,20 +237,29 @@ function Hero({ name, clientCount }) {
 
 function QuickAction({ to, label, sub, color, iconPath, delay = 0 }) {
   const [hov, setHov] = useState(false)
+  const img = NAV_IMAGES[to]
+
   return (
     <Link to={to} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{
-        padding: '16px', borderRadius: 14, textDecoration: 'none',
-        background: hov ? `${color}0a` : 'rgba(255,255,255,0.025)',
-        border: `1px solid ${hov ? `${color}30` : C.border}`,
-        transition: 'all 0.16s ease', display: 'block',
+        borderRadius: 14, textDecoration: 'none', overflow: 'hidden',
+        position: 'relative', display: 'block', minHeight: 90,
+        border: `1px solid ${hov ? `${color}40` : C.border}`,
+        transition: 'all 0.16s ease',
         animation: 'fadeUp 0.4s ease both', animationDelay: `${delay}ms`,
       }}>
-      <div style={{ width: 32, height: 32, borderRadius: 9, background: `${color}18`, border: `1px solid ${color}25`, display: 'grid', placeItems: 'center', marginBottom: 10 }}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={iconPath}/></svg>
+      {/* Image fond */}
+      {img && (
+        <img src={img} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s ease', transform: hov ? 'scale(1.05)' : 'scale(1)' }} />
+      )}
+      {/* Overlay */}
+      <div style={{ position: 'absolute', inset: 0, background: img ? `linear-gradient(135deg, rgba(7,9,14,0.88), rgba(7,9,14,0.65))` : `rgba(255,255,255,0.025)`, transition: 'background 0.2s ease' }} />
+      {/* Contenu */}
+      <div style={{ position: 'relative', padding: '14px 16px' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', fontFamily: "'DM Sans',sans-serif" }}>{label}</div>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 3 }}>{sub}</div>
+        <div style={{ position: 'absolute', top: 12, right: 12, width: 6, height: 6, borderRadius: '50%', background: color, opacity: hov ? 1 : 0.5, transition: 'opacity 0.2s' }} />
       </div>
-      <div style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>{label}</div>
-      <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{sub}</div>
     </Link>
   )
 }
