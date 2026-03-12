@@ -32,15 +32,20 @@ function today() {
 }
 
 function MacroBar({ label, current, goal, color }) {
-  const pct = goal > 0 ? Math.min(100, Math.round((current / goal) * 100)) : 0
+  // Si pas d'objectif défini, on affiche quand même la barre avec une ref visuelle
+  const ref = goal > 0 ? goal : (label === 'Glucides' ? 250 : label === 'Protéines' ? 150 : 80)
+  const pct = Math.min(100, Math.round((current / ref) * 100))
+  const overGoal = goal > 0 && current > goal
   return (
     <div style={{ display: 'grid', gap: 4 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontFamily: "'DM Sans',sans-serif" }}>
         <span style={{ color: C.sub }}>{label}</span>
-        <span style={{ color: C.text, fontWeight: 700 }}>{Math.round(current)}{goal ? ` / ${goal}g` : 'g'}</span>
+        <span style={{ color: overGoal ? C.red : C.text, fontWeight: 700 }}>
+          {Math.round(current)}{goal > 0 ? ` / ${goal}g` : 'g'}
+        </span>
       </div>
       <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 3, transition: 'width 0.4s ease' }} />
+        <div style={{ height: '100%', width: `${pct}%`, background: overGoal ? C.red : color, borderRadius: 3, transition: 'width 0.4s ease' }} />
       </div>
     </div>
   )
@@ -48,27 +53,40 @@ function MacroBar({ label, current, goal, color }) {
 
 // ─── Open Food Facts search ────────────────────────────────────────────────
 async function searchOFF(query) {
-  // API v2 Open Food Facts — supporte CORS, résultats fiables
-  const url = `https://world.openfoodfacts.org/api/v2/search?search_terms=${encodeURIComponent(query)}&page_size=20&fields=code,product_name,brands,nutriments,serving_size,image_small_url&sort_by=unique_scans_n`
-  const res = await fetch(url, { headers: { 'User-Agent': 'SpotTracker/1.0' } })
+  // Recherche sur la base française en priorité, avec fallback mondial
+  // On utilise l'API de recherche textuelle qui respecte mieux la pertinence
+  const fields = 'code,product_name,brands,nutriments,serving_size,image_small_url'
+  const frUrl = `https://fr.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=20&fields=${fields}&sort_by=unique_scans_n`
+  
+  const res = await fetch(frUrl, { headers: { 'User-Agent': 'SpotTracker/1.0' } })
   if (!res.ok) throw new Error('Erreur réseau')
   const data = await res.json()
+
+  const q = query.toLowerCase()
   return (data.products || [])
     .filter(p => p.product_name && p.nutriments?.['energy-kcal_100g'] > 0)
-    .map(p => ({
-      id:      p.code || Math.random().toString(36).slice(2),
-      name:    p.product_name,
-      brand:   p.brands || '',
-      image:   p.image_small_url || null,
-      serving: parseFloat(p.serving_size) || 100,
-      per100: {
-        kcal:    Math.round(p.nutriments['energy-kcal_100g'] || 0),
-        protein: Math.round((p.nutriments['proteins_100g'] || 0) * 10) / 10,
-        carbs:   Math.round((p.nutriments['carbohydrates_100g'] || 0) * 10) / 10,
-        fat:     Math.round((p.nutriments['fat_100g'] || 0) * 10) / 10,
-        fiber:   Math.round((p.nutriments['fiber_100g'] || 0) * 10) / 10,
+    .map(p => {
+      const name = (p.product_name || '').toLowerCase()
+      // Score de pertinence : nom qui commence par la requête > contient > autre
+      const score = name.startsWith(q) ? 3 : name.includes(q) ? 2 : 1
+      return {
+        _score: score,
+        id:      p.code || Math.random().toString(36).slice(2),
+        name:    p.product_name,
+        brand:   p.brands || '',
+        image:   p.image_small_url || null,
+        serving: parseFloat(p.serving_size) || 100,
+        per100: {
+          kcal:    Math.round(p.nutriments['energy-kcal_100g'] || 0),
+          protein: Math.round((p.nutriments['proteins_100g'] || 0) * 10) / 10,
+          carbs:   Math.round((p.nutriments['carbohydrates_100g'] || 0) * 10) / 10,
+          fat:     Math.round((p.nutriments['fat_100g'] || 0) * 10) / 10,
+          fiber:   Math.round((p.nutriments['fiber_100g'] || 0) * 10) / 10,
+        }
       }
-    }))
+    })
+    .sort((a, b) => b._score - a._score)
+    .map(({ _score, ...p }) => p)
 }
 
 function calcMacros(item, grams) {
