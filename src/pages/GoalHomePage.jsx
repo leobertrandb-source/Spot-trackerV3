@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import { PageWrap } from '../components/UI'
-import { NAV_IMAGES } from '../lib/navImages'
+import { NAV_IMAGES, STAT_IMAGES } from '../lib/navImages'
 
 // ─── Tokens ───────────────────────────────────────────────────────────────────
 const C = {
@@ -56,9 +56,11 @@ function goalLabel(g) {
 // ─── SVG icon helper ──────────────────────────────────────────────────────────
 
 function SvgIcon({ d, color, size = 20 }) {
+  // Split multi-path strings (e.g. dumbbell) into separate <path> elements
+  const paths = d.split(/(?=M)/).filter(Boolean)
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d={d}/>
+      {paths.map((p, i) => <path key={i} d={p.trim()} />)}
     </svg>
   )
 }
@@ -122,17 +124,10 @@ function Hero({ name, goalType, todayProgram }) {
 
 // ─── Stat block ───────────────────────────────────────────────────────────────
 
-const STAT_IMG_KEYS = {
-  'Objectif':              '/mon-espace',
-  'Calories aujourd\'hui': '/nutrition/macros',
-  'Séances récentes':      '/progression',
-  'Programme du jour':     '/entrainement/aujourdhui',
-}
-
 function StatBlock({ label, value, color, iconPath, delay = 0, sub }) {
   const [vis, setVis] = useState(false)
   useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t) }, [delay])
-  const img = NAV_IMAGES[STAT_IMG_KEYS[label]]
+  const img = STAT_IMAGES[label]
 
   return (
     <div style={{
@@ -432,8 +427,11 @@ export default function GoalHomePage() {
                       animation: 'fadeUp 0.4s ease both',
                       animationDelay: `${i * 40 + 500}ms`,
                     }}>
-                      <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(77,159,255,0.12)', border: '1px solid rgba(77,159,255,0.2)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                        <SvgIcon d={ICONS.dumbbell} color={C.blue} size={13} />
+                      <div style={{ width: 28, height: 28, borderRadius: 8, overflow: 'hidden', flexShrink: 0, position: 'relative', border: '1px solid rgba(77,159,255,0.2)' }}>
+                        {STAT_IMAGES['session-icon']
+                          ? <img src={STAT_IMAGES['session-icon']} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <div style={{ width: '100%', height: '100%', background: 'rgba(77,159,255,0.12)', display: 'grid', placeItems: 'center' }}><SvgIcon d={ICONS.dumbbell} color={C.blue} size={13} /></div>
+                        }
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: "'DM Sans',sans-serif" }}>
