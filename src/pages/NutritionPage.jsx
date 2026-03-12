@@ -48,18 +48,19 @@ function MacroBar({ label, current, goal, color }) {
 
 // ─── Open Food Facts search ────────────────────────────────────────────────
 async function searchOFF(query) {
-  const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=15&fields=product_name,brands,nutriments,serving_size,image_small_url`
-  const res = await fetch(url)
+  // API v2 Open Food Facts — supporte CORS, résultats fiables
+  const url = `https://world.openfoodfacts.org/api/v2/search?search_terms=${encodeURIComponent(query)}&page_size=20&fields=code,product_name,brands,nutriments,serving_size,image_small_url&sort_by=unique_scans_n`
+  const res = await fetch(url, { headers: { 'User-Agent': 'SpotTracker/1.0' } })
   if (!res.ok) throw new Error('Erreur réseau')
   const data = await res.json()
   return (data.products || [])
-    .filter(p => p.product_name && p.nutriments?.['energy-kcal_100g'])
+    .filter(p => p.product_name && p.nutriments?.['energy-kcal_100g'] > 0)
     .map(p => ({
-      id:       p.code || Math.random().toString(36).slice(2),
-      name:     p.product_name,
-      brand:    p.brands || '',
-      image:    p.image_small_url || null,
-      serving:  parseFloat(p.serving_size) || 100,
+      id:      p.code || Math.random().toString(36).slice(2),
+      name:    p.product_name,
+      brand:   p.brands || '',
+      image:   p.image_small_url || null,
+      serving: parseFloat(p.serving_size) || 100,
       per100: {
         kcal:    Math.round(p.nutriments['energy-kcal_100g'] || 0),
         protein: Math.round((p.nutriments['proteins_100g'] || 0) * 10) / 10,
@@ -266,33 +267,31 @@ export default function NutritionPage() {
       setLoading(true)
       const [{ data: g }, { data: e }] = await Promise.all([
         supabase.from('nutrition_goals').select('*').eq('user_id', uid).single(),
-        supabase.from('food_entries').select('*').eq('user_id', uid).eq('date', today()).order('created_at'),
+        supabase.from('nutrition_logs').select('*').eq('user_id', uid).eq('log_date', today()).order('created_at'),
       ])
-      if (g) setGoals({ cal: g.calories || 0, protein: g.protein || 0, carbs: g.carbs || 0, fat: g.fat || 0 })
+      if (g) setGoals({ cal: g.calories || 0, protein: g.proteins || 0, carbs: g.carbs || 0, fat: g.fats || 0 })
       if (e) setEntries(e)
       setLoading(false)
     }
     load()
   }, [uid])
 
-  // Ajouter un aliment
+  // Ajouter un aliment via Open Food Facts
   async function handleAdd({ product, grams, meal, macros }) {
     if (!uid) return
+    const mealLabel = { 'petit-dejeuner': 'Petit-déjeuner', 'dejeuner': 'Déjeuner', 'diner': 'Dîner', 'collation': 'Collation' }[meal] || meal
     const entry = {
-      user_id:      uid,
-      date:         today(),
-      meal_type:    meal,
-      food_name:    product.name,
-      brand:        product.brand || null,
-      quantity_g:   grams,
-      calories:     macros.kcal,
-      protein_g:    macros.protein,
-      carbs_g:      macros.carbs,
-      fat_g:        macros.fat,
-      fiber_g:      macros.fiber,
-      image_url:    product.image || null,
+      user_id:   uid,
+      log_date:  today(),
+      meal_type: meal,
+      meal_name: `${product.name}${product.brand ? ' — ' + product.brand : ''} (${grams}g)`,
+      calories:  macros.kcal,
+      proteins:  macros.protein,
+      carbs:     macros.carbs,
+      fats:      macros.fat,
+      water:     0,
     }
-    const { data, error } = await supabase.from('food_entries').insert(entry).select().single()
+    const { data, error } = await supabase.from('nutrition_logs').insert(entry).select().single()
     if (!error && data) {
       setEntries(prev => [...prev, data])
       setShowSearch(false)
@@ -301,16 +300,16 @@ export default function NutritionPage() {
 
   // Supprimer une entrée
   async function handleDelete(id) {
-    await supabase.from('food_entries').delete().eq('id', id)
+    await supabase.from('nutrition_logs').delete().eq('id', id)
     setEntries(prev => prev.filter(e => e.id !== id))
   }
 
   // Totaux
   const totals = entries.reduce((acc, e) => ({
     cal:     acc.cal + (e.calories || 0),
-    protein: acc.protein + (e.protein_g || 0),
-    carbs:   acc.carbs + (e.carbs_g || 0),
-    fat:     acc.fat + (e.fat_g || 0),
+    protein: acc.protein + (e.proteins || 0),
+    carbs:   acc.carbs + (e.carbs || 0),
+    fat:     acc.fat + (e.fats || 0),
   }), { cal: 0, protein: 0, carbs: 0, fat: 0 })
 
   const MEALS = [
@@ -385,9 +384,9 @@ export default function NutritionPage() {
                         : <div style={{ width: 36, height: 36, borderRadius: 8, background: `${m.color}15`, display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 16 }}>🥗</div>
                       }
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.food_name}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.meal_name}</div>
                         <div style={{ fontSize: 11, color: C.sub, marginTop: 1 }}>
-                          {e.quantity_g}g • P {e.protein_g}g • G {e.carbs_g}g • L {e.fat_g}g
+                          P {e.proteins}g • G {e.carbs}g • L {e.fats}g
                         </div>
                       </div>
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
