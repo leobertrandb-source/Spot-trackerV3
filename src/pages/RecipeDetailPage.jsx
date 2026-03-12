@@ -145,39 +145,27 @@ function enrichStep(text, index) {
 // ─── Génération IA des étapes ────────────────────────────────────────────────
 
 async function generateStepsWithAI(recipeName, ingredients) {
-  const supabaseUrl = supabase.supabaseUrl
-  const supabaseKey = supabase.supabaseKey
+  // Appel via Supabase Edge Function (clé Anthropic sécurisée côté serveur)
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
 
-  const res = await fetch(`${supabaseUrl}/functions/v1/generate-recipe-steps`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${supabaseKey}`,
-    },
-    body: JSON.stringify({
+  const response = await supabase.functions.invoke('generate-recipe-steps', {
+    body: {
       name: recipeName,
       ingredients: ingredients.slice(0, 20),
-    }),
+    },
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
 
-  if (!res.ok) {
-    console.error('Edge function error:', res.status, await res.text())
+  if (response.error) {
+    console.error('Edge function error:', response.error)
     return []
   }
 
-  const data = await res.json()
-  if (Array.isArray(data.steps)) return data.steps.map(String).filter(Boolean)
+  const steps = response.data?.steps
+  if (Array.isArray(steps)) return steps.map(String).filter(Boolean)
 
   return []
-}
-
-async function saveStepsToRecipe(recipeId, steps) {
-  if (!recipeId || !steps.length) return
-  const { error } = await supabase
-    .from('recipes')
-    .update({ instructions: JSON.stringify(steps) })
-    .eq('id', recipeId)
-  if (error) console.error('Erreur sauvegarde étapes :', error)
 }
 
 // ─── Sous-composants ─────────────────────────────────────────────────────────
@@ -199,9 +187,10 @@ function MacroPill({ label, value, color }) {
   )
 }
 
-function IngredientRow({ ingredient, ratio }) {
-  const scaledQty = roundSmart(Number(ingredient.quantity || 0) * ratio)
-  const changed = Math.abs(ratio - 1) > 0.01
+function IngredientRow({ line, ratio }) {
+  const scaled = scaleIngredientLine(line, ratio)
+  const { amount } = parseIngredientLine(line)
+  const changed = amount !== null && Math.abs(ratio - 1) > 0.01
 
   return (
     <div style={{
@@ -212,10 +201,7 @@ function IngredientRow({ ingredient, ratio }) {
       transition: 'all 0.2s ease',
     }}>
       <span style={{ color: T.text, fontSize: 14, lineHeight: 1.5 }}>
-        <span style={{ fontWeight: 700, color: changed ? T.accentLight : T.text }}>
-          {scaledQty} {ingredient.unit}
-        </span>
-        {' '}{ingredient.name}
+        {scaled}
       </span>
       {changed && (
         <span style={{
@@ -333,7 +319,6 @@ export default function RecipeDetailPage() {
 
   const [recipe, setRecipe] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [savingPlan, setSavingPlan] = useState(false)
   const [savingNutrition, setSavingNutrition] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
@@ -351,7 +336,7 @@ export default function RecipeDetailPage() {
       setLoading(true)
       setErrorMessage('')
       setSuccessMessage('')
-      const { data, error } = await supabase.from('recipes').select('*, recipe_ingredients(*)').eq('id', id).maybeSingle()
+      const { data, error } = await supabase.from('recipes').select('*').eq('id', id).maybeSingle()
       if (!active) return
       if (error) {
         setErrorMessage("Impossible de charger cette recette.")
@@ -386,11 +371,8 @@ export default function RecipeDetailPage() {
 
   const heroImage = useMemo(() => getRecipeImageUrl(recipe), [recipe])
 
-  // Ingrédients depuis la table recipe_ingredients
-  const rawIngredients = useMemo(() => {
-    const rows = recipe?.recipe_ingredients || []
-    return rows.map(row => `${row.quantity} ${row.unit} ${row.name}`.trim())
-  }, [recipe])
+  // Ingrédients bruts (non scalés) pour l'affichage et l'IA
+  const rawIngredients = useMemo(() => normalizeLines(recipe?.ingredients), [recipe])
 
   // Instructions existantes enrichies
   const rawInstructions = useMemo(
@@ -418,10 +400,6 @@ export default function RecipeDetailPage() {
       const name = recipe?.title || recipe?.name || 'Recette'
       const steps = await generateStepsWithAI(name, rawIngredients)
       if (steps.length > 0) {
-        // Sauvegarde dans Supabase — une seule fois pour tous les utilisateurs
-        await saveStepsToRecipe(recipe.id, steps)
-        // Met à jour l'état local
-        setRecipe(prev => ({ ...prev, instructions: JSON.stringify(steps) }))
         setAiSteps(steps)
         setAiGenerated(true)
       }
@@ -432,42 +410,26 @@ export default function RecipeDetailPage() {
     }
   }
 
-  async function addToMealPlan() {
-    if (!user?.id || !recipe?.id) return
-    setSavingPlan(true)
-    setErrorMessage('')
-    setSuccessMessage('')
-    try {
-      const { error } = await supabase.from('meal_plan').insert({
-        user_id: user.id, recipe_id: recipe.id, plan_date: today, meal_slot: mealSlot,
-      })
-      if (error) throw error
-      setSuccessMessage('Recette ajoutée au plan repas.')
-    } catch (err) {
-      setErrorMessage("Impossible d'ajouter la recette au plan repas.")
-    } finally {
-      setSavingPlan(false)
-    }
-  }
-
   async function addToTodayNutrition() {
     if (!user?.id || !recipe) return
     setSavingNutrition(true)
     setErrorMessage('')
     setSuccessMessage('')
     try {
+      const mealSlotMap = { 'Petit-déjeuner': 'petit-dejeuner', 'Déjeuner': 'dejeuner', 'Snack': 'collation', 'Dîner': 'diner' }
       const { error } = await supabase.from('nutrition_logs').insert({
-        user_id: user.id,
-        log_date: today,
+        user_id:   user.id,
+        log_date:  today,
+        meal_type: mealSlotMap[mealSlot] || 'dejeuner',
         meal_name: `${recipe.title || recipe.name || 'Recette'} (${roundSmart(targetCalories)} kcal)`,
-        calories: roundSmart(scaled.calories),
-        proteins: roundSmart(scaled.proteins),
-        carbs:    roundSmart(scaled.carbs),
-        fats:     roundSmart(scaled.fats),
-        water: 0,
+        calories:  roundSmart(scaled.calories),
+        proteins:  roundSmart(scaled.proteins),
+        carbs:     roundSmart(scaled.carbs),
+        fats:      roundSmart(scaled.fats),
+        water:     0,
       })
       if (error) throw error
-      setSuccessMessage("Recette ajoutée à la nutrition du jour.")
+      setSuccessMessage("Recette ajoutée à la nutrition du jour ✓")
     } catch (err) {
       setErrorMessage("Impossible d'ajouter la recette à la nutrition.")
     } finally {
@@ -478,29 +440,6 @@ export default function RecipeDetailPage() {
   if (loading) {
     return (
       <PageWrap>
-      <style>{`
-        .recipe-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 18px;
-          align-items: start;
-        }
-        .recipe-slider-grid {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 20px;
-          align-items: center;
-        }
-        @media (min-width: 768px) {
-          .recipe-grid {
-            grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
-          }
-          .recipe-slider-grid {
-            grid-template-columns: 220px minmax(0, 1fr);
-            gap: 24px;
-          }
-        }
-      `}</style>
         <Card style={{ padding: 20 }}>
           <div style={{ color: T.textDim, fontSize: 14 }}>Chargement de la recette...</div>
         </Card>
@@ -579,7 +518,11 @@ export default function RecipeDetailPage() {
         </Card>
 
         {/* Contenu principal */}
-        <div className="recipe-grid">
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1.15fr) minmax(340px, 0.85fr)',
+          gap: 18, alignItems: 'start',
+        }}>
           <div style={{ display: 'grid', gap: 18 }}>
 
             {/* Slider calories */}
@@ -592,10 +535,10 @@ export default function RecipeDetailPage() {
                   Les quantités des ingrédients se recalculent automatiquement en temps réel.
                 </div>
 
-                <div className="recipe-slider-grid">
+                <div style={{ display: 'grid', gridTemplateColumns: '220px minmax(0, 1fr)', gap: 24, alignItems: 'center' }}>
                   {/* Assiette animée */}
                   <div style={{
-                    width: 160, height: 160, margin: '0 auto', borderRadius: '50%',
+                    width: 190, height: 190, margin: '0 auto', borderRadius: '50%',
                     border: `2px solid ${T.border}`,
                     background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.07), rgba(255,255,255,0.02))',
                     boxShadow: 'inset 0 16px 40px rgba(0,0,0,0.28)',
@@ -658,7 +601,7 @@ export default function RecipeDetailPage() {
                       })}
                     </div>
 
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
                       <MacroPill label="Protéines" value={`${roundSmart(scaled.proteins)} g`} color={T.blue || '#5BA7FF'} />
                       <MacroPill label="Glucides"  value={`${roundSmart(scaled.carbs)} g`}    color={T.orange || '#FFB454'} />
                       <MacroPill label="Lipides"   value={`${roundSmart(scaled.fats)} g`}     color={T.border} />
@@ -684,8 +627,8 @@ export default function RecipeDetailPage() {
                 <div style={{ color: T.textDim, fontSize: 14 }}>Aucun ingrédient renseigné.</div>
               ) : (
                 <div style={{ display: 'grid', gap: 8 }}>
-                  {(recipe?.recipe_ingredients || []).map((ing) => (
-                    <IngredientRow key={ing.id} ingredient={ing} ratio={ratio} />
+                  {rawIngredients.map((line, i) => (
+                    <IngredientRow key={`${i}-${line}`} line={line} ratio={ratio} />
                   ))}
                 </div>
               )}
@@ -715,7 +658,7 @@ export default function RecipeDetailPage() {
                 </div>
 
                 {/* Bouton génération IA */}
-                {(!hasInstructions && !aiGenerated) && (
+                {(!hasInstructions || aiGenerated) && (
                   <button
                     type="button"
                     onClick={handleGenerateSteps}
@@ -819,11 +762,7 @@ export default function RecipeDetailPage() {
                 </div>
               </div>
 
-              <Btn onClick={addToMealPlan} disabled={savingPlan}>
-                {savingPlan ? 'Ajout au plan…' : "Ajouter au plan repas d'aujourd'hui"}
-              </Btn>
-
-              <Btn variant="secondary" onClick={addToTodayNutrition} disabled={savingNutrition}>
+<Btn variant="secondary" onClick={addToTodayNutrition} disabled={savingNutrition}>
                 {savingNutrition ? 'Ajout nutrition…' : "Ajouter à la nutrition du jour"}
               </Btn>
             </div>
