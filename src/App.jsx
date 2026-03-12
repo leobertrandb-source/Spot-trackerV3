@@ -33,6 +33,8 @@ import ProgrammePerteDePoidsPage from './pages/ProgrammePerteDePoidsPage'
 import ProgrammeAthletiquePage from './pages/ProgrammeAthletiquePage'
 
 import { T } from './lib/data'
+import ExercisesPage from './pages/ExercisesPage'
+// ...
 
 function LoadingScreen() {
 return (
@@ -177,6 +179,9 @@ element={isCoach ? <Navigate to="/coach" replace /> : <RecipeDetailPage />}
 path="/nutrition/plan"
 element={isCoach ? <Navigate to="/coach" replace /> : <MealPlanPage />}
 />
+
+<Route
+path="/exercices" element={<ExercisesPage />} />
 
 <Route
 path="/coach"
