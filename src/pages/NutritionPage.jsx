@@ -1,817 +1,414 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-import { Card, Label, Input, Btn, PageWrap, Badge } from '../components/UI'
-import { T } from '../lib/data'
 
-const today = new Date().toISOString().split('T')[0]
-
-const EMPTY_MEAL = {
-  meal_name: '',
-  calories: '',
-  proteins: '',
-  carbs: '',
-  fats: '',
-  water: '',
+// ─── Design tokens ─────────────────────────────────────────────────────────
+const C = {
+  bg:     '#07090e',
+  card:   'rgba(12,16,24,0.80)',
+  border: 'rgba(255,255,255,0.07)',
+  text:   '#edf2f7',
+  sub:    '#6b7f94',
+  accent: '#3ecf8e',
+  blue:   '#4d9fff',
+  orange: '#ff7043',
+  purple: '#9d7dea',
+  yellow: '#fbbf24',
+  red:    '#ff4566',
 }
 
-const QUICK_FOODS = [
-  { label: 'Banane', calories: 105, proteins: 1.3, carbs: 27, fats: 0.3, water: 0 },
-  { label: 'Riz cuit 100g', calories: 130, proteins: 2.7, carbs: 28, fats: 0.3, water: 0 },
-  { label: 'Poulet 150g', calories: 248, proteins: 46, carbs: 0, fats: 5.4, water: 0 },
-  { label: 'Flocons d’avoine 60g', calories: 228, proteins: 7.8, carbs: 38, fats: 4.2, water: 0 },
-  { label: 'Œufs x2', calories: 156, proteins: 13, carbs: 1, fats: 11, water: 0 },
-  { label: 'Yaourt grec', calories: 130, proteins: 15, carbs: 6, fats: 4, water: 0 },
-  { label: 'Eau 500ml', calories: 0, proteins: 0, carbs: 0, fats: 0, water: 500 },
-]
+const GLASS = {
+  background: C.card,
+  backdropFilter: 'blur(20px)',
+  WebkitBackdropFilter: 'blur(20px)',
+  border: `1px solid ${C.border}`,
+  borderRadius: 16,
+}
 
-function Ring({ value, max, color, label, sublabel, size = 110, stroke = 9 }) {
-  const radius = (size - stroke) / 2
-  const circumference = 2 * Math.PI * radius
-  const progress = Math.min(1, max > 0 ? value / max : 0)
-  const dashOffset = circumference * (1 - progress)
+// ─── Helpers ───────────────────────────────────────────────────────────────
+function today() {
+  return new Date().toISOString().split('T')[0]
+}
 
+function MacroBar({ label, current, goal, color }) {
+  const pct = goal > 0 ? Math.min(100, Math.round((current / goal) * 100)) : 0
   return (
-    <div style={{ position: 'relative', width: size, height: size }}>
-      <svg width={size} height={size}>
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="rgba(255,255,255,0.08)"
-          strokeWidth={stroke}
-          fill="none"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={color}
-          strokeWidth={stroke}
-          fill="none"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={dashOffset}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
-      </svg>
-
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          display: 'grid',
-          placeItems: 'center',
-          textAlign: 'center',
-        }}
-      >
-        <div>
-          <div
-            style={{
-              color: T.text,
-              fontWeight: 900,
-              fontSize: 18,
-              lineHeight: 1,
-            }}
-          >
-            {label}
-          </div>
-          <div
-            style={{
-              color: T.textDim,
-              fontSize: 11,
-              marginTop: 4,
-            }}
-          >
-            {sublabel}
-          </div>
-        </div>
+    <div style={{ display: 'grid', gap: 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontFamily: "'DM Sans',sans-serif" }}>
+        <span style={{ color: C.sub }}>{label}</span>
+        <span style={{ color: C.text, fontWeight: 700 }}>{Math.round(current)}{goal ? ` / ${goal}g` : 'g'}</span>
+      </div>
+      <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 3, transition: 'width 0.4s ease' }} />
       </div>
     </div>
   )
 }
 
-function MacroBar({ label, value, max, unit, color }) {
-  const pct = Math.min(100, max > 0 ? (value / max) * 100 : 0)
-
-  return (
-    <div style={{ display: 'grid', gap: 6 }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: 12,
-          fontSize: 12,
-        }}
-      >
-        <span style={{ color: T.text }}>{label}</span>
-        <span style={{ color: T.textDim }}>
-          {Math.round(value)} / {Math.round(max)} {unit}
-        </span>
-      </div>
-
-      <div
-        style={{
-          height: 10,
-          borderRadius: 999,
-          background: 'rgba(255,255,255,0.06)',
-          overflow: 'hidden',
-        }}
-      >
-        <div
-          style={{
-            width: `${pct}%`,
-            height: '100%',
-            background: color,
-          }}
-        />
-      </div>
-    </div>
-  )
+// ─── Open Food Facts search ────────────────────────────────────────────────
+async function searchOFF(query) {
+  const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=15&fields=product_name,brands,nutriments,serving_size,image_small_url`
+  const res = await fetch(url)
+  if (!res.ok) throw new Error('Erreur réseau')
+  const data = await res.json()
+  return (data.products || [])
+    .filter(p => p.product_name && p.nutriments?.['energy-kcal_100g'])
+    .map(p => ({
+      id:       p.code || Math.random().toString(36).slice(2),
+      name:     p.product_name,
+      brand:    p.brands || '',
+      image:    p.image_small_url || null,
+      serving:  parseFloat(p.serving_size) || 100,
+      per100: {
+        kcal:    Math.round(p.nutriments['energy-kcal_100g'] || 0),
+        protein: Math.round((p.nutriments['proteins_100g'] || 0) * 10) / 10,
+        carbs:   Math.round((p.nutriments['carbohydrates_100g'] || 0) * 10) / 10,
+        fat:     Math.round((p.nutriments['fat_100g'] || 0) * 10) / 10,
+        fiber:   Math.round((p.nutriments['fiber_100g'] || 0) * 10) / 10,
+      }
+    }))
 }
 
-function toNumber(value) {
-  const num = Number(value)
-  return Number.isFinite(num) ? num : 0
+function calcMacros(item, grams) {
+  const r = grams / 100
+  return {
+    kcal:    Math.round(item.per100.kcal * r),
+    protein: Math.round(item.per100.protein * r * 10) / 10,
+    carbs:   Math.round(item.per100.carbs * r * 10) / 10,
+    fat:     Math.round(item.per100.fat * r * 10) / 10,
+    fiber:   Math.round(item.per100.fiber * r * 10) / 10,
+  }
 }
 
-export default function NutritionPage() {
-  const { user } = useAuth()
-
-  const [goals, setGoals] = useState({
-    calories: 2500,
-    proteins: 180,
-    carbs: 280,
-    fats: 80,
-    water: 2500,
-  })
-
-  const [logs, setLogs] = useState([])
-  const [meal, setMeal] = useState(EMPTY_MEAL)
-
-  const [saving, setSaving] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [showGoals, setShowGoals] = useState(false)
-  const [goalDraft, setGoalDraft] = useState({})
+// ─── SearchPanel ──────────────────────────────────────────────────────────
+function SearchPanel({ onAdd, onClose }) {
+  const [query, setQuery]       = useState('')
+  const [results, setResults]   = useState([])
+  const [loading, setLoading]   = useState(false)
+  const [selected, setSelected] = useState(null)
+  const [grams, setGrams]       = useState(100)
+  const [meal, setMeal]         = useState('dejeuner')
+  const timerRef = useRef(null)
 
   useEffect(() => {
-    if (user?.id) {
-      loadAll()
-    }
-    
-  }, [user?.id])
+    if (query.length < 2) { setResults([]); return }
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(async () => {
+      setLoading(true)
+      try { setResults(await searchOFF(query)) }
+      catch (e) { console.error(e) }
+      finally { setLoading(false) }
+    }, 500)
+    return () => clearTimeout(timerRef.current)
+  }, [query])
 
-  async function loadAll() {
-    setLoading(true)
-    setError('')
-
-    const [{ data: g, error: goalsError }, { data: l, error: logsError }] =
-      await Promise.all([
-        supabase
-          .from('nutrition_goals')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle(),
-
-        supabase
-          .from('nutrition_logs')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('log_date', today)
-          .order('created_at'),
-      ])
-
-    if (goalsError) {
-      console.error(goalsError)
-    }
-
-    if (logsError) {
-      console.error(logsError)
-      setError(logsError.message || 'Erreur lors du chargement nutrition.')
-    }
-
-    if (g) {
-      setGoals({
-        calories: g.calories ?? g.calories_target ?? 2500,
-        proteins: g.proteins ?? g.protein_target ?? 180,
-        carbs: g.carbs ?? g.carbs_target ?? 280,
-        fats: g.fats ?? g.fats_target ?? 80,
-        water: g.water ?? g.water_target ?? 2500,
-      })
-    }
-
-    setLogs(l || [])
-    setLoading(false)
-  }
-
-  const totals = useMemo(() => {
-    return logs.reduce(
-      (acc, log) => ({
-        calories: acc.calories + toNumber(log.calories),
-        proteins: acc.proteins + toNumber(log.proteins),
-        carbs: acc.carbs + toNumber(log.carbs),
-        fats: acc.fats + toNumber(log.fats),
-        water: acc.water + toNumber(log.water),
-      }),
-      { calories: 0, proteins: 0, carbs: 0, fats: 0, water: 0 }
-    )
-  }, [logs])
-
-  const calPct = Math.round(
-    goals.calories > 0 ? (totals.calories / goals.calories) * 100 : 0
-  )
-
-  function updateMeal(field, value) {
-    setMeal((prev) => ({ ...prev, [field]: value }))
-  }
-
-  function fillQuickFood(food) {
-    setMeal({
-      meal_name: food.label,
-      calories: String(food.calories),
-      proteins: String(food.proteins),
-      carbs: String(food.carbs),
-      fats: String(food.fats),
-      water: String(food.water),
-    })
-    setError('')
-  }
-
-  async function addMeal() {
-    const hasValue =
-      meal.calories || meal.proteins || meal.carbs || meal.fats || meal.water
-
-    if (!hasValue) {
-      setError('Remplis au moins un champ nutritionnel.')
-      return
-    }
-
-    setSaving(true)
-    setError('')
-
-    const payload = {
-      user_id: user.id,
-      log_date: today,
-      meal_name: meal.meal_name || null,
-      calories: parseInt(meal.calories, 10) || 0,
-      proteins: parseFloat(meal.proteins) || 0,
-      carbs: parseFloat(meal.carbs) || 0,
-      fats: parseFloat(meal.fats) || 0,
-      water: parseInt(meal.water, 10) || 0,
-    }
-
-    const { data, error: dbErr } = await supabase
-      .from('nutrition_logs')
-      .insert(payload)
-      .select()
-      .single()
-
-    if (dbErr) {
-      console.error(dbErr)
-      setError('Erreur : ' + dbErr.message)
-      setSaving(false)
-      return
-    }
-
-    if (data) {
-      setLogs((prev) => [...prev, data])
-    }
-
-    setMeal(EMPTY_MEAL)
-    setSaving(false)
-  }
-
-  async function removeLog(id) {
-    const { error: dbErr } = await supabase
-      .from('nutrition_logs')
-      .delete()
-      .eq('id', id)
-
-    if (dbErr) {
-      console.error(dbErr)
-      setError('Erreur : ' + dbErr.message)
-      return
-    }
-
-    setLogs((prev) => prev.filter((log) => log.id !== id))
-  }
-
-  async function saveGoals() {
-    const updated = {
-      ...goals,
-      ...goalDraft,
-    }
-
-    const payload = {
-      user_id: user.id,
-      calories: updated.calories,
-      proteins: updated.proteins,
-      carbs: updated.carbs,
-      fats: updated.fats,
-      water: updated.water,
-    }
-
-    const { error: dbErr } = await supabase
-      .from('nutrition_goals')
-      .upsert(payload)
-
-    if (dbErr) {
-      console.error(dbErr)
-      setError('Erreur : ' + dbErr.message)
-      return
-    }
-
-    setGoals(updated)
-    setShowGoals(false)
-    setGoalDraft({})
-  }
-
-  if (loading) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: 300,
-          color: T.textDim,
-          fontFamily: T.fontDisplay,
-          fontSize: 11,
-          letterSpacing: 3,
-        }}
-      >
-        CHARGEMENT...
-      </div>
-    )
-  }
+  const macros = selected ? calcMacros(selected, grams) : null
 
   return (
-    <PageWrap>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-end',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: 12,
-        }}
-      >
-        <div>
-          <div
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{ ...GLASS, width: '100%', maxWidth: 560, maxHeight: '90vh', display: 'flex', flexDirection: 'column', borderRadius: '20px 20px 0 0', overflow: 'hidden' }}>
+
+        {/* Header */}
+        <div style={{ padding: '18px 20px 14px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: C.text, fontFamily: "'Syne',sans-serif" }}>Ajouter un aliment</div>
+            <div style={{ fontSize: 11, color: C.sub, fontFamily: "'DM Sans',sans-serif", marginTop: 2 }}>Recherche Open Food Facts</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: C.sub, width: 30, height: 30, borderRadius: 8, cursor: 'pointer', fontSize: 16, display: 'grid', placeItems: 'center' }}>✕</button>
+        </div>
+
+        {/* Recherche */}
+        <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}` }}>
+          <input
+            autoFocus
+            value={query}
+            onChange={e => { setQuery(e.target.value); setSelected(null) }}
+            placeholder="Ex : yaourt grec, poulet grillé, riz basmati..."
             style={{
-              fontFamily: T.fontDisplay,
-              fontWeight: 900,
-              fontSize: 34,
-              color: T.text,
-              lineHeight: 1,
+              width: '100%', boxSizing: 'border-box',
+              background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`,
+              borderRadius: 10, padding: '10px 14px', color: C.text,
+              fontSize: 14, outline: 'none', fontFamily: "'DM Sans',sans-serif",
             }}
-          >
-            NUTRITION
-          </div>
-
-          <div
-            style={{
-              color: T.textMid,
-              fontSize: 14,
-              marginTop: 8,
-            }}
-          >
-            {new Date().toLocaleDateString('fr-FR', {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-            })}
-          </div>
-        </div>
-
-        <Btn
-          variant="secondary"
-          onClick={() => {
-            setShowGoals(!showGoals)
-            setGoalDraft(goals)
-          }}
-        >
-          {showGoals ? 'Fermer' : '⚙ Objectifs'}
-        </Btn>
-      </div>
-
-      {showGoals ? (
-        <Card style={{ border: `1px solid ${T.borderHi || T.border}` }}>
-          <Label>Mes objectifs quotidiens</Label>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-              gap: 14,
-            }}
-          >
-            <Input
-              label="🔥 Calories"
-              value={goalDraft.calories ?? goals.calories}
-              onChange={(v) =>
-                setGoalDraft((prev) => ({ ...prev, calories: parseInt(v, 10) || 0 }))
-              }
-              type="number"
-              min="0"
-            />
-
-            <Input
-              label="💪 Protéines"
-              value={goalDraft.proteins ?? goals.proteins}
-              onChange={(v) =>
-                setGoalDraft((prev) => ({ ...prev, proteins: parseInt(v, 10) || 0 }))
-              }
-              type="number"
-              min="0"
-            />
-
-            <Input
-              label="⚡ Glucides"
-              value={goalDraft.carbs ?? goals.carbs}
-              onChange={(v) =>
-                setGoalDraft((prev) => ({ ...prev, carbs: parseInt(v, 10) || 0 }))
-              }
-              type="number"
-              min="0"
-            />
-
-            <Input
-              label="🥑 Lipides"
-              value={goalDraft.fats ?? goals.fats}
-              onChange={(v) =>
-                setGoalDraft((prev) => ({ ...prev, fats: parseInt(v, 10) || 0 }))
-              }
-              type="number"
-              min="0"
-            />
-
-            <Input
-              label="💧 Eau ml"
-              value={goalDraft.water ?? goals.water}
-              onChange={(v) =>
-                setGoalDraft((prev) => ({ ...prev, water: parseInt(v, 10) || 0 }))
-              }
-              type="number"
-              min="0"
-            />
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-            <Btn onClick={saveGoals}>Sauvegarder</Btn>
-          </div>
-        </Card>
-      ) : null}
-
-      <Card glow>
-        <Label>Bilan du jour — {calPct}% de l'objectif calorique</Label>
-
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 24,
-            flexWrap: 'wrap',
-          }}
-        >
-          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-            <Ring
-              value={Math.round(totals.calories)}
-              max={goals.calories || 1}
-              color="#FF8A65"
-              label={Math.round(totals.calories)}
-              sublabel="kcal"
-              size={130}
-              stroke={10}
-            />
-
-            <Ring
-              value={Math.round(totals.proteins)}
-              max={goals.proteins || 1}
-              color="#43E97B"
-              label={Math.round(totals.proteins)}
-              sublabel="prot"
-              size={92}
-              stroke={7}
-            />
-
-            <Ring
-              value={Math.round(totals.carbs)}
-              max={goals.carbs || 1}
-              color="#5BA7FF"
-              label={Math.round(totals.carbs)}
-              sublabel="gluc"
-              size={92}
-              stroke={7}
-            />
-
-            <Ring
-              value={Math.round(totals.fats)}
-              max={goals.fats || 1}
-              color="#FFC857"
-              label={Math.round(totals.fats)}
-              sublabel="lip"
-              size={92}
-              stroke={7}
-            />
-          </div>
-
-          <div style={{ flex: 1, minWidth: 220, display: 'grid', gap: 14 }}>
-            <MacroBar
-              label="Hydratation"
-              value={totals.water}
-              max={goals.water || 2500}
-              unit="ml"
-              color="#26c6da"
-            />
-            <MacroBar
-              label="Protéines"
-              value={totals.proteins}
-              max={goals.proteins || 180}
-              unit="g"
-              color="#43E97B"
-            />
-            <MacroBar
-              label="Glucides"
-              value={totals.carbs}
-              max={goals.carbs || 280}
-              unit="g"
-              color="#5BA7FF"
-            />
-            <MacroBar
-              label="Lipides"
-              value={totals.fats}
-              max={goals.fats || 80}
-              unit="g"
-              color="#FFC857"
-            />
-          </div>
-        </div>
-      </Card>
-
-      <Card>
-        <Label>Ajout rapide</Label>
-
-        <div
-          style={{
-            display: 'flex',
-            gap: 8,
-            flexWrap: 'wrap',
-          }}
-        >
-          {QUICK_FOODS.map((food) => (
-            <button
-              key={food.label}
-              type="button"
-              onClick={() => fillQuickFood(food)}
-              style={{
-                height: 34,
-                padding: '0 12px',
-                borderRadius: 999,
-                border: `1px solid ${T.border}`,
-                background: 'rgba(255,255,255,0.03)',
-                color: T.text,
-                cursor: 'pointer',
-                fontSize: 12,
-                fontWeight: 800,
-              }}
-            >
-              {food.label}
-            </button>
-          ))}
-        </div>
-      </Card>
-
-      <Card>
-        <Label>Ajouter un repas / aliment</Label>
-
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '2fr repeat(5, 1fr)',
-            gap: 12,
-            marginBottom: 14,
-          }}
-        >
-          <Input
-            label="Repas / aliment"
-            value={meal.meal_name}
-            onChange={(v) => updateMeal('meal_name', v)}
-            placeholder="Ex : banane, riz, déjeuner..."
-          />
-
-          <Input
-            label="🔥 Kcal"
-            value={meal.calories}
-            onChange={(v) => updateMeal('calories', v)}
-            type="number"
-            min="0"
-            placeholder="650"
-          />
-
-          <Input
-            label="💪 Prot. g"
-            value={meal.proteins}
-            onChange={(v) => updateMeal('proteins', v)}
-            type="number"
-            min="0"
-            step="0.1"
-            placeholder="45"
-          />
-
-          <Input
-            label="⚡ Gluc. g"
-            value={meal.carbs}
-            onChange={(v) => updateMeal('carbs', v)}
-            type="number"
-            min="0"
-            step="0.1"
-            placeholder="80"
-          />
-
-          <Input
-            label="🥑 Lip. g"
-            value={meal.fats}
-            onChange={(v) => updateMeal('fats', v)}
-            type="number"
-            min="0"
-            step="0.1"
-            placeholder="20"
-          />
-
-          <Input
-            label="💧 Eau ml"
-            value={meal.water}
-            onChange={(v) => updateMeal('water', v)}
-            type="number"
-            min="0"
-            placeholder="500"
           />
         </div>
 
-        {error ? (
-          <div
-            style={{
-              marginBottom: 10,
-              padding: '9px 14px',
-              background: '#1a0808',
-              border: '1px solid #ff3b5c44',
-              borderRadius: 8,
-              fontSize: 13,
-              color: '#ff3b5c',
-            }}
-          >
-            {error}
-          </div>
-        ) : null}
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Btn onClick={addMeal} disabled={saving}>
-            {saving ? 'Ajout...' : 'Ajouter'}
-          </Btn>
-        </div>
-      </Card>
-
-      {logs.length > 0 ? (
-        <Card>
-          <Label>Repas enregistrés aujourd'hui</Label>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '2fr repeat(5, 1fr) 28px',
-                gap: 8,
-                padding: '0 4px 10px',
-                borderBottom: `1px solid ${T.border}`,
-              }}
-            >
-              {['Repas', 'Kcal', 'Prot.', 'Gluc.', 'Lip.', 'Eau', ''].map((h, i) => (
-                <div
-                  key={i}
-                  style={{
-                    fontFamily: T.fontDisplay,
-                    fontWeight: 700,
-                    fontSize: 9,
-                    letterSpacing: 2,
-                    color: T.textDim,
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  {h}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {/* Résultats */}
+          {!selected && (
+            <div>
+              {loading && (
+                <div style={{ padding: 20, textAlign: 'center', color: C.sub, fontSize: 13, fontFamily: "'DM Sans',sans-serif" }}>
+                  Recherche en cours...
+                </div>
+              )}
+              {!loading && results.map(r => (
+                <div key={r.id} onClick={() => { setSelected(r); setGrams(r.serving || 100) }}
+                  style={{ padding: '12px 20px', display: 'flex', gap: 12, alignItems: 'center', cursor: 'pointer', borderBottom: `1px solid ${C.border}`, transition: 'background 0.15s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  {r.image
+                    ? <img src={r.image} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                    : <div style={{ width: 40, height: 40, borderRadius: 8, background: `${C.accent}15`, display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 18 }}>🥗</div>
+                  }
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+                    <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>{r.brand || ''} • {r.per100.kcal} kcal/100g</div>
+                  </div>
+                  <div style={{ fontSize: 11, color: C.accent, fontWeight: 700, flexShrink: 0 }}>
+                    P {r.per100.protein}g
+                  </div>
                 </div>
               ))}
+              {!loading && query.length >= 2 && results.length === 0 && (
+                <div style={{ padding: 24, textAlign: 'center', color: C.sub, fontSize: 13, fontFamily: "'DM Sans',sans-serif" }}>
+                  Aucun résultat pour "{query}"
+                </div>
+              )}
             </div>
+          )}
 
-            {logs.map((log) => (
-              <div
-                key={log.id}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '2fr repeat(5, 1fr) 28px',
-                  gap: 8,
-                  padding: '10px 4px',
-                  borderBottom: `1px solid ${T.border}`,
-                }}
-              >
-                <div style={{ fontSize: 13, color: T.text }}>
-                  {log.meal_name || '—'}
+          {/* Détail produit sélectionné */}
+          {selected && macros && (
+            <div style={{ padding: '16px 20px', display: 'grid', gap: 14 }}>
+              <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: C.blue, fontSize: 12, cursor: 'pointer', textAlign: 'left', padding: 0, fontFamily: "'DM Sans',sans-serif", fontWeight: 700 }}>
+                ← Retour aux résultats
+              </button>
+
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                {selected.image
+                  ? <img src={selected.image} alt="" style={{ width: 52, height: 52, borderRadius: 10, objectFit: 'cover' }} />
+                  : <div style={{ width: 52, height: 52, borderRadius: 10, background: `${C.accent}15`, display: 'grid', placeItems: 'center', fontSize: 24 }}>🥗</div>
+                }
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.text, fontFamily: "'Syne',sans-serif" }}>{selected.name}</div>
+                  {selected.brand && <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>{selected.brand}</div>}
                 </div>
+              </div>
 
-                <div style={{ fontFamily: T.fontDisplay, fontWeight: 800, fontSize: 14, color: '#FF8A65' }}>
-                  {Math.round(toNumber(log.calories))}
+              {/* Quantité */}
+              <div>
+                <label style={{ fontSize: 12, color: C.sub, fontFamily: "'DM Sans',sans-serif", display: 'block', marginBottom: 6 }}>Quantité (grammes)</label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="number" min="1" max="2000"
+                    value={grams}
+                    onChange={e => setGrams(Math.max(1, parseInt(e.target.value) || 1))}
+                    style={{ width: 90, background: 'rgba(255,255,255,0.06)', border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px', color: C.text, fontSize: 14, outline: 'none', fontFamily: "'DM Sans',sans-serif" }}
+                  />
+                  <span style={{ fontSize: 12, color: C.sub }}>g</span>
+                  {[50, 100, 150, 200].map(g => (
+                    <button key={g} onClick={() => setGrams(g)}
+                      style={{ padding: '6px 10px', borderRadius: 7, border: `1px solid ${grams === g ? C.accent + '60' : C.border}`, background: grams === g ? `${C.accent}15` : 'rgba(255,255,255,0.03)', color: grams === g ? C.accent : C.sub, fontSize: 11, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", fontWeight: 700 }}>
+                      {g}g
+                    </button>
+                  ))}
                 </div>
+              </div>
 
-                <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 13, color: '#43E97B' }}>
-                  {toNumber(log.proteins)}g
+              {/* Repas */}
+              <div>
+                <label style={{ fontSize: 12, color: C.sub, fontFamily: "'DM Sans',sans-serif", display: 'block', marginBottom: 6 }}>Repas</label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {[['petit-dejeuner','Petit-déj'],['dejeuner','Déjeuner'],['diner','Dîner'],['collation','Collation']].map(([v, l]) => (
+                    <button key={v} onClick={() => setMeal(v)}
+                      style={{ padding: '7px 12px', borderRadius: 8, border: `1px solid ${meal === v ? C.blue + '60' : C.border}`, background: meal === v ? `${C.blue}15` : 'rgba(255,255,255,0.03)', color: meal === v ? C.blue : C.sub, fontSize: 12, cursor: 'pointer', fontFamily: "'DM Sans',sans-serif", fontWeight: 700 }}>
+                      {l}
+                    </button>
+                  ))}
                 </div>
-
-                <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 13, color: '#5BA7FF' }}>
-                  {toNumber(log.carbs)}g
-                </div>
-
-                <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 13, color: '#FFC857' }}>
-                  {toNumber(log.fats)}g
-                </div>
-
-                <div style={{ fontFamily: T.fontDisplay, fontWeight: 700, fontSize: 13, color: '#26c6da' }}>
-                  {toNumber(log.water)}ml
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => removeLog(log.id)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: T.textDim,
-                    cursor: 'pointer',
-                    fontSize: 14,
-                    padding: 0,
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '2fr repeat(5, 1fr) 28px',
-                gap: 8,
-                padding: '12px 4px 0',
-                marginTop: 4,
-              }}
-            >
-              <div
-                style={{
-                  fontFamily: T.fontDisplay,
-                  fontWeight: 900,
-                  fontSize: 10,
-                  letterSpacing: 2,
-                  color: T.textMid,
-                  textTransform: 'uppercase',
-                }}
-              >
-                Total
               </div>
 
-              <div style={{ fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 15, color: '#FF8A65' }}>
-                {Math.round(totals.calories)}
+              {/* Macros calculées */}
+              <div style={{ ...GLASS, padding: 14, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, textAlign: 'center' }}>
+                {[
+                  { label: 'Kcal', value: macros.kcal, color: C.orange },
+                  { label: 'Protéines', value: `${macros.protein}g`, color: C.accent },
+                  { label: 'Glucides', value: `${macros.carbs}g`, color: C.blue },
+                  { label: 'Lipides', value: `${macros.fat}g`, color: C.yellow },
+                ].map(m => (
+                  <div key={m.label}>
+                    <div style={{ fontSize: 16, fontWeight: 900, color: m.color, fontFamily: "'Syne',sans-serif" }}>{m.value}</div>
+                    <div style={{ fontSize: 10, color: C.sub, marginTop: 2, fontFamily: "'DM Sans',sans-serif" }}>{m.label}</div>
+                  </div>
+                ))}
               </div>
 
-              <div style={{ fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 15, color: '#43E97B' }}>
-                {Math.round(totals.proteins)}g
-              </div>
-
-              <div style={{ fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 15, color: '#5BA7FF' }}>
-                {Math.round(totals.carbs)}g
-              </div>
-
-              <div style={{ fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 15, color: '#FFC857' }}>
-                {Math.round(totals.fats)}g
-              </div>
-
-              <div style={{ fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 15, color: '#26c6da' }}>
-                {Math.round(totals.water)}ml
-              </div>
-
-              <div />
+              <button
+                onClick={() => onAdd({ product: selected, grams, meal, macros })}
+                style={{ padding: '13px', borderRadius: 12, background: `linear-gradient(135deg, ${C.accent}, #2ab377)`, border: 'none', color: '#000', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: "'Syne',sans-serif", letterSpacing: 0.3 }}>
+                Ajouter au journal
+              </button>
             </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Page principale ───────────────────────────────────────────────────────
+export default function NutritionPage() {
+  const { profile } = useAuth()
+  const [entries, setEntries]         = useState([])
+  const [goals, setGoals]             = useState({ cal: 0, protein: 0, carbs: 0, fat: 0 })
+  const [showSearch, setShowSearch]   = useState(false)
+  const [loading, setLoading]         = useState(true)
+
+  const uid = profile?.id
+
+  // Charger entrées du jour + objectifs
+  useEffect(() => {
+    if (!uid) return
+    async function load() {
+      setLoading(true)
+      const [{ data: g }, { data: e }] = await Promise.all([
+        supabase.from('nutrition_goals').select('*').eq('user_id', uid).single(),
+        supabase.from('food_entries').select('*').eq('user_id', uid).eq('date', today()).order('created_at'),
+      ])
+      if (g) setGoals({ cal: g.calories || 0, protein: g.protein || 0, carbs: g.carbs || 0, fat: g.fat || 0 })
+      if (e) setEntries(e)
+      setLoading(false)
+    }
+    load()
+  }, [uid])
+
+  // Ajouter un aliment
+  async function handleAdd({ product, grams, meal, macros }) {
+    if (!uid) return
+    const entry = {
+      user_id:      uid,
+      date:         today(),
+      meal_type:    meal,
+      food_name:    product.name,
+      brand:        product.brand || null,
+      quantity_g:   grams,
+      calories:     macros.kcal,
+      protein_g:    macros.protein,
+      carbs_g:      macros.carbs,
+      fat_g:        macros.fat,
+      fiber_g:      macros.fiber,
+      image_url:    product.image || null,
+    }
+    const { data, error } = await supabase.from('food_entries').insert(entry).select().single()
+    if (!error && data) {
+      setEntries(prev => [...prev, data])
+      setShowSearch(false)
+    }
+  }
+
+  // Supprimer une entrée
+  async function handleDelete(id) {
+    await supabase.from('food_entries').delete().eq('id', id)
+    setEntries(prev => prev.filter(e => e.id !== id))
+  }
+
+  // Totaux
+  const totals = entries.reduce((acc, e) => ({
+    cal:     acc.cal + (e.calories || 0),
+    protein: acc.protein + (e.protein_g || 0),
+    carbs:   acc.carbs + (e.carbs_g || 0),
+    fat:     acc.fat + (e.fat_g || 0),
+  }), { cal: 0, protein: 0, carbs: 0, fat: 0 })
+
+  const MEALS = [
+    { key: 'petit-dejeuner', label: 'Petit-déjeuner', color: C.yellow },
+    { key: 'dejeuner',       label: 'Déjeuner',       color: C.accent },
+    { key: 'diner',          label: 'Dîner',           color: C.blue },
+    { key: 'collation',      label: 'Collation',       color: C.purple },
+  ]
+
+  return (
+    <div style={{ minHeight: '100vh', background: C.bg, padding: '24px 20px', maxWidth: 720, margin: '0 auto', fontFamily: "'DM Sans',sans-serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:wght@400;500;700;800&display=swap');`}</style>
+
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase', color: C.accent, marginBottom: 6 }}>
+            {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </div>
-        </Card>
+          <h1 style={{ fontFamily: "'Syne',sans-serif", fontSize: 28, fontWeight: 900, color: C.text, margin: 0, letterSpacing: '-0.8px' }}>
+            Nutrition
+          </h1>
+        </div>
+        <button
+          onClick={() => setShowSearch(true)}
+          style={{ padding: '10px 18px', borderRadius: 12, background: `linear-gradient(135deg, ${C.accent}, #2ab377)`, border: 'none', color: '#000', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: "'Syne',sans-serif', display: 'flex', alignItems: 'center', gap: 6" }}>
+          + Aliment
+        </button>
+      </div>
+
+      {/* Résumé macros */}
+      <div style={{ ...GLASS, padding: '18px 20px', marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Aujourd'hui</span>
+          <span style={{ fontSize: 22, fontWeight: 900, color: totals.cal > goals.cal && goals.cal > 0 ? C.red : C.accent, fontFamily: "'Syne',sans-serif" }}>
+            {Math.round(totals.cal)} <span style={{ fontSize: 13, color: C.sub, fontWeight: 500 }}>{goals.cal ? `/ ${goals.cal} kcal` : 'kcal'}</span>
+          </span>
+        </div>
+        <div style={{ display: 'grid', gap: 8 }}>
+          <MacroBar label="Protéines" current={totals.protein} goal={goals.protein} color={C.accent} />
+          <MacroBar label="Glucides"  current={totals.carbs}   goal={goals.carbs}   color={C.blue} />
+          <MacroBar label="Lipides"   current={totals.fat}     goal={goals.fat}     color={C.yellow} />
+        </div>
+      </div>
+
+      {/* Entrées par repas */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: C.sub }}>Chargement...</div>
       ) : (
-        <Card>
-          <Label>Repas enregistrés aujourd'hui</Label>
+        MEALS.map(m => {
+          const mealEntries = entries.filter(e => e.meal_type === m.key)
+          const mealKcal = mealEntries.reduce((s, e) => s + (e.calories || 0), 0)
+          return (
+            <div key={m.key} style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, padding: '0 4px' }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: m.color, textTransform: 'uppercase', letterSpacing: 1 }}>{m.label}</span>
+                {mealKcal > 0 && <span style={{ fontSize: 11, color: C.sub }}>{Math.round(mealKcal)} kcal</span>}
+              </div>
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Badge>Aucun aliment saisi</Badge>
-            <Badge color={T.blue || '#5BA7FF'}>Ajoute manuellement tes aliments</Badge>
-          </div>
-        </Card>
+              {mealEntries.length === 0 ? (
+                <div
+                  onClick={() => { setShowSearch(true) }}
+                  style={{ ...GLASS, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', opacity: 0.5, borderStyle: 'dashed' }}>
+                  <span style={{ fontSize: 13, color: C.sub }}>+ Ajouter un aliment</span>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: 6 }}>
+                  {mealEntries.map(e => (
+                    <div key={e.id} style={{ ...GLASS, padding: '10px 14px', display: 'flex', gap: 10, alignItems: 'center' }}>
+                      {e.image_url
+                        ? <img src={e.image_url} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                        : <div style={{ width: 36, height: 36, borderRadius: 8, background: `${m.color}15`, display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 16 }}>🥗</div>
+                      }
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.food_name}</div>
+                        <div style={{ fontSize: 11, color: C.sub, marginTop: 1 }}>
+                          {e.quantity_g}g • P {e.protein_g}g • G {e.carbs_g}g • L {e.fat_g}g
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: C.orange }}>{e.calories} kcal</div>
+                        <button onClick={() => handleDelete(e.id)} style={{ background: 'none', border: 'none', color: C.sub, cursor: 'pointer', fontSize: 12, padding: '2px 0', marginTop: 2 }}>✕</button>
+                      </div>
+                    </div>
+                  ))}
+                  <div
+                    onClick={() => setShowSearch(true)}
+                    style={{ padding: '8px 14px', borderRadius: 10, border: `1px dashed ${C.border}`, color: C.sub, fontSize: 12, cursor: 'pointer', textAlign: 'center' }}>
+                    + Ajouter
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })
       )}
-    </PageWrap>
+
+      {showSearch && <SearchPanel onAdd={handleAdd} onClose={() => setShowSearch(false)} />}
+    </div>
   )
 }
