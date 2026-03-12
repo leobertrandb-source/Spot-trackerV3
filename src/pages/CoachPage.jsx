@@ -1,602 +1,350 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-import { PageWrap, Card, Btn, Input } from '../components/UI'
-import { T } from '../lib/data'
+import { PageWrap } from '../components/UI'
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-function getDaysSince(dateValue) {
-  if (!dateValue) return null
-  const date = new Date(dateValue)
-  if (isNaN(date.getTime())) return null
-  return Math.floor((Date.now() - date.getTime()) / 86400000)
+// ─── Tokens ───────────────────────────────────────────────────────────────────
+const C = {
+  bg:      '#07090e',
+  glass:   'rgba(12,16,24,0.72)',
+  border:  'rgba(255,255,255,0.07)',
+  borderHi:'rgba(255,255,255,0.13)',
+  text:    '#edf2f7',
+  sub:     '#7a8fa6',
+  dim:     '#3d4f61',
+  accent:  '#3ecf8e',
+  blue:    '#4d9fff',
+  purple:  '#9d7dea',
+  orange:  '#ff7043',
+  red:     '#ff4566',
 }
 
-function getWeekStart() {
-  const d = new Date()
-  const day = d.getDay()
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-  d.setDate(diff)
-  d.setHours(0, 0, 0, 0)
-  return d.toISOString().split('T')[0]
+const GLASS_CARD = {
+  background: C.glass,
+  backdropFilter: 'blur(24px)',
+  WebkitBackdropFilter: 'blur(24px)',
+  border: `1px solid ${C.border}`,
+  borderRadius: 20,
 }
 
-function getClientStatus(sessions) {
-  if (!sessions?.length) return { label: 'Nouveau', color: T.textDim, icon: '🆕' }
-  const sorted = [...sessions].sort((a, b) => String(b.date).localeCompare(String(a.date)))
-  const daysSince = getDaysSince(sorted[0]?.date)
-
-  if (daysSince === null || daysSince > 10) return { label: 'Inactif', color: T.danger, icon: '⚠️' }
-
-  const recent = sorted.slice(0, 3)
-  const volumes = recent.map(s =>
-    (s.sets || []).reduce((sum, set) => sum + Number(set.weight || 0) * Number(set.reps || 0), 0)
-  )
-  const rpeValues = recent
-    .flatMap(s => (s.sets || []).map(set => Number(set.rpe || 0)))
-    .filter(Boolean)
-  const avgRpe = rpeValues.length ? rpeValues.reduce((a, b) => a + b, 0) / rpeValues.length : 0
-
-  if (avgRpe >= 9 && volumes[0] <= (volumes[1] || 0)) return { label: 'Fatigue', color: T.orange, icon: '🔴' }
-  if (recent.length >= 2 && volumes[0] > (volumes[1] || 0) * 1.05) return { label: 'Progression', color: T.accent, icon: '📈' }
-  if (recent.length >= 3) {
-    const max = Math.max(...volumes), min = Math.min(...volumes)
-    if (max - min < max * 0.05) return { label: 'Stagnation', color: T.blue, icon: '📊' }
-  }
-  return { label: 'Stable', color: T.accentLight, icon: '✅' }
+function greet() {
+  const h = new Date().getHours()
+  if (h < 6)  return 'Bonne nuit'
+  if (h < 12) return 'Bonjour'
+  if (h < 18) return 'Bon après-midi'
+  return 'Bonsoir'
 }
 
-function getSessionsThisWeek(sessions) {
-  const weekStart = getWeekStart()
-  return (sessions || []).filter(s => String(s.date || '') >= weekStart).length
+function initials(name) {
+  return (name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
 }
 
-function formatDate(value) {
-  if (!value) return '—'
-  try { return new Date(value).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) }
-  catch { return '—' }
+// ─── SVG Icons ────────────────────────────────────────────────────────────────
+const Icon = ({ d, color = C.sub, size = 18, strokeWidth = 1.8 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+    <path d={d}/>
+  </svg>
+)
+
+const ICONS = {
+  users:    "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75",
+  flash:    "M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+  grid:     "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z",
+  mail:     "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6",
+  chevron:  "M9 18l6-6-6-6",
+  plus:     "M12 5v14M5 12h14",
+  copy:     "M8 17.929H6c-1.105 0-2-.912-2-2.036V5.036C4 3.91 4.895 3 6 3h8c1.105 0 2 .911 2 2.036v1.866m-6 .17h8c1.105 0 2 .91 2 2.035v10.857C20 21.09 19.105 22 18 22h-8c-1.105 0-2-.911-2-2.036V9.107c0-1.124.895-2.036 2-2.036z",
+  dumbbell: "M6.5 6.5h11M6.5 17.5h11M3 9.5h2v5H3zM19 9.5h2v5h-2zM6.5 3v3M6.5 18v3M17.5 3v3M17.5 18v3",
+  chart:    "M18 20V10M12 20V4M6 20v-6",
 }
 
-// ─── Sous-composants ─────────────────────────────────────────────────────────
+// ─── Stat Block ───────────────────────────────────────────────────────────────
 
-function StatBlock({ value, label, accent, sub }) {
+function StatBlock({ label, value, sub, color, iconPath, delay = 0 }) {
+  const [vis, setVis] = useState(false)
+  useEffect(() => { const t = setTimeout(() => setVis(true), delay); return () => clearTimeout(t) }, [delay])
+
   return (
     <div style={{
-      padding: '20px 22px',
-      borderRadius: 20,
-      border: `1px solid ${accent ? T.accent + '30' : T.border}`,
-      background: accent ? 'rgba(57,224,122,0.06)' : 'rgba(255,255,255,0.025)',
-      position: 'relative',
-      overflow: 'hidden',
+      ...GLASS_CARD, padding: '22px 20px',
+      position: 'relative', overflow: 'hidden',
+      opacity: vis ? 1 : 0,
+      transform: vis ? 'none' : 'translateY(14px)',
+      transition: 'opacity 0.5s ease, transform 0.5s ease',
     }}>
-      {accent && (
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, height: 2,
-          background: `linear-gradient(90deg, ${T.accent}, transparent)`,
-        }} />
-      )}
-      <div style={{
-        fontSize: 36, fontWeight: 900, lineHeight: 1,
-        color: accent ? T.accent : T.text,
-        letterSpacing: '-2px',
-      }}>
-        {value}
+      <div style={{ position: 'absolute', top: -40, right: -40, width: 140, height: 140, borderRadius: '50%', background: `${color}08`, filter: 'blur(40px)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${color}50, transparent)` }} />
+
+      <div style={{ width: 38, height: 38, borderRadius: 11, background: `${color}18`, border: `1px solid ${color}28`, display: 'grid', placeItems: 'center', marginBottom: 14 }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d={iconPath}/>
+        </svg>
       </div>
-      <div style={{ fontSize: 12, fontWeight: 700, color: T.textDim, marginTop: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-        {label}
-      </div>
-      {sub && <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>{sub}</div>}
+
+      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 30, fontWeight: 900, color: C.text, lineHeight: 1, letterSpacing: '-1px' }}>{value}</div>
+      <div style={{ fontSize: 12, color: C.sub, marginTop: 6, fontFamily: "'DM Sans',sans-serif", fontWeight: 500 }}>{label}</div>
+      {sub && <div style={{ fontSize: 11, color, marginTop: 3, fontWeight: 700, fontFamily: "'DM Sans',sans-serif" }}>{sub}</div>}
     </div>
   )
 }
 
+// ─── Client row ───────────────────────────────────────────────────────────────
+
 function ClientRow({ client, index }) {
-  const status = getClientStatus(client.sessions)
-  const sessionsThisWeek = getSessionsThisWeek(client.sessions)
-  const lastSession = [...(client.sessions || [])].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0]
-  const daysSince = getDaysSince(lastSession?.date)
-
-  const initials = (client.full_name || client.email || '?')
-    .split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
-
+  const [hov, setHov] = useState(false)
   return (
-    <Link
-      to={`/coach/client/${client.id}`}
-      style={{ textDecoration: 'none' }}
-    >
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '44px 1fr auto',
-          gap: 12,
-          alignItems: 'center',
-          padding: '12px 14px',
-          borderRadius: 16,
-          border: `1px solid ${T.border}`,
-          background: 'rgba(255,255,255,0.025)',
-          cursor: 'pointer',
-          transition: 'all 0.18s ease',
-          animationDelay: `${index * 60}ms`,
-        }}
-        onMouseEnter={e => {
-          e.currentTarget.style.background = 'rgba(255,255,255,0.045)'
-          e.currentTarget.style.borderColor = T.accent + '30'
-          e.currentTarget.style.transform = 'translateX(3px)'
-        }}
-        onMouseLeave={e => {
-          e.currentTarget.style.background = 'rgba(255,255,255,0.025)'
-          e.currentTarget.style.borderColor = T.border
-          e.currentTarget.style.transform = 'translateX(0)'
-        }}
-      >
-        {/* Avatar */}
-        <div style={{
-          width: 44, height: 44, borderRadius: 14,
-          background: `linear-gradient(135deg, ${status.color}22, ${status.color}44)`,
-          border: `1px solid ${status.color}40`,
-          display: 'grid', placeItems: 'center',
-          fontSize: 14, fontWeight: 900, color: status.color,
-          flexShrink: 0,
-        }}>
-          {initials}
-        </div>
-
-        {/* Nom + infos */}
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 800, fontSize: 14, color: T.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {client.full_name || 'Client'}
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 3, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 11, color: T.textDim }}>
-              {sessionsThisWeek > 0
-                ? <span style={{ color: T.accent, fontWeight: 700 }}>{sessionsThisWeek} séance{sessionsThisWeek > 1 ? 's' : ''} cette sem.</span>
-                : <span>Aucune séance cette sem.</span>
-              }
-            </span>
-            {daysSince !== null && (
-              <span style={{ fontSize: 11, color: daysSince > 7 ? T.danger : T.textDim }}>
-                · {daysSince === 0 ? "Auj." : `J-${daysSince}`}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Statut badge */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 4,
-          padding: '5px 10px', borderRadius: 20,
-          background: `${status.color}15`,
-          border: `1px solid ${status.color}30`,
-          whiteSpace: 'nowrap', flexShrink: 0,
-        }}>
-          <span style={{ fontSize: 11 }}>{status.icon}</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: status.color }}>
-            {status.label}
-          </span>
-        </div>
+    <Link to={`/coach/client/${client.id}`}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '11px 14px', borderRadius: 14, textDecoration: 'none',
+        background: hov ? 'rgba(157,125,234,0.07)' : 'rgba(255,255,255,0.025)',
+        border: `1px solid ${hov ? 'rgba(157,125,234,0.25)' : C.border}`,
+        transition: 'all 0.16s ease',
+        animation: 'fadeUp 0.4s ease both',
+        animationDelay: `${index * 45 + 200}ms`,
+      }}>
+      <div style={{ width: 38, height: 38, borderRadius: 11, flexShrink: 0, background: 'rgba(157,125,234,0.15)', border: '1px solid rgba(157,125,234,0.25)', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 800, color: C.purple, fontFamily: "'Syne',sans-serif" }}>
+        {initials(client.full_name)}
       </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: "'DM Sans',sans-serif" }}>{client.full_name || 'Client'}</div>
+        <div style={{ fontSize: 11, color: C.dim, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{client.email}</div>
+      </div>
+      <div style={{ fontSize: 10, fontWeight: 700, color: C.accent, padding: '3px 9px', background: 'rgba(62,207,142,0.1)', border: '1px solid rgba(62,207,142,0.2)', borderRadius: 20, flexShrink: 0 }}>Actif</div>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={hov ? C.purple : C.dim} strokeWidth="2.5" strokeLinecap="round" style={{ flexShrink: 0, transition: 'stroke 0.15s' }}>
+        <path d="M9 18l6-6-6-6"/>
+      </svg>
     </Link>
   )
 }
 
-function AlertCard({ clients }) {
-  const alerts = useMemo(() => {
-    const list = []
-    for (const client of clients) {
-      const status = getClientStatus(client.sessions)
-      const daysSince = getDaysSince(
-        [...(client.sessions || [])].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0]?.date
-      )
-      if (status.label === 'Inactif' && daysSince !== null)
-        list.push({ client, message: `Absent depuis ${daysSince} jours`, color: T.danger, icon: '⚠️' })
-      else if (status.label === 'Fatigue')
-        list.push({ client, message: 'RPE élevé cette semaine', color: T.orange, icon: '🔴' })
-      else if (status.label === 'Stagnation')
-        list.push({ client, message: 'Stagne depuis 3 séances', color: T.blue, icon: '📊' })
-    }
-    return list.slice(0, 5)
-  }, [clients])
+// ─── Invite card ──────────────────────────────────────────────────────────────
 
-  if (!alerts.length) return (
-    <div style={{ padding: '16px 0', textAlign: 'center' }}>
-      <div style={{ fontSize: 24, marginBottom: 6 }}>✅</div>
-      <div style={{ fontSize: 13, color: T.textDim }}>Tous tes clients sont sur la bonne voie</div>
-    </div>
-  )
+function InviteCard({ userId }) {
+  const [email, setEmail]   = useState('')
+  const [link, setLink]     = useState('')
+  const [loading, setLoading] = useState(false)
+  const [copied, setCopied]   = useState(false)
+
+  async function generate() {
+    if (!email.trim()) return
+    setLoading(true); setLink('')
+    const token = crypto.randomUUID().replace(/-/g, '')
+    const { error } = await supabase.from('coach_invites').insert({ coach_id: userId, email: email.trim().toLowerCase(), invite_token: token, status: 'pending' })
+    if (!error) setLink(`${window.location.origin}/invite/${token}`)
+    setLoading(false)
+  }
+
+  async function copy() {
+    await navigator.clipboard.writeText(link)
+    setCopied(true); setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
-    <div style={{ display: 'grid', gap: 8 }}>
-      {alerts.map(({ client, message, color, icon }) => (
-        <Link key={client.id} to={`/coach/client/${client.id}`} style={{ textDecoration: 'none' }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: '10px 14px', borderRadius: 14,
-            background: `${color}0d`, border: `1px solid ${color}28`,
-            cursor: 'pointer',
-          }}>
-            <span style={{ fontSize: 16 }}>{icon}</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>
-                {client.full_name || 'Client'}
-              </div>
-              <div style={{ fontSize: 11, color, marginTop: 1 }}>{message}</div>
-            </div>
-            <span style={{ fontSize: 12, color: T.textDim }}>→</span>
+    <div style={{ ...GLASS_CARD, padding: '22px', display: 'grid', gap: 16 }}>
+      <div>
+        <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 16, color: C.text }}>Inviter un client</div>
+        <div style={{ fontSize: 12, color: C.dim, marginTop: 3 }}>Génère un lien d'accès sécurisé</div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input value={email} onChange={e => setEmail(e.target.value)} placeholder="client@email.com"
+          onKeyDown={e => e.key === 'Enter' && generate()}
+          style={{ flex: 1, height: 42, borderRadius: 11, background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text, fontSize: 13, padding: '0 14px', outline: 'none', fontFamily: "'DM Sans',sans-serif" }}
+        />
+        <button type="button" onClick={generate} disabled={loading || !email.trim()} style={{
+          height: 42, padding: '0 16px', borderRadius: 11, border: 'none',
+          background: email.trim() ? C.accent : 'rgba(62,207,142,0.15)',
+          color: email.trim() ? '#05100a' : 'rgba(62,207,142,0.4)',
+          fontWeight: 800, fontSize: 13, cursor: email.trim() ? 'pointer' : 'default',
+          fontFamily: "'DM Sans',sans-serif", transition: 'all 0.15s ease', whiteSpace: 'nowrap',
+        }}>
+          {loading ? '...' : 'Générer'}
+        </button>
+      </div>
+
+      {link && (
+        <div style={{ animation: 'fadeUp 0.3s ease' }}>
+          <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(62,207,142,0.05)', border: '1px solid rgba(62,207,142,0.15)', fontSize: 11, color: C.sub, wordBreak: 'break-all', lineHeight: 1.6, marginBottom: 8 }}>
+            {link}
           </div>
-        </Link>
-      ))}
+          <button type="button" onClick={copy} style={{
+            width: '100%', height: 38, borderRadius: 10,
+            border: `1px solid ${copied ? 'rgba(62,207,142,0.4)' : 'rgba(62,207,142,0.2)'}`,
+            background: copied ? 'rgba(62,207,142,0.12)' : 'rgba(62,207,142,0.06)',
+            color: C.accent, fontWeight: 700, fontSize: 12, cursor: 'pointer',
+            fontFamily: "'DM Sans',sans-serif", transition: 'all 0.15s',
+          }}>
+            {copied ? '✓ Copié !' : 'Copier le lien'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
 
-// ─── Page principale ──────────────────────────────────────────────────────────
+// ─── Hero ─────────────────────────────────────────────────────────────────────
+
+function Hero({ name, clientCount }) {
+  const [vis, setVis] = useState(false)
+  useEffect(() => { const t = setTimeout(() => setVis(true), 30); return () => clearTimeout(t) }, [])
+
+  return (
+    <div style={{
+      ...GLASS_CARD, padding: '32px 30px',
+      position: 'relative', overflow: 'hidden',
+      opacity: vis ? 1 : 0, transform: vis ? 'none' : 'translateY(18px)',
+      transition: 'opacity 0.6s ease, transform 0.6s ease',
+    }}>
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 20, overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -80, right: -80, width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle, rgba(77,159,255,0.07) 0%, transparent 70%)', filter: 'blur(50px)' }} />
+        <div style={{ position: 'absolute', bottom: -50, left: 60, width: 250, height: 250, borderRadius: '50%', background: 'radial-gradient(circle, rgba(62,207,142,0.05) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+        {/* Decorative lines */}
+        <svg style={{ position: 'absolute', bottom: 0, right: 0, opacity: 0.04 }} width="280" height="180" viewBox="0 0 280 180" fill="none">
+          <path d="M0 90 Q70 20 140 90 Q210 160 280 90" stroke="white" strokeWidth="50"/>
+        </svg>
+      </div>
+
+      <div style={{ position: 'relative' }}>
+        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2.5, textTransform: 'uppercase', color: C.blue, marginBottom: 12, fontFamily: "'DM Sans',sans-serif" }}>
+          {greet()}
+        </div>
+        <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 'clamp(28px,4vw,42px)', fontWeight: 900, color: C.text, lineHeight: 1.05, letterSpacing: '-1.5px' }}>
+          {name?.split(' ')[0] || 'Coach'}
+        </div>
+        <div style={{ fontSize: 14, color: C.sub, marginTop: 10, fontFamily: "'DM Sans',sans-serif", maxWidth: 500, lineHeight: 1.6 }}>
+          {clientCount === 0
+            ? 'Invite ton premier client pour démarrer le suivi.'
+            : `Tu suis activement ${clientCount} client${clientCount > 1 ? 's' : ''}.`}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Quick action ─────────────────────────────────────────────────────────────
+
+function QuickAction({ to, label, sub, color, iconPath, delay = 0 }) {
+  const [hov, setHov] = useState(false)
+  return (
+    <Link to={to} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{
+        padding: '16px', borderRadius: 14, textDecoration: 'none',
+        background: hov ? `${color}0a` : 'rgba(255,255,255,0.025)',
+        border: `1px solid ${hov ? `${color}30` : C.border}`,
+        transition: 'all 0.16s ease', display: 'block',
+        animation: 'fadeUp 0.4s ease both', animationDelay: `${delay}ms`,
+      }}>
+      <div style={{ width: 32, height: 32, borderRadius: 9, background: `${color}18`, border: `1px solid ${color}25`, display: 'grid', placeItems: 'center', marginBottom: 10 }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={iconPath}/></svg>
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: "'DM Sans',sans-serif" }}>{label}</div>
+      <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{sub}</div>
+    </Link>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CoachPage() {
   const { user, profile } = useAuth()
+  const [clients, setClients]       = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [weekSessions, setWeekSessions] = useState(0)
 
-  const [clients, setClients] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [errorMessage, setErrorMessage] = useState('')
-  const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteLink, setInviteLink] = useState('')
-  const [inviteLoading, setInviteLoading] = useState(false)
-  const [inviteCopied, setInviteCopied] = useState(false)
-  const [filter, setFilter] = useState('all') // all | actif | inactif | fatigue
+  const name = profile?.full_name || user?.email || 'Coach'
 
-  const coachName = (profile?.full_name || user?.email || 'Coach').split(' ')[0]
-
-  const loadClients = useCallback(async () => {
-    if (!user?.id) { setClients([]); setLoading(false); return }
+  const load = useCallback(async () => {
+    if (!user?.id) { setLoading(false); return }
     setLoading(true)
-    setErrorMessage('')
-
     try {
-      const { data: links, error: linksError } = await supabase
-        .from('coach_clients').select('client_id').eq('coach_id', user.id)
-      if (linksError) throw linksError
-
+      const { data: links } = await supabase.from('coach_clients').select('client_id').eq('coach_id', user.id)
       const ids = (links || []).map(r => r.client_id).filter(Boolean)
-      if (!ids.length) { setClients([]); return }
-
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles').select('id, full_name, email, role').in('id', ids)
-      if (profilesError) throw profilesError
-
-      // Charge les sessions des 30 derniers jours pour chaque client
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-      const since = thirtyDaysAgo.toISOString().split('T')[0]
-
-      const { data: sessionsData } = await supabase
-        .from('sessions')
-        .select('id, user_id, date, sets(*)')
-        .in('user_id', ids)
-        .gte('date', since)
-        .order('date', { ascending: false })
-
-      // Associe les sessions à chaque client
-      const sessionsByClient = {}
-      for (const s of sessionsData || []) {
-        if (!sessionsByClient[s.user_id]) sessionsByClient[s.user_id] = []
-        sessionsByClient[s.user_id].push(s)
+      if (ids.length > 0) {
+        const { data: profs } = await supabase.from('profiles').select('id, full_name, email').in('id', ids).order('full_name')
+        setClients(profs || [])
+        const mon = new Date(); mon.setDate(mon.getDate() - (mon.getDay() || 7) + 1); mon.setHours(0,0,0,0)
+        const { data: sess } = await supabase.from('sessions').select('id').in('user_id', ids).gte('date', mon.toISOString().split('T')[0])
+        setWeekSessions((sess || []).length)
+      } else {
+        setClients([])
       }
-
-      const enriched = (profilesData || []).map(p => ({
-        ...p,
-        sessions: sessionsByClient[p.id] || [],
-      }))
-
-      setClients(enriched)
-    } catch (err) {
-      console.error(err)
-      setErrorMessage("Impossible de charger les clients.")
-    } finally {
-      setLoading(false)
-    }
+    } catch (e) { console.error(e) }
+    finally { setLoading(false) }
   }, [user?.id])
 
-  useEffect(() => { loadClients() }, [loadClients])
-
-  const createInvite = useCallback(async () => {
-    const email = inviteEmail.trim().toLowerCase()
-    if (!user?.id || !email) return
-    setInviteLoading(true)
-    setInviteLink('')
-    setErrorMessage('')
-    try {
-      const token = globalThis.crypto?.randomUUID?.().replace(/-/g, '') || `${Date.now()}${Math.random().toString(36).slice(2, 10)}`
-      const { error } = await supabase.from('coach_invites').insert({
-        coach_id: user.id, email, invite_token: token, status: 'pending',
-      })
-      if (error) throw error
-      setInviteLink(`${window.location.origin}/invite/${token}`)
-    } catch (err) {
-      setErrorMessage(err.message || "Impossible de créer l'invitation.")
-    } finally {
-      setInviteLoading(false)
-    }
-  }, [inviteEmail, user?.id])
-
-  const copyInviteLink = useCallback(async () => {
-    if (!inviteLink) return
-    try {
-      await navigator.clipboard.writeText(inviteLink)
-      setInviteCopied(true)
-      setTimeout(() => setInviteCopied(false), 2000)
-    } catch { window.alert('Impossible de copier le lien') }
-  }, [inviteLink])
-
-  const stats = useMemo(() => {
-    const actifs = clients.filter(c => {
-      const d = getDaysSince([...(c.sessions || [])].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0]?.date)
-      return d !== null && d <= 7
-    })
-    const enProgression = clients.filter(c => getClientStatus(c.sessions).label === 'Progression')
-    const totalSeancesWeek = clients.reduce((sum, c) => sum + getSessionsThisWeek(c.sessions), 0)
-    return { total: clients.length, actifs: actifs.length, enProgression: enProgression.length, totalSeancesWeek }
-  }, [clients])
-
-  const filteredClients = useMemo(() => {
-    if (filter === 'all') return clients
-    return clients.filter(c => {
-      const status = getClientStatus(c.sessions).label.toLowerCase()
-      if (filter === 'actif') return status !== 'inactif' && status !== 'nouveau'
-      if (filter === 'inactif') return status === 'inactif'
-      if (filter === 'fatigue') return status === 'fatigue'
-      return true
-    })
-  }, [clients, filter])
-
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir'
+  useEffect(() => { load() }, [load])
 
   return (
     <PageWrap>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&display=swap');
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(16px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .coach-row { animation: fadeUp 0.4s ease both; }
-        .coach-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: 18px; align-items: start; }
-        .coach-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-        .coach-hero-title { font-size: 32px; }
-        @media (min-width: 768px) {
-          .coach-grid { grid-template-columns: minmax(0,1fr) 340px; }
-          .coach-stats { grid-template-columns: repeat(4, 1fr); }
-          .coach-hero-title { font-size: 40px; }
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800&display=swap');
+        @keyframes fadeUp { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
+        .cg-stats { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+        .cg-main  { display:grid; grid-template-columns:1fr; gap:16px; }
+        .cg-quick { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+        @media(min-width:860px){
+          .cg-stats { grid-template-columns:repeat(4,1fr); }
+          .cg-main  { grid-template-columns:minmax(0,1fr) minmax(0,1.45fr); }
         }
       `}</style>
 
-      <div style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gap: 20 }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '8px 0 48px', display: 'grid', gap: 16 }}>
 
-        {/* ── Hero ── */}
-        <div style={{
-          padding: '32px 28px',
-          borderRadius: 24,
-          background: 'linear-gradient(135deg, rgba(14,18,14,0.98), rgba(8,12,10,0.99))',
-          border: `1px solid ${T.accent}20`,
-          position: 'relative',
-          overflow: 'hidden',
-        }}>
-          {/* Glow bg */}
-          <div style={{
-            position: 'absolute', top: -60, right: -60,
-            width: 300, height: 300, borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(57,224,122,0.08), transparent 70%)',
-            pointerEvents: 'none',
-          }} />
-          <div style={{
-            position: 'absolute', bottom: -40, left: 80,
-            width: 200, height: 200, borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(77,159,255,0.05), transparent 70%)',
-            pointerEvents: 'none',
-          }} />
+        <Hero name={name} clientCount={clients.length} />
 
-          <div style={{
-            display: 'inline-block',
-            fontSize: 11, fontWeight: 800, letterSpacing: 2,
-            textTransform: 'uppercase', color: T.accent,
-            background: 'rgba(57,224,122,0.10)',
-            border: `1px solid ${T.accent}28`,
-            padding: '4px 12px', borderRadius: 999, marginBottom: 16,
-          }}>
-            Espace Coach
-          </div>
-
-          <div className="coach-hero-title" style={{
-            fontFamily: "'Syne', sans-serif",
-            fontWeight: 900, lineHeight: 1,
-            color: T.text, letterSpacing: '-2px',
-          }}>
-            {greeting},<br />
-            <span style={{ color: T.accent }}>{coachName}</span>
-          </div>
-
-          <div style={{ color: T.textDim, fontSize: 14, marginTop: 10 }}>
-            {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-          </div>
+        <div className="cg-stats">
+          <StatBlock label="Clients actifs" value={clients.length} color={C.blue} iconPath={ICONS.users} delay={80} sub="En suivi" />
+          <StatBlock label="Séances cette semaine" value={weekSessions} color={C.accent} iconPath={ICONS.flash} delay={130} sub="Total clients" />
+          <StatBlock label="Programmes" value="—" color={C.purple} iconPath={ICONS.grid} delay={180} sub="Créés" />
+          <StatBlock label="Invitations" value="—" color={C.orange} iconPath={ICONS.mail} delay={230} sub="En attente" />
         </div>
 
-        {/* ── Stats ── */}
-        <div className="coach-stats">
-          <StatBlock value={stats.total} label="Clients total" />
-          <StatBlock value={stats.actifs} label="Actifs cette semaine" accent />
-          <StatBlock value={stats.enProgression} label="En progression" />
-          <StatBlock value={stats.totalSeancesWeek} label="Séances cette semaine" />
-        </div>
-
-        {errorMessage && (
-          <div style={{ padding: 14, borderRadius: 14, background: 'rgba(255,90,90,0.06)', border: '1px solid rgba(255,120,120,0.22)', color: '#FFB3B3', fontWeight: 700, fontSize: 14 }}>
-            {errorMessage}
+        <div className="cg-main">
+          {/* Colonne gauche */}
+          <div style={{ display: 'grid', gap: 12, alignContent: 'start' }}>
+            <InviteCard userId={user?.id} />
+            <div className="cg-quick">
+              <QuickAction to="/programmes"    label="Programmes"   sub="Créer une séance"   color={C.accent}  iconPath={ICONS.grid}     delay={350} />
+              <QuickAction to="/exercices"     label="Exercices"    sub="Bibliothèque"        color={C.orange}  iconPath={ICONS.dumbbell} delay={400} />
+              <QuickAction to="/coach/clients" label="Clients"      sub="Voir les fiches"     color={C.purple}  iconPath={ICONS.users}    delay={450} />
+              <QuickAction to="/progression"   label="Progression"  sub="Stats globales"      color={C.blue}    iconPath={ICONS.chart}    delay={500} />
+            </div>
           </div>
-        )}
 
-        {/* ── Contenu principal ── */}
-        <div className="coach-grid">
-
-          {/* Liste clients */}
-          <div style={{ display: 'grid', gap: 14 }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              gap: 12, flexWrap: 'wrap',
-            }}>
-              <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: 20, color: T.text }}>
-                Mes clients
-                <span style={{ fontSize: 13, fontWeight: 600, color: T.textDim, marginLeft: 8 }}>
-                  ({filteredClients.length})
-                </span>
+          {/* Colonne droite — clients */}
+          <div style={{ ...GLASS_CARD, padding: '22px', display: 'grid', gap: 14, alignContent: 'start' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 16, color: C.text }}>Mes clients</div>
+                <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{clients.length} en suivi actif</div>
               </div>
-
-              {/* Filtres */}
-              <div style={{ display: 'flex', gap: 6 }}>
-                {['all', 'actif', 'inactif', 'fatigue'].map(f => (
-                  <button key={f} type="button" onClick={() => setFilter(f)} style={{
-                    height: 32, padding: '0 12px', borderRadius: 999, cursor: 'pointer',
-                    border: `1px solid ${filter === f ? T.accent + '40' : T.border}`,
-                    background: filter === f ? 'rgba(57,224,122,0.10)' : 'rgba(255,255,255,0.03)',
-                    color: filter === f ? T.accentLight : T.textMid,
-                    fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5,
-                  }}>
-                    {f === 'all' ? 'Tous' : f.charAt(0).toUpperCase() + f.slice(1)}
-                  </button>
-                ))}
-              </div>
+              <Link to="/coach/clients" style={{ fontSize: 11, fontWeight: 700, color: C.blue, textDecoration: 'none', padding: '5px 12px', borderRadius: 8, border: '1px solid rgba(77,159,255,0.2)', background: 'rgba(77,159,255,0.06)', fontFamily: "'DM Sans',sans-serif" }}>
+                Voir tout →
+              </Link>
             </div>
 
             {loading ? (
-              <div style={{ padding: 30, textAlign: 'center', color: T.textDim, fontSize: 14 }}>
-                Chargement...
-              </div>
-            ) : filteredClients.length === 0 ? (
-              <div style={{
-                padding: 30, textAlign: 'center', borderRadius: 18,
-                border: `1px dashed ${T.border}`,
-                background: 'rgba(255,255,255,0.02)',
-              }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>👥</div>
-                <div style={{ color: T.textMid, fontWeight: 600, fontSize: 14 }}>
-                  {filter === 'all' ? 'Aucun client pour le moment' : `Aucun client "${filter}"`}
-                </div>
+              <div style={{ padding: 24, textAlign: 'center', color: C.dim, fontSize: 13 }}>Chargement...</div>
+            ) : clients.length === 0 ? (
+              <div style={{ padding: '32px 20px', textAlign: 'center', border: `1px dashed ${C.border}`, borderRadius: 14 }}>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={C.dim} strokeWidth="1.2" style={{ display: 'block', margin: '0 auto 10px' }}>
+                  <circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2M16 11h6m-3-3v6"/>
+                </svg>
+                <div style={{ fontSize: 13, color: C.dim }}>Aucun client encore.</div>
               </div>
             ) : (
-              <div style={{ display: 'grid', gap: 8 }}>
-                {/* En-tête colonnes */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '44px 1fr auto',
-                  gap: 12, padding: '0 14px',
-                  fontSize: 10, fontWeight: 800, color: T.textDim,
-                  textTransform: 'uppercase', letterSpacing: 0.8,
-                }}>
-                  <div />
-                  <div>Client</div>
-                  <div style={{ textAlign: 'right' }}>Statut</div>
-                </div>
-
-                {filteredClients.map((client, i) => (
-                  <div key={client.id} className="coach-row" style={{ animationDelay: `${i * 50}ms` }}>
-                    <ClientRow client={client} index={i} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Sidebar droite */}
-          <div style={{ display: 'grid', gap: 14 }}>
-
-            {/* Alertes */}
-            <div style={{
-              padding: 20, borderRadius: 20,
-              border: `1px solid ${T.border}`,
-              background: 'rgba(255,255,255,0.025)',
-            }}>
-              <div style={{
-                fontFamily: "'Syne', sans-serif",
-                fontWeight: 800, fontSize: 16, color: T.text, marginBottom: 14,
-                display: 'flex', alignItems: 'center', gap: 8,
-              }}>
-                🔔 Alertes
-              </div>
-              <AlertCard clients={clients} />
-            </div>
-
-            {/* Inviter un client */}
-            <div style={{
-              padding: 20, borderRadius: 20,
-              border: `1px solid ${T.border}`,
-              background: 'rgba(255,255,255,0.025)',
-            }}>
-              <div style={{
-                fontFamily: "'Syne', sans-serif",
-                fontWeight: 800, fontSize: 16, color: T.text, marginBottom: 14,
-              }}>
-                ✉️ Inviter un client
-              </div>
-
-              <div style={{ display: 'grid', gap: 10 }}>
-                <input
-                  type="email"
-                  placeholder="client@email.com"
-                  value={inviteEmail}
-                  onChange={e => setInviteEmail(e.target.value)}
-                  style={{
-                    height: 44, borderRadius: 12, padding: '0 14px',
-                    border: `1px solid ${T.border}`,
-                    background: 'rgba(255,255,255,0.04)',
-                    color: T.text, fontSize: 14, outline: 'none',
-                    width: '100%', boxSizing: 'border-box',
-                  }}
-                />
-
-                <button
-                  type="button"
-                  onClick={createInvite}
-                  disabled={inviteLoading || !inviteEmail.trim()}
-                  style={{
-                    height: 44, borderRadius: 12, border: 'none',
-                    background: inviteLoading || !inviteEmail.trim()
-                      ? 'rgba(57,224,122,0.25)' : T.accent,
-                    color: '#050607', fontWeight: 800, fontSize: 14,
-                    cursor: inviteLoading || !inviteEmail.trim() ? 'default' : 'pointer',
-                  }}
-                >
-                  {inviteLoading ? 'Génération...' : 'Générer le lien'}
-                </button>
-
-                {inviteLink && (
-                  <div>
-                    <div style={{
-                      padding: '10px 12px', borderRadius: 10,
-                      border: `1px solid ${T.accent}28`,
-                      background: 'rgba(57,224,122,0.05)',
-                      fontSize: 11, color: T.textMid,
-                      wordBreak: 'break-all', marginBottom: 8,
-                    }}>
-                      {inviteLink}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={copyInviteLink}
-                      style={{
-                        width: '100%', height: 40, borderRadius: 10,
-                        border: `1px solid ${T.accent}40`,
-                        background: inviteCopied ? 'rgba(57,224,122,0.15)' : 'rgba(57,224,122,0.08)',
-                        color: T.accentLight, fontWeight: 700, fontSize: 13,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {inviteCopied ? '✓ Copié !' : 'Copier le lien'}
-                    </button>
-                  </div>
+              <div style={{ display: 'grid', gap: 6 }}>
+                {clients.slice(0, 7).map((c, i) => <ClientRow key={c.id} client={c} index={i} />)}
+                {clients.length > 7 && (
+                  <Link to="/coach/clients" style={{ textAlign: 'center', fontSize: 12, color: C.blue, textDecoration: 'none', padding: 10, fontWeight: 700 }}>
+                    +{clients.length - 7} autres →
+                  </Link>
                 )}
               </div>
-            </div>
-
+            )}
           </div>
         </div>
       </div>
