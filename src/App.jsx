@@ -180,8 +180,10 @@ path="/nutrition/plan"
 element={isCoach ? <Navigate to="/coach" replace /> : <MealPlanPage />}
 />
 
-<Route
-path="/exercices" element={<ExercisesPage />} />
+<Route 
+  path="/exercices" 
+  element={<ExercisesPage />}  // accessible coach ET athlète
+/>
 
 <Route
 path="/coach"
