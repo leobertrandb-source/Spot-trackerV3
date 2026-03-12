@@ -3,32 +3,42 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from './AuthContext'
 import { T } from '../lib/data'
 
-// ─── AI Images pour les nav items ─────────────────────────────────────────────
-// Images statiques générées via OpenAI, stockées en base64 ou URL
-// On utilise des gradients premium en fallback avec des formes SVG custom
+// ─── Images depuis Supabase Storage ──────────────────────────────────────────
+import { NAV_IMAGES } from '../lib/navImages'
 
-const NAV_VISUALS = {
-  '/coach':           { gradient: 'linear-gradient(135deg, #1a1f35 0%, #0d1117 100%)', accent: '#4d9fff', shape: 'M10,30 Q25,5 40,30 Q55,55 70,30 Q85,5 100,30' },
-  '/coach/clients':   { gradient: 'linear-gradient(135deg, #1f1a35 0%, #110d17 100%)', accent: '#9d7dea', shape: 'M10,40 Q30,10 50,40 Q70,70 90,40' },
-  '/programmes':      { gradient: 'linear-gradient(135deg, #0d1f1a 0%, #071510 100%)', accent: '#3ecf8e', shape: 'M20,20 L80,20 L80,80 L20,80 Z' },
-  '/exercices':       { gradient: 'linear-gradient(135deg, #1f1510 0%, #170d07 100%)', accent: '#ff7043', shape: 'M50,10 L90,50 L50,90 L10,50 Z' },
-  '/mon-espace':      { gradient: 'linear-gradient(135deg, #0d1a1f 0%, #071117 100%)', accent: '#26d4e8', shape: 'M50,15 A35,35 0 1 1 50,14.9' },
-  '/entrainement/aujourdhui': { gradient: 'linear-gradient(135deg, #1f0d0d 0%, #170707 100%)', accent: '#ff4566', shape: 'M50,10 L60,40 L90,40 L67,58 L76,90 L50,72 L24,90 L33,58 L10,40 L40,40 Z' },
-  '/entrainement/libre':      { gradient: 'linear-gradient(135deg, #101f0d 0%, #081707 100%)', accent: '#3ecf8e', shape: 'M50,20 L80,50 L50,80 L20,50 Z' },
-  '/progression':     { gradient: 'linear-gradient(135deg, #1a1510 0%, #120d07 100%)', accent: '#fbbf24', shape: 'M10,70 Q30,20 50,50 Q70,80 90,20' },
-  '/nutrition/macros':{ gradient: 'linear-gradient(135deg, #0f1f15 0%, #071510 100%)', accent: '#3ecf8e', shape: 'M50,50 m-35,0 a35,35 0 1,0 70,0 a35,35 0 1,0-70,0' },
-  '/nutrition/recettes':{ gradient: 'linear-gradient(135deg, #1f180d 0%, #17100a 100%)', accent: '#f59e0b', shape: 'M30,20 Q50,10 70,20 Q80,50 70,80 Q50,90 30,80 Q20,50 30,20' },
-  '/nutrition/plan':  { gradient: 'linear-gradient(135deg, #0d1720 0%, #07101a 100%)', accent: '#38bdf8', shape: 'M15,15 L85,15 L85,85 L15,85 Z M25,25 L75,25 L75,75 L25,75 Z' },
+const NAV_ACCENTS = {
+  '/coach':                    '#4d9fff',
+  '/coach/clients':            '#9d7dea',
+  '/programmes':               '#3ecf8e',
+  '/exercices':                '#ff7043',
+  '/mon-espace':               '#26d4e8',
+  '/entrainement/aujourdhui':  '#ff4566',
+  '/entrainement/libre':       '#3ecf8e',
+  '/progression':              '#fbbf24',
+  '/nutrition/macros':         '#3ecf8e',
+  '/nutrition/recettes':       '#f59e0b',
+  '/nutrition/plan':           '#38bdf8',
 }
 
 function NavVisual({ path }) {
-  const v = NAV_VISUALS[path] || NAV_VISUALS['/coach']
+  const img = NAV_IMAGES[path]
+  const accent = NAV_ACCENTS[path] || '#3ecf8e'
+
   return (
-    <div style={{ width: 32, height: 32, borderRadius: 9, overflow: 'hidden', flexShrink: 0, position: 'relative', background: v.gradient, border: `1px solid ${v.accent}25` }}>
-      <svg width="32" height="32" viewBox="0 0 100 100" style={{ position: 'absolute', inset: 0, opacity: 0.5 }}>
-        <path d={v.shape} fill="none" stroke={v.accent} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 30% 30%, ${v.accent}20, transparent 70%)` }} />
+    <div style={{
+      width: 32, height: 32, borderRadius: 9, overflow: 'hidden',
+      flexShrink: 0, position: 'relative',
+      background: 'rgba(255,255,255,0.04)',
+      border: `1px solid ${accent}25`,
+    }}>
+      {img ? (
+        <>
+          <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.25)' }} />
+        </>
+      ) : (
+        <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 30% 30%, ${accent}25, transparent 70%)` }} />
+      )}
     </div>
   )
 }
