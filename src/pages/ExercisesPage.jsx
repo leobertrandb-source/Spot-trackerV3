@@ -240,8 +240,15 @@ function CreateModal({ onSaved, onClose }) {
     if (youtubeUrl && !ytValid) { setError('URL YouTube invalide. Essaie : https://youtu.be/xxxxx'); return }
     setSaving(true)
     try {
+      const baseSlug = name.trim().toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+      const slug = `${baseSlug}-${Date.now()}`
+
       const { error: e } = await supabase.from('exercises').insert({
         name: name.trim(),
+        slug,
         muscle_group: muscleGroup || null,
         youtube_url: youtubeUrl.trim() || null,
         description: description.trim() || null,
