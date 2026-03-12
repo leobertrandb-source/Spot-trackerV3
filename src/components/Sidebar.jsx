@@ -135,6 +135,7 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
     { to: '/entrainement/aujourdhui',    label: 'Séance du jour' },
     { to: '/entrainement/libre',         label: 'Séance libre' },
     { to: '/progression',                label: 'Progression' },
+    { to: '/exercices',                  label: 'Exercices' },
   ]
 
   const athleteNutritionLinks = [
