@@ -294,18 +294,28 @@ function AssignModal({ iso, programs, clients, selectedClientId, onConfirm, onCl
 
 function CreatePanel({ onSaved, onClose }) {
   const { user } = useAuth()
-  const [name, setName]       = useState('')
-  const [type, setType]       = useState(Object.keys(SEANCES)[0])
-  const [exercises, setExs]   = useState([])
-  const [search, setSearch]   = useState('')
-  const [saving, setSaving]   = useState(false)
-  const [error, setError]     = useState('')
+  const [name, setName]         = useState('')
+  const [type, setType]         = useState(Object.keys(SEANCES)[0])
+  const [exercises, setExs]     = useState([])
+  const [search, setSearch]     = useState('')
+  const [saving, setSaving]     = useState(false)
+  const [error, setError]       = useState('')
+  const [allExercises, setAllEx] = useState([...ALL_EXERCISES])
+
+  useEffect(() => {
+    supabase.from('exercises').select('name').order('name')
+      .then(({ data }) => {
+        const names = (data || []).map(e => e.name).filter(Boolean)
+        const merged = [...new Set([...ALL_EXERCISES, ...names])]
+        setAllEx(merged)
+      })
+  }, [])
 
   const suggestions = useMemo(() => SEANCES[type] || [], [type])
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return (q ? ALL_EXERCISES.filter(e => e.toLowerCase().includes(q)) : []).slice(0, 12)
-  }, [search])
+    return (q ? allExercises.filter(e => e.toLowerCase().includes(q)) : []).slice(0, 12)
+  }, [search, allExercises])
 
   function addEx(exName) {
     if (exercises.find(e => e.exercise === exName)) return
