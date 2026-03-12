@@ -17,7 +17,6 @@ const NAV_ACCENTS = {
   '/progression':              '#fbbf24',
   '/nutrition/macros':         '#3ecf8e',
   '/nutrition/recettes':       '#f59e0b',
-  '/nutrition/plan':           '#38bdf8',
 }
 
 function NavVisual({ path }) {
@@ -141,7 +140,6 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
   const athleteNutritionLinks = [
     { to: '/nutrition/macros',   label: 'Nutrition' },
     { to: '/nutrition/recettes', label: 'Recettes' },
-    { to: '/nutrition/plan',     label: 'Plan repas' },
   ]
 
   const isActive = (to) => location.pathname === to || location.pathname.startsWith(to + '/')
