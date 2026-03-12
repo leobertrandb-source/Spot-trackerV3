@@ -72,6 +72,7 @@ const athleteMainLinks = [
 { to: '/entrainement/aujourdhui', label: 'Séance du jour', icon: '🔥' },
 { to: '/entrainement/libre', label: 'Séance libre', icon: '➕' },
 { to: '/progression', label: 'Progression', icon: '📈' },
+  { to: '/exercices', label: 'Exercices', icon: '🏋️' },
 ]
 
 const athleteNutritionLinks = [
