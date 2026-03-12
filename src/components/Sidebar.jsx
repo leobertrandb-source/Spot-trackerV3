@@ -47,7 +47,7 @@ function NavVisual({ path }) {
 
 function NavItem({ to, label, active, onClick, index = 0 }) {
   const [hovered, setHovered] = useState(false)
-  const v = NAV_VISUALS[to] || NAV_VISUALS['/coach']
+  const accent = NAV_ACCENTS[to] || '#3ecf8e'
 
   return (
     <Link
@@ -59,9 +59,9 @@ function NavItem({ to, label, active, onClick, index = 0 }) {
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '8px 10px', borderRadius: 12, textDecoration: 'none',
         background: active
-          ? `linear-gradient(135deg, ${v.accent}18, ${v.accent}08)`
+          ? `linear-gradient(135deg, ${accent}18, ${accent}08)`
           : hovered ? 'rgba(255,255,255,0.04)' : 'transparent',
-        border: `1px solid ${active ? v.accent + '35' : hovered ? 'rgba(255,255,255,0.07)' : 'transparent'}`,
+        border: `1px solid ${active ? accent + '35' : hovered ? 'rgba(255,255,255,0.07)' : 'transparent'}`,
         transition: 'all 0.18s ease',
         animation: `navSlideIn 0.4s ease both`,
         animationDelay: `${index * 40}ms`,
@@ -70,14 +70,14 @@ function NavItem({ to, label, active, onClick, index = 0 }) {
       <NavVisual path={to} />
       <span style={{
         fontSize: 13, fontWeight: active ? 700 : 500,
-        color: active ? v.accent : hovered ? '#c8d4e0' : '#7a8fa6',
+        color: active ? accent : hovered ? '#c8d4e0' : '#7a8fa6',
         transition: 'color 0.15s ease', flex: 1,
         fontFamily: "'DM Sans', sans-serif",
       }}>
         {label}
       </span>
       {active && (
-        <div style={{ width: 4, height: 4, borderRadius: '50%', background: v.accent, flexShrink: 0 }} />
+        <div style={{ width: 4, height: 4, borderRadius: '50%', background: accent, flexShrink: 0 }} />
       )}
     </Link>
   )
