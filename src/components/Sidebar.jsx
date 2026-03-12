@@ -65,6 +65,7 @@ const coachLinks = [
 { to: '/coach', label: 'Dashboard coach', icon: '🧠' },
 { to: '/coach/clients', label: 'Clients', icon: '👥' },
 { to: '/programmes', label: 'Programmes', icon: '📋' },
+  { to: '/exercices',      label: 'Exercices',       icon: '🏋️' },
 ]
 
 const athleteMainLinks = [
