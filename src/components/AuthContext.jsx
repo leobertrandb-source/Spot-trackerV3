@@ -6,28 +6,33 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
+  const [gym, setGym] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const fetchProfile = useCallback(async (userId) => {
     if (!userId) {
       setProfile(null)
+      setGym(null)
       return null
     }
 
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('*, gym:gym_id(*)')
         .eq('id', userId)
         .maybeSingle()
 
       if (error) throw error
 
-      setProfile(data || null)
-      return data || null
+      const { gym: gymData, ...profileData } = data || {}
+      setProfile(profileData || null)
+      setGym(gymData || null)
+      return profileData || null
     } catch (error) {
       console.error('fetchProfile error:', error)
       setProfile(null)
+      setGym(null)
       return null
     }
   }, [])
@@ -90,6 +95,7 @@ export function AuthProvider({ children }) {
     if (!error) {
       setUser(null)
       setProfile(null)
+      setGym(null)
       setLoading(false)
     }
 
@@ -100,12 +106,14 @@ export function AuthProvider({ children }) {
     return {
       user,
       profile,
+      gym,
+      showMethodeSpot: gym?.show_methode_spot === true,
       loading,
       fetchProfile,
       setProfile,
       signOut,
     }
-  }, [user, profile, loading, fetchProfile, signOut])
+  }, [user, profile, gym, loading, fetchProfile, signOut])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
