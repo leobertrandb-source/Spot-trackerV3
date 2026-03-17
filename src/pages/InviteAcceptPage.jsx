@@ -177,6 +177,13 @@ Chargement...
 if (inviteError) {
 return (
 <PageWrap>
+      <style>{`
+        @media (max-width: 640px) {
+          .resp-hide-mobile { display: none !important; }
+          .resp-stack { flex-direction: column !important; }
+          .resp-full { width: 100% !important; min-width: 0 !important; }
+        }
+      `}</style>
 <Card style={{ maxWidth: 560, margin: '0 auto', textAlign: 'center', padding: '40px 28px' }}>
 <div
 style={{
