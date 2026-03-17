@@ -336,7 +336,7 @@ export default function RecipeDetailPage() {
       setLoading(true)
       setErrorMessage('')
       setSuccessMessage('')
-      const { data, error } = await supabase.from('recipes').select('*').eq('id', id).maybeSingle()
+      const { data, error } = await supabase.from('recipes').select('*, recipe_ingredients(*)').eq('id', id).maybeSingle()
       if (!active) return
       if (error) {
         setErrorMessage("Impossible de charger cette recette.")
@@ -371,8 +371,17 @@ export default function RecipeDetailPage() {
 
   const heroImage = useMemo(() => getRecipeImageUrl(recipe), [recipe])
 
-  // Ingrédients bruts (non scalés) pour l'affichage et l'IA
-  const rawIngredients = useMemo(() => normalizeLines(recipe?.ingredients), [recipe])
+  // Ingrédients — depuis recipe_ingredients (table liée) ou fallback champ texte
+  const rawIngredients = useMemo(() => {
+    const rows = recipe?.recipe_ingredients || []
+    if (rows.length > 0) {
+      return rows.map(r => {
+        const qty = r.quantity ? `${r.quantity}${r.unit || ''} ` : ''
+        return `${qty}${r.name || r.ingredient_name || r.label || ''}`.trim()
+      }).filter(Boolean)
+    }
+    return normalizeLines(recipe?.ingredients)
+  }, [recipe])
 
   // Instructions existantes enrichies
   const rawInstructions = useMemo(
@@ -402,6 +411,14 @@ export default function RecipeDetailPage() {
       if (steps.length > 0) {
         setAiSteps(steps)
         setAiGenerated(true)
+        // Sauvegarder en DB pour ne plus avoir à regénérer
+        try {
+          await supabase.from('recipes').update({
+            instructions: JSON.stringify(steps)
+          }).eq('id', recipe.id)
+        } catch (saveErr) {
+          console.warn('Impossible de sauvegarder les étapes:', saveErr)
+        }
       }
     } catch (err) {
       console.error('Erreur génération étapes :', err)
@@ -440,18 +457,6 @@ export default function RecipeDetailPage() {
   if (loading) {
     return (
       <PageWrap>
-      <style>{`
-        .recipe-main-grid { grid-template-columns: 1fr; }
-        @media (min-width: 860px) { .recipe-main-grid { grid-template-columns: minmax(0,1.15fr) minmax(320px,0.85fr); } }
-        .recipe-plate-grid { grid-template-columns: 1fr; }
-        @media (min-width: 540px) { .recipe-plate-grid { grid-template-columns: 180px minmax(0,1fr); } }
-        @media (max-width: 480px) {
-          .recipe-plate-grid > div:first-child { width: 140px !important; height: 140px !important; }
-          .recipe-macros { flex-wrap: wrap !important; }
-          .recipe-macros > div { min-width: 0 !important; flex: 1 1 80px !important; }
-          .recipe-steps-grid { overflow: hidden !important; }
-        }
-`}</style>
         <Card style={{ padding: 20 }}>
           <div style={{ color: T.textDim, fontSize: 14 }}>Chargement de la recette...</div>
         </Card>
@@ -474,7 +479,7 @@ export default function RecipeDetailPage() {
 
   return (
     <PageWrap>
-      <div style={{ maxWidth: 1160, margin: '0 auto', display: 'grid', gap: 18, overflowX: 'hidden' }}>
+      <div style={{ maxWidth: 1160, margin: '0 auto', display: 'grid', gap: 18 }}>
 
         {errorMessage && (
           <Card style={{ padding: 16, border: '1px solid rgba(255,120,120,0.22)', background: 'rgba(255,90,90,0.06)' }}>
@@ -520,7 +525,7 @@ export default function RecipeDetailPage() {
                   {recipe.description}
                 </div>
               )}
-              <div className="recipe-macros" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 18 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 18 }}>
                 <Badge>P {roundSmart(scaled.proteins)}g</Badge>
                 <Badge color={T.blue || '#5BA7FF'}>C {roundSmart(scaled.carbs)}g</Badge>
                 <Badge color={T.orange || '#FFB454'}>F {roundSmart(scaled.fats)}g</Badge>
@@ -530,7 +535,11 @@ export default function RecipeDetailPage() {
         </Card>
 
         {/* Contenu principal */}
-        <div className="recipe-main-grid" style={{ display: 'grid', gap: 18, alignItems: 'start' }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1.15fr) minmax(340px, 0.85fr)',
+          gap: 18, alignItems: 'start',
+        }}>
           <div style={{ display: 'grid', gap: 18 }}>
 
             {/* Slider calories */}
@@ -543,7 +552,7 @@ export default function RecipeDetailPage() {
                   Les quantités des ingrédients se recalculent automatiquement en temps réel.
                 </div>
 
-                <div className="recipe-plate-grid" style={{ display: 'grid', gap: 24, alignItems: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '220px minmax(0, 1fr)', gap: 24, alignItems: 'center' }}>
                   {/* Assiette animée */}
                   <div style={{
                     width: 190, height: 190, margin: '0 auto', borderRadius: '50%',
@@ -725,7 +734,7 @@ export default function RecipeDetailPage() {
                   </button>
                 </div>
               ) : (
-                <div className="recipe-steps-grid" style={{ display: 'grid', gap: 10, overflowX: 'hidden' }}>
+                <div style={{ display: 'grid', gap: 10 }}>
                   {enrichedSteps.map((step) => (
                     <StepCard key={step.index} step={step} />
                   ))}
