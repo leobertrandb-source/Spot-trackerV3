@@ -64,7 +64,7 @@ style={{
 width: '100%',
 maxWidth: 1280,
 margin: '0 auto',
-padding: '22px 20px 28px',
+padding: 'clamp(14px, 3vw, 22px) clamp(12px, 3vw, 20px) 28px',
 boxSizing: 'border-box',
 ...style,
 }}
