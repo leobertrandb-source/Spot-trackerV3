@@ -34,7 +34,7 @@ setInviteError('')
 
 const { data, error } = await supabase
 .from('coach_invites')
-.select('*')
+.select('*, coach:coach_id(gym_id)')
 .eq('invite_token', token)
 .eq('status', 'pending')
 .maybeSingle()
@@ -109,11 +109,14 @@ setSubmitting(false)
 return
 }
 
+const gymId = invite?.coach?.gym_id || null
+
 const { error: profileError } = await supabase.from('profiles').upsert({
 id: createdUser.id,
 full_name: fullName.trim(),
 email: normalizedEmail,
 role: 'athlete',
+gym_id: gymId,
 })
 
 if (profileError) {
