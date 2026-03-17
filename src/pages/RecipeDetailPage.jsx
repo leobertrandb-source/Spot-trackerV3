@@ -385,7 +385,16 @@ export default function RecipeDetailPage() {
 
   // Instructions existantes enrichies
   const rawInstructions = useMemo(
-    () => normalizeLines(recipe?.instructions || recipe?.steps || recipe?.preparation),
+    () => {
+      // instructions = JSON array sauvegardé par l'IA, steps/preparation = champs legacy
+      const src = recipe?.instructions || recipe?.steps || recipe?.preparation
+      if (!src) return []
+      // Si c'est du JSON (array sauvegardé par IA)
+      if (typeof src === 'string' && src.trim().startsWith('[')) {
+        try { return JSON.parse(src).map(String).filter(Boolean) } catch {}
+      }
+      return normalizeLines(src)
+    },
     [recipe]
   )
 
@@ -412,12 +421,13 @@ export default function RecipeDetailPage() {
         setAiSteps(steps)
         setAiGenerated(true)
         // Sauvegarder en DB pour ne plus avoir à regénérer
-        try {
-          await supabase.from('recipes').update({
-            instructions: JSON.stringify(steps)
-          }).eq('id', recipe.id)
-        } catch (saveErr) {
-          console.warn('Impossible de sauvegarder les étapes:', saveErr)
+        const { error: saveErr } = await supabase
+          .from('recipes')
+          .update({ instructions: JSON.stringify(steps) })
+          .eq('id', recipe.id)
+        if (saveErr) {
+          console.error('Erreur sauvegarde étapes:', saveErr.message)
+          setErrorMessage('Étapes générées mais non sauvegardées : ' + saveErr.message)
         }
       }
     } catch (err) {
@@ -479,7 +489,11 @@ export default function RecipeDetailPage() {
 
   return (
     <PageWrap>
-      <div style={{ maxWidth: 1160, margin: '0 auto', display: 'grid', gap: 18 }}>
+      <style>{`
+        .rdp-main-grid { grid-template-columns: 1fr !important; }
+        @media (min-width: 860px) { .rdp-main-grid { grid-template-columns: minmax(0,1.15fr) minmax(300px,0.85fr) !important; } }
+      `}</style>
+      <div style={{ maxWidth: 1160, margin: '0 auto', display: 'grid', gap: 18, overflowX: 'hidden' }}>
 
         {errorMessage && (
           <Card style={{ padding: 16, border: '1px solid rgba(255,120,120,0.22)', background: 'rgba(255,90,90,0.06)' }}>
@@ -535,11 +549,7 @@ export default function RecipeDetailPage() {
         </Card>
 
         {/* Contenu principal */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.15fr) minmax(340px, 0.85fr)',
-          gap: 18, alignItems: 'start',
-        }}>
+        <div className="rdp-main-grid" style={{ display: 'grid', gap: 18, alignItems: 'start' }}>
           <div style={{ display: 'grid', gap: 18 }}>
 
             {/* Slider calories */}
