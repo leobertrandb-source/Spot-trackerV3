@@ -127,7 +127,7 @@ function SearchPanel({ onAdd, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ ...GLASS, width: '100%', maxWidth: 560, maxHeight: '90vh', display: 'flex', flexDirection: 'column', borderRadius: '20px 20px 0 0', overflow: 'hidden' }}>
+      <div style={{ ...GLASS, width: '100%', maxWidth: 560, maxHeight: '90vh', display: 'flex', flexDirection: 'column', borderRadius: '20px 20px 0 0', overflow: 'hidden', boxSizing: 'border-box' }}>
 
         {/* Header */}
         <div style={{ padding: '18px 20px 14px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -338,7 +338,7 @@ export default function NutritionPage() {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, padding: '24px 20px', maxWidth: 720, margin: '0 auto', fontFamily: "'DM Sans',sans-serif" }}>
+    <div style={{ minHeight: '100vh', background: C.bg, padding: '20px 16px', maxWidth: 720, margin: '0 auto', boxSizing: 'border-box', fontFamily: "'DM Sans',sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:wght@400;500;700;800&display=swap');`}</style>
 
       {/* Header */}
