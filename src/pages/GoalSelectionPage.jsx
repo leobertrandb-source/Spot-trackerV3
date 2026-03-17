@@ -6,6 +6,12 @@ import { PageWrap, Btn } from '../components/UI'
 import { T } from '../lib/data'
 import { UI_ASSETS } from '../config/ui-assets.generated'
 
+const PROGRAMME_ROUTES = {
+  mass_gain: '/programme/bodybuilding',
+  fat_loss:  '/programme/perte-de-poids',
+  athletic:  '/programme/athletique',
+}
+
 const OPTIONS = [
   {
     value: 'mass_gain',
@@ -63,7 +69,7 @@ function PointPill({ children, active, isMobile }) {
 
 export default function GoalSelectionPage() {
   const navigate = useNavigate()
-  const { user, profile, fetchProfile } = useAuth()
+  const { user, profile, fetchProfile, showMethodeSpot } = useAuth()
 
   const [selected, setSelected] = useState(profile?.goal_type || '')
   const [saving, setSaving] = useState(false)
@@ -291,25 +297,22 @@ export default function GoalSelectionPage() {
                       ))}
                     </div>
 
-                    {active ? (
-                      <div
-                        style={{
-                          marginTop: 20,
-                          display: 'inline-flex',
-                          padding: '6px 10px',
-                          borderRadius: 999,
-                          background: T.accent + '18',
-                          border: `1px solid ${T.accent + '28'}`,
-                          color: T.accentLight,
-                          fontWeight: 800,
-                          fontSize: 12,
-                          letterSpacing: 0.6,
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        Sélectionné
-                      </div>
-                    ) : null}
+                    <div style={{ marginTop: 20, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      {active && (
+                        <div style={{ display: 'inline-flex', padding: '6px 10px', borderRadius: 999, background: T.accent + '18', border: `1px solid ${T.accent + '28'}`, color: T.accentLight, fontWeight: 800, fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase' }}>
+                          Sélectionné
+                        </div>
+                      )}
+                      {showMethodeSpot && (
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); navigate(PROGRAMME_ROUTES[option.value]); }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', color: 'rgba(255,255,255,0.75)', fontWeight: 700, fontSize: 12, cursor: 'pointer', letterSpacing: 0.3 }}
+                        >
+                          Voir la méthode →
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </button>
