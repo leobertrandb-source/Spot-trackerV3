@@ -427,6 +427,8 @@ export default function RecipeDetailPage() {
           console.error('Save error:', saveErr)
           setErrorMessage('Étapes générées mais non sauvegardées : ' + saveErr.message)
         } else {
+          // Mettre à jour le state local pour que rawInstructions les charge immédiatement
+          setRecipe(prev => ({ ...prev, instructions: JSON.stringify(steps) }))
           setSuccessMessage('Étapes générées et sauvegardées ✓')
         }
       }
