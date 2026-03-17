@@ -165,6 +165,13 @@ export default function RecipesPage() {
 
   return (
     <PageWrap>
+      <style>{`
+        @media (max-width: 640px) {
+          .resp-hide-mobile { display: none !important; }
+          .resp-stack { flex-direction: column !important; }
+          .resp-full { width: 100% !important; min-width: 0 !important; }
+        }
+      `}</style>
       <div style={{ maxWidth: 1180, margin: '0 auto', display: 'grid', gap: 18 }}>
         <Card
           glow
@@ -197,7 +204,7 @@ export default function RecipesPage() {
               color: T.text,
               fontFamily: T.fontDisplay,
               fontWeight: 900,
-              fontSize: 30,
+              fontSize: 'clamp(20px,3vw,30px)',
               lineHeight: 1,
             }}
           >
