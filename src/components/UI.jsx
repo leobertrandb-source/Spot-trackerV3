@@ -28,6 +28,8 @@ color: T.text,
 display: 'flex',
 position: 'relative',
 zIndex: 1,
+overflowX: 'hidden',
+maxWidth: '100vw',
 }}
 >
 {sidebar ? <div style={{ flexShrink: 0 }}>{sidebar}</div> : null}
@@ -64,7 +66,7 @@ style={{
 width: '100%',
 maxWidth: 1280,
 margin: '0 auto',
-padding: 'clamp(14px, 3vw, 22px) clamp(12px, 3vw, 20px) 28px',
+padding: 'clamp(14px,3vw,22px) clamp(12px,3vw,20px) 28px',
 boxSizing: 'border-box',
 ...style,
 }}
