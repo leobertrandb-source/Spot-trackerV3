@@ -386,12 +386,10 @@ export default function RecipeDetailPage() {
   // Instructions existantes enrichies
   const rawInstructions = useMemo(
     () => {
-      // instructions = JSON array sauvegardé par l'IA, steps/preparation = champs legacy
       const src = recipe?.instructions || recipe?.steps || recipe?.preparation
       if (!src) return []
-      // Si c'est du JSON (array sauvegardé par IA)
       if (typeof src === 'string' && src.trim().startsWith('[')) {
-        try { return JSON.parse(src).map(String).filter(Boolean) } catch {}
+        try { const parsed = JSON.parse(src); if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean) } catch {}
       }
       return normalizeLines(src)
     },
@@ -424,10 +422,12 @@ export default function RecipeDetailPage() {
         const { error: saveErr } = await supabase
           .from('recipes')
           .update({ instructions: JSON.stringify(steps) })
-          .eq('id', recipe.id)
+          .eq('id', recipe?.id)
         if (saveErr) {
-          console.error('Erreur sauvegarde étapes:', saveErr.message)
+          console.error('Save error:', saveErr)
           setErrorMessage('Étapes générées mais non sauvegardées : ' + saveErr.message)
+        } else {
+          setSuccessMessage('Étapes générées et sauvegardées ✓')
         }
       }
     } catch (err) {
@@ -490,8 +490,10 @@ export default function RecipeDetailPage() {
   return (
     <PageWrap>
       <style>{`
-        .rdp-main-grid { grid-template-columns: 1fr !important; }
-        @media (min-width: 860px) { .rdp-main-grid { grid-template-columns: minmax(0,1.15fr) minmax(300px,0.85fr) !important; } }
+        .rdp-main { grid-template-columns: 1fr; }
+        @media (min-width: 860px) { .rdp-main { grid-template-columns: minmax(0,1.2fr) 340px; } }
+        .rdp-plate-grid { grid-template-columns: 1fr; }
+        @media (min-width: 500px) { .rdp-plate-grid { grid-template-columns: 160px minmax(0,1fr); } }
       `}</style>
       <div style={{ maxWidth: 1160, margin: '0 auto', display: 'grid', gap: 18, overflowX: 'hidden' }}>
 
@@ -549,7 +551,7 @@ export default function RecipeDetailPage() {
         </Card>
 
         {/* Contenu principal */}
-        <div className="rdp-main-grid" style={{ display: 'grid', gap: 18, alignItems: 'start' }}>
+        <div className="rdp-main" style={{ display: 'grid', gap: 18, alignItems: 'start' }}>
           <div style={{ display: 'grid', gap: 18 }}>
 
             {/* Slider calories */}
@@ -562,7 +564,7 @@ export default function RecipeDetailPage() {
                   Les quantités des ingrédients se recalculent automatiquement en temps réel.
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '220px minmax(0, 1fr)', gap: 24, alignItems: 'center' }}>
+                <div className="rdp-plate-grid" style={{ display: 'grid', gap: 20, alignItems: 'center' }}>
                   {/* Assiette animée */}
                   <div style={{
                     width: 'min(190px, 45vw)', height: 'min(190px, 45vw)', margin: '0 auto', borderRadius: '50%',
