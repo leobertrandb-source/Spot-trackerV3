@@ -255,26 +255,31 @@ function MiniLineChart({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: `repeat(${Math.min(points.length, 6)}, minmax(0, 1fr))`,
-              gap: 8,
+              gridTemplateColumns: `repeat(${Math.min(points.length, 4)}, minmax(0, 1fr))`,
+              gap: 6,
               marginTop: 10,
             }}
           >
-            {points.slice(-6).map((point) => (
+            {points.slice(-4).map((point) => (
               <div
                 key={`${title}-legend-${point.sessionId}`}
                 style={{
-                  padding: '8px 10px',
-                  borderRadius: 12,
+                  padding: '6px 8px',
+                  borderRadius: 10,
                   background: 'rgba(255,255,255,0.03)',
                   border: `1px solid ${T.border}`,
+                  minWidth: 0,
+                  overflow: 'hidden',
                 }}
               >
                 <div
                   style={{
                     color: T.textDim,
-                    fontSize: 11,
-                    marginBottom: 4,
+                    fontSize: 10,
+                    marginBottom: 3,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {point.label}
@@ -283,7 +288,10 @@ function MiniLineChart({
                   style={{
                     color: T.text,
                     fontWeight: 800,
-                    fontSize: 13,
+                    fontSize: 12,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {valueFormatter(accessor(point))}
@@ -520,13 +528,6 @@ export default function ProgressionPage() {
 
   return (
     <PageWrap>
-      <style>{`
-        @media (max-width: 640px) {
-          .resp-hide-mobile { display: none !important; }
-          .resp-stack { flex-direction: column !important; }
-          .resp-full { width: 100% !important; min-width: 0 !important; }
-        }
-      `}</style>
       <div
         style={{
           maxWidth: 1220,
@@ -566,7 +567,7 @@ export default function ProgressionPage() {
               color: T.text,
               fontFamily: T.fontDisplay,
               fontWeight: 900,
-              fontSize: 'clamp(20px,3vw,30px)',
+              fontSize: 30,
               lineHeight: 1,
             }}
           >
