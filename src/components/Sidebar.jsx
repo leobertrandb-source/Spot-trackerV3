@@ -120,7 +120,7 @@ function Avatar({ name, role }) {
 
 function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
   const location = useLocation()
-  const { profile, user, signOut } = useAuth()
+  const { profile, user, signOut, showMethodeSpot } = useAuth()
   const isCoach = profile?.role === 'coach'
 
   const coachLinks = [
@@ -130,12 +130,19 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
     { to: '/exercices',      label: 'Exercices' },
   ]
 
+  const progRoute = {
+    mass_gain: '/programme/bodybuilding',
+    fat_loss:  '/programme/perte-de-poids',
+    athletic:  '/programme/athletique',
+  }[profile?.goal_type] || '/objectif'
+
   const athleteMainLinks = [
     { to: '/mon-espace',                 label: 'Mon espace' },
     { to: '/entrainement/aujourdhui',    label: 'Séance du jour' },
     { to: '/entrainement/libre',         label: 'Séance libre' },
     { to: '/progression',                label: 'Progression' },
     { to: '/exercices',                  label: 'Exercices' },
+    ...(showMethodeSpot ? [{ to: progRoute, label: 'Méthode & objectif' }] : []),
   ]
 
   const athleteNutritionLinks = [
