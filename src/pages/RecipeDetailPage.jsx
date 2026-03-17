@@ -440,6 +440,13 @@ export default function RecipeDetailPage() {
   if (loading) {
     return (
       <PageWrap>
+      <style>{`
+        @media (max-width: 640px) {
+          .resp-hide-mobile { display: none !important; }
+          .resp-stack { flex-direction: column !important; }
+          .resp-full { width: 100% !important; min-width: 0 !important; }
+        }
+      `}</style>
         <Card style={{ padding: 20 }}>
           <div style={{ color: T.textDim, fontSize: 14 }}>Chargement de la recette...</div>
         </Card>
@@ -500,7 +507,7 @@ export default function RecipeDetailPage() {
             </div>
 
             <div>
-              <div style={{ color: '#fff', fontWeight: 900, fontSize: 38, lineHeight: 1, maxWidth: 760 }}>
+              <div style={{ color: '#fff', fontWeight: 900, fontSize: 'clamp(28px,3vw,38px)', lineHeight: 1, maxWidth: 760 }}>
                 {recipe.title || recipe.name || 'Recette'}
               </div>
               {recipe.description && (
