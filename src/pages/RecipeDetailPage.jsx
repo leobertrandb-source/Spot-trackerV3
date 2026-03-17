@@ -175,7 +175,7 @@ function MacroPill({ label, value, color }) {
     <div style={{
       padding: '10px 12px', borderRadius: 14,
       border: `1px solid ${color || T.border}`,
-      background: 'rgba(255,255,255,0.04)', minWidth: 104,
+      background: 'rgba(255,255,255,0.04)', minWidth: 0, flex: '1 1 80px',
     }}>
       <div style={{ color: T.textDim, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1 }}>
         {label}
@@ -555,7 +555,7 @@ export default function RecipeDetailPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '220px minmax(0, 1fr)', gap: 24, alignItems: 'center' }}>
                   {/* Assiette animée */}
                   <div style={{
-                    width: 190, height: 190, margin: '0 auto', borderRadius: '50%',
+                    width: 'min(190px, 45vw)', height: 'min(190px, 45vw)', margin: '0 auto', borderRadius: '50%',
                     border: `2px solid ${T.border}`,
                     background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.07), rgba(255,255,255,0.02))',
                     boxShadow: 'inset 0 16px 40px rgba(0,0,0,0.28)',
@@ -618,7 +618,7 @@ export default function RecipeDetailPage() {
                       })}
                     </div>
 
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 18 }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 18, overflow: 'hidden' }}>
                       <MacroPill label="Protéines" value={`${roundSmart(scaled.proteins)} g`} color={T.blue || '#5BA7FF'} />
                       <MacroPill label="Glucides"  value={`${roundSmart(scaled.carbs)} g`}    color={T.orange || '#FFB454'} />
                       <MacroPill label="Lipides"   value={`${roundSmart(scaled.fats)} g`}     color={T.border} />
