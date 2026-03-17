@@ -419,17 +419,23 @@ export default function RecipeDetailPage() {
         setAiSteps(steps)
         setAiGenerated(true)
         // Sauvegarder en DB pour ne plus avoir à regénérer
-        const { error: saveErr } = await supabase
+        console.log('Saving steps for recipe:', recipe?.id, 'steps count:', steps.length)
+        const { data: updateData, error: saveErr } = await supabase
           .from('recipes')
           .update({ instructions: JSON.stringify(steps) })
           .eq('id', recipe?.id)
+          .select()
+        console.log('Save result:', updateData, saveErr)
         if (saveErr) {
           console.error('Save error:', saveErr)
-          setErrorMessage('Étapes générées mais non sauvegardées : ' + saveErr.message)
+          setErrorMessage('Non sauvegardé : ' + saveErr.message)
+        } else if (!updateData || updateData.length === 0) {
+          // Update silencieux = RLS bloque sans erreur
+          console.warn('Update retourné vide — vérifier RLS sur recipes')
+          setErrorMessage('Non sauvegardé : accès refusé (RLS). Vérifier les policies Supabase.')
         } else {
-          // Mettre à jour le state local pour que rawInstructions les charge immédiatement
           setRecipe(prev => ({ ...prev, instructions: JSON.stringify(steps) }))
-          setSuccessMessage('Étapes générées et sauvegardées ✓')
+          setSuccessMessage('Étapes sauvegardées ✓')
         }
       }
     } catch (err) {
