@@ -37,6 +37,7 @@ import PrepChargePage from './pages/PrepChargePage'
 import PrepCompoPage from './pages/PrepCompoPage'
 import PrepTopsetPage from './pages/PrepTopsetPage'
 import PrepChargeExternePage from './pages/PrepChargeExternePage'
+import PrepDashboardPage from './pages/PrepDashboardPage'
 import { T } from './lib/data'
 
 function LoadingScreen() {
@@ -59,7 +60,7 @@ function LoadingScreen() {
 }
 
 function PrivateAppShell() {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, loading, showPrepPhysique } = useAuth()
   const location = useLocation()
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 980)
@@ -164,11 +165,12 @@ function PrivateAppShell() {
             element={<ExercisesPage />}
           />
 
-          <Route path="/prep/hooper" element={<PrepHooperPage />} />
-          <Route path="/prep/charge" element={<PrepChargePage />} />
-          <Route path="/prep/compo"  element={<PrepCompoPage />} />
-          <Route path="/prep/topset" element={<PrepTopsetPage />} />
-          <Route path="/prep/charge-externe" element={<PrepChargeExternePage />} />
+          <Route path="/prep/hooper" element={showPrepPhysique ? <PrepHooperPage /> : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/charge" element={showPrepPhysique ? <PrepChargePage /> : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/compo"  element={showPrepPhysique ? <PrepCompoPage /> : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/topset" element={showPrepPhysique ? <PrepTopsetPage /> : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/charge-externe" element={showPrepPhysique && isCoach ? <PrepChargeExternePage /> : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/dashboard" element={showPrepPhysique && isCoach ? <PrepDashboardPage /> : <Navigate to={athleteHome} replace />} />
 
           <Route
             path="/coach"
@@ -222,7 +224,7 @@ function PrivateAppShell() {
 }
 
 function InviteRoute() {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, loading, showPrepPhysique } = useAuth()
   if (loading) return <LoadingScreen />
   if (!user) return <InviteAcceptPage />
   const redirect = profile?.role === 'coach' ? '/coach' : profile?.goal_type ? '/mon-espace' : '/objectif'
