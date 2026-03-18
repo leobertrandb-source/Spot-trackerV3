@@ -17,6 +17,7 @@ function getInitials(name = '') {
 
 export default function CoachClientsPage() {
   const { user, profile } = useAuth()
+  const coachId = profile?.id || user?.id || null
 
   const [clients, setClients] = useState([])
   const [search, setSearch] = useState('')
@@ -24,7 +25,7 @@ export default function CoachClientsPage() {
   const [errorMessage, setErrorMessage] = useState('')
 
   const loadClients = useCallback(async () => {
-    if (!user?.id) {
+    if (!coachId) {
       setClients([])
       setLoading(false)
       return
@@ -46,7 +47,7 @@ export default function CoachClientsPage() {
             goal_type
           )
         `)
-        .eq('coach_id', user.id)
+        .eq('coach_id', coachId)
 
       console.log('CoachClientsPage result:', data)
       console.log('CoachClientsPage error:', error)
@@ -68,7 +69,7 @@ export default function CoachClientsPage() {
     } finally {
       setLoading(false)
     }
-  }, [user?.id])
+  }, [coachId])
 
   useEffect(() => {
     loadClients()
