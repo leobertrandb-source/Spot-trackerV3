@@ -134,7 +134,22 @@ function ProgramEditor({ program, exercises, onSave, onClose }) {
       .select('*, program_day_exercises(*)')
       .eq('program_id', program.id)
       .order('week_number').order('day_of_week')
-    setDays(data || [])
+    // Parser les séries stockées en JSON dans le champ reps
+    const parsed = (data || []).map(day => ({
+      ...day,
+      program_day_exercises: (day.program_day_exercises || []).map(ex => {
+        let sets = ex.sets
+        if (typeof ex.reps === 'string' && ex.reps.trim().startsWith('[')) {
+          try { sets = JSON.parse(ex.reps) } catch {}
+        }
+        if (!Array.isArray(sets)) {
+          const n = Number(ex.sets) || 3
+          sets = Array.from({ length: n }, () => ({ reps: ex.reps || '8-12', rest: ex.rest_seconds || 90 }))
+        }
+        return { ...ex, sets, notes: ex.notes || '' }
+      })
+    }))
+    setDays(parsed)
   }
 
   function getDay(week, dayOfWeek) {
@@ -163,7 +178,8 @@ function ProgramEditor({ program, exercises, onSave, onClose }) {
       if (d.week_number !== week || d.day_of_week !== dayOfWeek) return d
       return { ...d, program_day_exercises: [...(d.program_day_exercises || []), {
         _new: true, exercise_id: ex.id, exercise_name: ex.name,
-        sets: 3, reps: '8-12', rest_seconds: 90, position: (d.program_day_exercises || []).length
+        sets: [{ reps: '8-12', rest: 90 }, { reps: '8-12', rest: 90 }, { reps: '8-12', rest: 90 }],
+        notes: '', position: (d.program_day_exercises || []).length
       }]}
     }))
     setShowExPicker(false)
@@ -209,7 +225,10 @@ function ProgramEditor({ program, exercises, onSave, onClose }) {
           await supabase.from('program_day_exercises').insert(
             day.program_day_exercises.map((ex, i) => ({
               day_id: savedDay.id, exercise_id: ex.exercise_id, exercise_name: ex.exercise_name,
-              sets: ex.sets, reps: ex.reps, rest_seconds: ex.rest_seconds, position: i
+              sets: Array.isArray(ex.sets) ? ex.sets.length : (ex.sets || 3),
+              reps: Array.isArray(ex.sets) ? JSON.stringify(ex.sets) : (ex.reps || '8-12'),
+              rest_seconds: Array.isArray(ex.sets) ? (ex.sets[0]?.rest || 90) : (ex.rest_seconds || 90),
+              notes: ex.notes || null, position: i
             }))
           )
         }
@@ -224,7 +243,11 @@ function ProgramEditor({ program, exercises, onSave, onClose }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 150, background: C.bg, overflowY: 'auto' }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:wght@400;500;700;800&display=swap');`}</style>
+      <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:wght@400;500;700;800&display=swap');
+      .prog-set-row { grid-template-columns: 24px 1fr 1fr 70px 1fr 24px; }
+      @media (max-width: 600px) { .prog-set-row { grid-template-columns: 24px 1fr 1fr 24px; } .prog-set-row .prog-hide-mobile { display: none !important; } }
+    `}</style>
 
       {/* Header */}
       <div style={{ position: 'sticky', top: 0, zIndex: 10, background: C.bg, borderBottom: `1px solid ${C.border}`, padding: '14px 20px', display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -294,19 +317,56 @@ function ProgramEditor({ program, exercises, onSave, onClose }) {
             <div style={{ padding: '14px 16px', display: 'grid', gap: 8 }}>
               {(activeDayData.program_day_exercises || []).map((ex, i) => (
                 <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, borderRadius: 12, padding: '10px 14px' }}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                  {/* Header exercice */}
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
                     <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: C.text }}>{ex.exercise_name}</div>
                     <button onClick={() => removeExFromDay(activeDay.week, activeDay.dayOfWeek, i)} style={{ background: 'none', border: 'none', color: C.red, cursor: 'pointer', fontSize: 16 }}>×</button>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: 8 }}>
-                    {[['sets','Séries'], ['reps','Reps'], ['rest_seconds','Repos (s)']].map(([field, label]) => (
-                      <div key={field}>
-                        <div style={{ fontSize: 10, color: C.sub, marginBottom: 4 }}>{label}</div>
-                        <input value={ex[field]} onChange={e => updateExField(activeDay.week, activeDay.dayOfWeek, i, field, e.target.value)}
-                          style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`, borderRadius: 8, padding: '6px 8px', color: C.text, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+
+                  {/* Header colonnes */}
+                  <div className="prog-set-row" style={{ display: 'grid', gap: 6, marginBottom: 4 }}>
+                    <div style={{ fontSize: 10, color: C.sub, textAlign: 'center' }}>#</div>
+                    <div style={{ fontSize: 10, color: C.sub }}>Reps / intensité</div>
+                    <div style={{ fontSize: 10, color: C.sub }}>Charge cible</div>
+                    <div style={{ fontSize: 10, color: C.sub }}>Repos (s)</div>
+                    <div style={{ fontSize: 10, color: C.sub }}>Note série</div>
+                    <div />
+                  </div>
+
+                  {/* Séries individuelles */}
+                  <div style={{ display: 'grid', gap: 4, marginBottom: 8 }}>
+                    {(Array.isArray(ex.sets) ? ex.sets : []).map((set, si) => (
+                      <div key={si} className="prog-set-row" style={{ display: 'grid', gap: 6, alignItems: 'center' }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, textAlign: 'center' }}>{si + 1}</div>
+                        <input value={set.reps || ''} onChange={e => updateExField(activeDay.week, activeDay.dayOfWeek, i, 'sets', ex.sets.map((s, idx) => idx === si ? { ...s, reps: e.target.value } : s))}
+                          placeholder="ex: 8-12 ou 6 @RPE8"
+                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`, borderRadius: 7, padding: '6px 8px', color: C.text, fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                        <input value={set.load || ''} onChange={e => updateExField(activeDay.week, activeDay.dayOfWeek, i, 'sets', ex.sets.map((s, idx) => idx === si ? { ...s, load: e.target.value } : s))}
+                          placeholder="ex: 80kg ou 70%"
+                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`, borderRadius: 7, padding: '6px 8px', color: C.text, fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                        <input type="number" value={set.rest || ''} onChange={e => updateExField(activeDay.week, activeDay.dayOfWeek, i, 'sets', ex.sets.map((s, idx) => idx === si ? { ...s, rest: Number(e.target.value) } : s))}
+                          placeholder="90" className="prog-hide-mobile"
+                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`, borderRadius: 7, padding: '6px 8px', color: C.text, fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                        <input value={set.note || ''} onChange={e => updateExField(activeDay.week, activeDay.dayOfWeek, i, 'sets', ex.sets.map((s, idx) => idx === si ? { ...s, note: e.target.value } : s))}
+                          placeholder="ex: excentrique 3s" className="prog-hide-mobile"
+                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`, borderRadius: 7, padding: '6px 8px', color: C.text, fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                        <button onClick={() => updateExField(activeDay.week, activeDay.dayOfWeek, i, 'sets', ex.sets.filter((_, idx) => idx !== si))}
+                          style={{ background: 'none', border: 'none', color: C.sub, cursor: 'pointer', fontSize: 14, display: 'grid', placeItems: 'center' }}>×</button>
                       </div>
                     ))}
                   </div>
+
+                  {/* Ajouter une série */}
+                  <button onClick={() => updateExField(activeDay.week, activeDay.dayOfWeek, i, 'sets', [...(Array.isArray(ex.sets) ? ex.sets : []), { reps: '8-12', rest: 90 }])}
+                    style={{ padding: '5px 10px', borderRadius: 7, background: `${C.accent}10`, border: `1px dashed ${C.accent}30`, color: C.accent, fontSize: 11, fontWeight: 700, cursor: 'pointer', marginBottom: 8 }}>
+                    + Série
+                  </button>
+
+                  {/* Commentaire */}
+                  <textarea value={ex.notes || ''} onChange={e => updateExField(activeDay.week, activeDay.dayOfWeek, i, 'notes', e.target.value)}
+                    placeholder="Commentaire, consignes techniques, tempo..."
+                    rows={2}
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, borderRadius: 8, padding: '7px 10px', color: C.text, fontSize: 12, outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.5, color: C.sub }} />
                 </div>
               ))}
 
@@ -414,7 +474,11 @@ export default function ProgramBuilderPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, padding: 'clamp(14px,3vw,24px) clamp(12px,3vw,20px)', fontFamily: "'DM Sans',sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:wght@400;500;700;800&display=swap');`}</style>
+      <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:wght@400;500;700;800&display=swap');
+      .prog-set-row { grid-template-columns: 24px 1fr 1fr 70px 1fr 24px; }
+      @media (max-width: 600px) { .prog-set-row { grid-template-columns: 24px 1fr 1fr 24px; } .prog-set-row .prog-hide-mobile { display: none !important; } }
+    `}</style>
 
       <div style={{ maxWidth: 900, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
