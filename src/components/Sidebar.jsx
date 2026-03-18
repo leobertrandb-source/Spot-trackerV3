@@ -17,6 +17,13 @@ const NAV_ACCENTS = {
   '/progression':              '#fbbf24',
   '/nutrition/macros':         '#3ecf8e',
   '/nutrition/recettes':       '#f59e0b',
+  '/programme/bodybuilding':   '#9d7dea',
+  '/programme/perte-de-poids': '#ff7043',
+  '/programme/athletique':     '#4d9fff',
+  '/prep/hooper':              '#fbbf24',
+  '/prep/charge':              '#4d9fff',
+  '/prep/compo':               '#9d7dea',
+  '/prep/topset':              '#3ecf8e',
 }
 
 function NavVisual({ path }) {
@@ -120,7 +127,7 @@ function Avatar({ name, role }) {
 
 function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
   const location = useLocation()
-  const { profile, user, signOut, showMethodeSpot } = useAuth()
+  const { profile, user, signOut, showMethodeSpot, showPrepPhysique } = useAuth()
   const isCoach = profile?.role === 'coach'
 
   const coachLinks = [
@@ -143,6 +150,12 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
     { to: '/progression',                label: 'Progression' },
     { to: '/exercices',                  label: 'Exercices' },
     ...(showMethodeSpot ? [{ to: progRoute, label: 'Méthode & objectif' }] : []),
+    ...(showPrepPhysique ? [
+      { to: '/prep/hooper',  label: 'HOOPER' },
+      { to: '/prep/charge',  label: 'Charge interne' },
+      { to: '/prep/compo',   label: 'Composition corporelle' },
+      { to: '/prep/topset',  label: 'TOPSET' },
+    ] : []),
   ]
 
   const athleteNutritionLinks = [
