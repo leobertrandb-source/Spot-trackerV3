@@ -106,6 +106,11 @@ export default function CoachClientDetailPage() {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+  // Nutrition
+  const [nutri, setNutri] = useState({ weight: '', height: '', age: '', sex: 'homme', activity: '1.55', goal: 'maintain' })
+  const [nutriGoals, setNutriGoals] = useState(null)
+  const [nutriSaving, setNutriSaving] = useState(false)
+  const [nutriMsg, setNutriMsg] = useState('')
 
   const loadClient = useCallback(async () => {
     if (!id) {
@@ -171,6 +176,21 @@ export default function CoachClientDetailPage() {
       }))
 
       setSessions(builtSessions)
+
+      // Charger objectifs nutrition
+      const { data: goalsData } = await supabase.from('nutrition_goals').select('*').eq('user_id', id).maybeSingle()
+      if (goalsData) {
+        setNutriGoals(goalsData)
+        setNutri(prev => ({
+          ...prev,
+          weight: goalsData.weight_kg || '',
+          height: goalsData.height_cm || '',
+          age:    goalsData.age || '',
+          sex:    goalsData.sex || 'homme',
+          activity: goalsData.activity_factor || '1.55',
+          goal:   goalsData.goal_type || 'maintain',
+        }))
+      }
     } catch (error) {
       console.error('Erreur chargement fiche client :', error)
       setClient(null)
@@ -252,6 +272,53 @@ export default function CoachClientDetailPage() {
       .sort((a, b) => b.volume - a.volume)
       .slice(0, 5)
   }, [sessions])
+
+  // ── Calcul Mifflin-St Jeor ────────────────────────────────────────────────
+  function calcMifflin({ weight, height, age, sex, activity, goal }) {
+    const w = parseFloat(weight), h = parseFloat(height), a = parseFloat(age)
+    if (!w || !h || !a) return null
+    const bmr = sex === 'homme'
+      ? 10 * w + 6.25 * h - 5 * a + 5
+      : 10 * w + 6.25 * h - 5 * a - 161
+    const tdee = bmr * parseFloat(activity)
+    const goalKcal = goal === 'deficit' ? Math.round(tdee - 400)
+                   : goal === 'surplus' ? Math.round(tdee + 300)
+                   : Math.round(tdee)
+    return {
+      bmr: Math.round(bmr),
+      tdee: Math.round(tdee),
+      calories: goalKcal,
+      proteins: Math.round(w * 2),
+      carbs:    Math.round((goalKcal * 0.40) / 4),
+      fats:     Math.round((goalKcal * 0.25) / 9),
+    }
+  }
+
+  const calculated = calcMifflin(nutri)
+
+  async function saveNutriGoals() {
+    if (!calculated) return
+    setNutriSaving(true)
+    setNutriMsg('')
+    const payload = {
+      user_id:         id,
+      calories:        calculated.calories,
+      proteins:        calculated.proteins,
+      carbs:           calculated.carbs,
+      fats:            calculated.fats,
+      weight_kg:       parseFloat(nutri.weight) || null,
+      height_cm:       parseFloat(nutri.height) || null,
+      age:             parseInt(nutri.age) || null,
+      sex:             nutri.sex,
+      activity_factor: nutri.activity,
+      goal_type:       nutri.goal,
+      updated_at:      new Date().toISOString(),
+    }
+    const { error } = await supabase.from('nutrition_goals').upsert(payload, { onConflict: 'user_id' })
+    if (error) setNutriMsg('Erreur : ' + error.message)
+    else { setNutriMsg('Objectifs enregistrés ✓'); setNutriGoals(payload) }
+    setNutriSaving(false)
+  }
 
   return (
     <PageWrap>
@@ -699,6 +766,118 @@ export default function CoachClientDetailPage() {
                   </div>
                 )}
               </Card>
+            </div>
+
+            {/* ── Nutrition & Métabolisme ── */}
+            <div style={{ marginTop: 24 }}>
+              <div style={{ color: T.text, fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 20, marginBottom: 16 }}>
+                Nutrition & Métabolisme
+              </div>
+
+              <Card style={{ padding: 20 }}>
+                <div style={{ color: T.text, fontWeight: 800, fontSize: 15, marginBottom: 14 }}>Calcul Mifflin-St Jeor</div>
+
+                {/* Inputs */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 16 }}>
+                  {[
+                    { key: 'weight', label: 'Poids (kg)', placeholder: '75' },
+                    { key: 'height', label: 'Taille (cm)', placeholder: '175' },
+                    { key: 'age',    label: 'Âge',         placeholder: '25' },
+                  ].map(({ key, label, placeholder }) => (
+                    <div key={key}>
+                      <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>{label}</div>
+                      <input type="number" value={nutri[key]} onChange={e => setNutri(p => ({ ...p, [key]: e.target.value }))}
+                        placeholder={placeholder}
+                        style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '9px 12px', color: T.text, fontSize: 14, outline: 'none' }} />
+                    </div>
+                  ))}
+
+                  <div>
+                    <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Sexe</div>
+                    <select value={nutri.sex} onChange={e => setNutri(p => ({ ...p, sex: e.target.value }))}
+                      style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '9px 12px', color: T.text, fontSize: 14, outline: 'none', appearance: 'none' }}>
+                      <option value="homme" style={{ background: '#1a1a2e' }}>Homme</option>
+                      <option value="femme" style={{ background: '#1a1a2e' }}>Femme</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Activité</div>
+                    <select value={nutri.activity} onChange={e => setNutri(p => ({ ...p, activity: e.target.value }))}
+                      style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '9px 12px', color: T.text, fontSize: 14, outline: 'none', appearance: 'none' }}>
+                      <option value="1.2"  style={{ background: '#1a1a2e' }}>Sédentaire</option>
+                      <option value="1.375" style={{ background: '#1a1a2e' }}>Légèrement actif</option>
+                      <option value="1.55" style={{ background: '#1a1a2e' }}>Modérément actif</option>
+                      <option value="1.725" style={{ background: '#1a1a2e' }}>Très actif</option>
+                      <option value="1.9"  style={{ background: '#1a1a2e' }}>Extrêmement actif</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Objectif</div>
+                    <select value={nutri.goal} onChange={e => setNutri(p => ({ ...p, goal: e.target.value }))}
+                      style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '9px 12px', color: T.text, fontSize: 14, outline: 'none', appearance: 'none' }}>
+                      <option value="deficit" style={{ background: '#1a1a2e' }}>Perte de poids (−400 kcal)</option>
+                      <option value="maintain" style={{ background: '#1a1a2e' }}>Maintien</option>
+                      <option value="surplus" style={{ background: '#1a1a2e' }}>Prise de masse (+300 kcal)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Résultats */}
+                {calculated && (
+                  <div style={{ background: 'rgba(62,207,142,0.06)', border: '1px solid rgba(62,207,142,0.2)', borderRadius: 14, padding: '16px 18px', marginBottom: 14 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 12, marginBottom: 10 }}>
+                      {[
+                        { label: 'Métabolisme base', value: `${calculated.bmr} kcal`, color: T.accentLight },
+                        { label: 'Dépense totale', value: `${calculated.tdee} kcal`, color: T.accentLight },
+                        { label: 'Objectif', value: `${calculated.calories} kcal`, color: '#fbbf24', big: true },
+                      ].map(({ label, value, color, big }) => (
+                        <div key={label} style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: big ? 22 : 18, fontWeight: 900, color, fontFamily: T.fontDisplay }}>{value}</div>
+                          <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>{label}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                      {[
+                        { label: 'Protéines', value: `${calculated.proteins}g`, color: '#4d9fff' },
+                        { label: 'Glucides',  value: `${calculated.carbs}g`,    color: '#3ecf8e' },
+                        { label: 'Lipides',   value: `${calculated.fats}g`,     color: '#ff7043' },
+                      ].map(({ label, value, color }) => (
+                        <div key={label} style={{ padding: '6px 14px', borderRadius: 20, background: `${color}15`, border: `1px solid ${color}30` }}>
+                          <span style={{ fontWeight: 800, color, fontSize: 13 }}>{value}</span>
+                          <span style={{ color: T.textDim, fontSize: 12, marginLeft: 5 }}>{label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!calculated && (
+                  <div style={{ color: T.textDim, fontSize: 13, marginBottom: 14, textAlign: 'center', padding: '12px 0' }}>
+                    Renseigne poids, taille et âge pour voir le calcul
+                  </div>
+                )}
+
+                {nutriMsg && (
+                  <div style={{ fontSize: 13, fontWeight: 700, color: nutriMsg.includes('Erreur') ? '#ff7b7b' : T.accentLight, marginBottom: 10 }}>
+                    {nutriMsg}
+                  </div>
+                )}
+
+                <Btn onClick={saveNutriGoals} disabled={!calculated || nutriSaving}>
+                  {nutriSaving ? 'Enregistrement...' : 'Assigner ces objectifs au client'}
+                </Btn>
+
+                {nutriGoals && (
+                  <div style={{ marginTop: 10, fontSize: 12, color: T.textDim }}>
+                    Objectifs actuels : {nutriGoals.calories} kcal · P {nutriGoals.proteins}g · G {nutriGoals.carbs}g · L {nutriGoals.fats}g
+                  </div>
+                )}
+              </Card>
+            </div>
+
             </div>
           </>
         )}
