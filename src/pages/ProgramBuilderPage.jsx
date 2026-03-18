@@ -387,7 +387,8 @@ function ProgramEditor({ program, exercises, onSave, onClose }) {
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function ProgramBuilderPage() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
+  const coachId = profile?.id || user?.id || null
   const [programs, setPrograms] = useState([])
   const [exercises, setExercises] = useState([])
   const [clients, setClients] = useState([])
@@ -396,11 +397,19 @@ export default function ProgramBuilderPage() {
   const [assigningProgram, setAssigningProgram] = useState(null)
 
   const load = useCallback(async () => {
+    if (!coachId) {
+      setPrograms([])
+      setExercises([])
+      setClients([])
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     const [{ data: progs }, { data: exs }, { data: links }] = await Promise.all([
       supabase.from('programs').select('*, program_days(*, program_day_exercises(*))').order('created_at', { ascending: false }),
       supabase.from('exercises').select('*').order('name'),
-      supabase.from('coach_clients').select('client_id').eq('coach_id', user.id),
+      supabase.from('coach_clients').select('client_id').eq('coach_id', coachId),
     ])
     setPrograms(progs || [])
     setExercises(exs || [])
@@ -411,13 +420,13 @@ export default function ProgramBuilderPage() {
       setClients(profiles || [])
     }
     setLoading(false)
-  }, [user.id])
+  }, [coachId])
 
   useEffect(() => { load() }, [load])
 
   async function handleAssign({ clientId, startDate, weeksCount }) {
     const prog = assigningProgram
-    if (!prog) return
+    if (!prog || !coachId) return
 
     const days = prog.program_days || []
     const start = new Date(startDate)
@@ -433,7 +442,7 @@ export default function ProgramBuilderPage() {
         assignDate.setDate(start.getDate() + mondayOffset + (day.day_of_week - 1))
         const iso = assignDate.toISOString().split('T')[0]
         await supabase.from('assignments').insert({
-          coach_id: user.id, client_id: clientId,
+          coach_id: coachId, client_id: clientId,
           program_id: prog.id, program_day_id: day.id,
           assigned_date: iso, week_offset: w,
         })
@@ -449,8 +458,9 @@ export default function ProgramBuilderPage() {
   }
 
   async function duplicateProgram(prog) {
+    if (!coachId) return
     const { data: newProg } = await supabase.from('programs').insert({
-      coach_id: user.id, name: `${prog.name} (copie)`, weeks_count: prog.weeks_count
+      coach_id: coachId, name: `${prog.name} (copie)`, weeks_count: prog.weeks_count
     }).select().single()
     if (!newProg) return
 
