@@ -1,10 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-import { PageWrap, Card } from '../components/UI'
+import { PageWrap, Card, Btn } from '../components/UI'
 import { T } from '../lib/data'
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Config ───────────────────────────────────────────────────────────────────
+const SESSION_TYPES = [
+  { key: 'force',     label: 'Force',      color: '#ff7043', emoji: '🏋️' },
+  { key: 'cardio',    label: 'Cardio',     color: '#4d9fff', emoji: '🏃' },
+  { key: 'technique', label: 'Technique',  color: '#9d7dea', emoji: '🎯' },
+  { key: 'mixte',     label: 'Mixte',      color: '#fbbf24', emoji: '⚡' },
+  { key: 'autre',     label: 'Autre',      color: '#8899aa', emoji: '📋' },
+]
+
+const RPE_LABELS = ['','Repos actif','Très facile','Facile','Modéré','Modéré+','Difficile','Difficile+','Très difficile','Très difficile+','Maximum']
+const RPE_COLORS = ['','#3ecf8e','#3ecf8e','#3ecf8e','#3ecf8e','#fbbf24','#fbbf24','#ff7043','#ff7043','#ff4566','#ff4566']
+
+// ─── Helpers charge ───────────────────────────────────────────────────────────
 function getWeekKey(dateStr) {
   const d = new Date(dateStr + 'T00:00:00')
   const day = d.getDay() || 7
@@ -18,72 +30,145 @@ function getWeekLabel(weekKey) {
   return `${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`
 }
 
-function calcACWR(weeks, currentWeekKey) {
-  // Charge aiguë = semaine en cours
-  // Charge chronique = moyenne des 4 dernières semaines
-  const sorted = Object.entries(weeks).sort((a, b) => a[0].localeCompare(b[0]))
-  const idx = sorted.findIndex(([k]) => k === currentWeekKey)
-  if (idx < 0) return null
-  const acute = sorted[idx][1].volume
-  const chronic4 = sorted.slice(Math.max(0, idx - 3), idx + 1).map(([, v]) => v.volume)
-  if (chronic4.length === 0) return null
-  const chronicAvg = chronic4.reduce((s, v) => s + v, 0) / chronic4.length
-  if (!chronicAvg) return null
-  return Math.round((acute / chronicAvg) * 100) / 100
+function acwrColor(r) {
+  if (!r) return T.textDim
+  if (r < 0.8)  return '#4d9fff'
+  if (r <= 1.3) return '#3ecf8e'
+  if (r <= 1.5) return '#fbbf24'
+  return '#ff4566'
 }
 
-function acwrColor(ratio) {
-  if (!ratio) return T.textDim
-  if (ratio < 0.8) return '#4d9fff'   // sous-charge
-  if (ratio <= 1.3) return '#3ecf8e'  // zone optimale
-  if (ratio <= 1.5) return '#fbbf24'  // vigilance
-  return '#ff4566'                     // surcharge
-}
-
-function acwrLabel(ratio) {
-  if (!ratio) return '—'
-  if (ratio < 0.8) return 'Sous-charge'
-  if (ratio <= 1.3) return 'Zone optimale ✓'
-  if (ratio <= 1.5) return 'Vigilance'
+function acwrLabel(r) {
+  if (!r) return '—'
+  if (r < 0.8)  return 'Sous-charge'
+  if (r <= 1.3) return 'Zone optimale ✓'
+  if (r <= 1.5) return 'Vigilance'
   return 'Surcharge ⚠️'
 }
 
-// ─── Mini bar chart SVG ───────────────────────────────────────────────────────
-function BarChart({ data, color = T.accent, label = '' }) {
-  if (!data.length) return null
-  const max = Math.max(...data.map(d => d.value), 1)
-  const W = 100, H = 48
-
+// ─── Mini sparkline SVG ───────────────────────────────────────────────────────
+function Sparkline({ data, color = '#3ecf8e', h = 50 }) {
+  if (data.length < 2) return null
+  const max = Math.max(...data, 1)
+  const W = 100, pad = 6
+  const pts = data.map((v, i) => {
+    const x = pad + (i / (data.length - 1)) * (W - pad * 2)
+    const y = h - pad - (v / max) * (h - pad * 2)
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
   return (
-    <div>
-      {label && <div style={{ fontSize: 10, color: T.textDim, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>{label}</div>}
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', display: 'block' }}>
-        {data.map((d, i) => {
-          const barH = (d.value / max) * (H - 8)
-          const x = (i / data.length) * W + 1
-          const w = (W / data.length) - 2
-          const c = d.highlight ? '#fbbf24' : color
-          return (
-            <g key={i}>
-              <rect x={x} y={H - barH} width={w} height={barH} rx={2} fill={c} opacity={0.8} />
-            </g>
-          )
-        })}
-        <line x1={0} y1={H} x2={W} y2={H} stroke="rgba(255,255,255,0.08)" strokeWidth={0.5} />
-      </svg>
-    </div>
+    <svg viewBox={`0 0 ${W} ${h}`} style={{ width: '100%', display: 'block' }} preserveAspectRatio="none">
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      {pts.split(' ').map((pt, i) => {
+        const [x, y] = pt.split(',').map(Number)
+        return <circle key={i} cx={x} cy={y} r="2.5" fill={color} />
+      })}
+    </svg>
   )
 }
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
-function StatBlock({ label, value, unit, sub, color = T.accentLight, big = false }) {
-  return (
-    <div style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.03)', borderRadius: 14, border: `1px solid ${T.border}` }}>
-      <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: big ? 28 : 22, fontWeight: 900, color, fontFamily: T.fontDisplay, lineHeight: 1 }}>
-        {value} <span style={{ fontSize: big ? 13 : 11, fontWeight: 600, color: T.textDim }}>{unit}</span>
+// ─── Formulaire saisie rapide ─────────────────────────────────────────────────
+export function ChargeExterneForm({ sessionId = null, onSaved = null, compact = false }) {
+  const { user } = useAuth()
+  const today = new Date().toISOString().split('T')[0]
+  const [rpe, setRpe] = useState(6)
+  const [duree, setDuree] = useState('')
+  const [type, setType] = useState('force')
+  const [notes, setNotes] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  const charge = rpe && duree ? rpe * parseInt(duree) : null
+
+  async function handleSave() {
+    if (!duree) return
+    setSaving(true)
+    const { error } = await supabase.from('charge_externe_logs').insert({
+      user_id: user.id, date: today,
+      rpe, duree_min: parseInt(duree),
+      type_seance: type,
+      session_id: sessionId || null,
+      notes: notes || null,
+    })
+    if (!error) { setSaved(true); if (onSaved) onSaved() }
+    setSaving(false)
+  }
+
+  if (saved) return (
+    <div style={{ padding: '12px 16px', background: 'rgba(62,207,142,0.08)', border: `1px solid ${T.accent}30`, borderRadius: 12, display: 'flex', gap: 10, alignItems: 'center' }}>
+      <span>✅</span>
+      <div style={{ fontSize: 13, color: T.accentLight, fontWeight: 700 }}>
+        Charge enregistrée — {charge} UA (RPE {rpe} × {duree} min)
       </div>
-      {sub && <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>{sub}</div>}
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'grid', gap: 12 }}>
+      {!compact && <div style={{ fontSize: 14, fontWeight: 800, color: T.text }}>Charge de séance</div>}
+
+      {/* RPE */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+          <div style={{ fontSize: 12, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>RPE — Effort perçu</div>
+          <div style={{ fontSize: 14, fontWeight: 900, color: RPE_COLORS[rpe] }}>{rpe}/10 — {RPE_LABELS[rpe]}</div>
+        </div>
+        <input type="range" min={1} max={10} value={rpe} onChange={e => setRpe(Number(e.target.value))}
+          style={{ width: '100%', accentColor: RPE_COLORS[rpe], cursor: 'pointer' }} />
+        <div style={{ display: 'flex', gap: 3, marginTop: 6 }}>
+          {Array.from({ length: 10 }, (_, i) => (
+            <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i < rpe ? RPE_COLORS[rpe] : 'rgba(255,255,255,0.07)', transition: 'background 0.15s' }} />
+          ))}
+        </div>
+      </div>
+
+      {/* Durée */}
+      <div>
+        <div style={{ fontSize: 12, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Durée (minutes)</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[30, 45, 60, 75, 90].map(d => (
+            <button key={d} onClick={() => setDuree(String(d))}
+              style={{ padding: '8px 14px', borderRadius: 10, border: `1px solid ${duree === String(d) ? T.accent + '50' : T.border}`, background: duree === String(d) ? `${T.accent}15` : 'transparent', color: duree === String(d) ? T.accentLight : T.textDim, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              {d}'
+            </button>
+          ))}
+          <input type="number" value={duree} onChange={e => setDuree(e.target.value)}
+            placeholder="Autre"
+            style={{ width: 70, background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '8px 10px', color: T.text, fontSize: 13, outline: 'none', textAlign: 'center' }} />
+        </div>
+      </div>
+
+      {/* Type */}
+      <div>
+        <div style={{ fontSize: 12, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Type de séance</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {SESSION_TYPES.map(t => (
+            <button key={t.key} onClick={() => setType(t.key)}
+              style={{ padding: '7px 12px', borderRadius: 10, border: `1px solid ${type === t.key ? t.color + '50' : T.border}`, background: type === t.key ? `${t.color}15` : 'transparent', color: type === t.key ? t.color : T.textDim, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              {t.emoji} {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Charge calculée */}
+      {charge && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: `${RPE_COLORS[rpe]}10`, border: `1px solid ${RPE_COLORS[rpe]}30`, borderRadius: 10 }}>
+          <div style={{ fontSize: 13, color: T.textMid }}>Charge calculée (RPE × durée)</div>
+          <div style={{ fontSize: 22, fontWeight: 900, color: RPE_COLORS[rpe], fontFamily: T.fontDisplay }}>{charge} <span style={{ fontSize: 12, fontWeight: 600 }}>UA</span></div>
+        </div>
+      )}
+
+      {!compact && (
+        <textarea value={notes} onChange={e => setNotes(e.target.value)}
+          placeholder="Notes sur la séance..."
+          rows={2}
+          style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 12px', color: T.text, fontSize: 14, outline: 'none', resize: 'none', boxSizing: 'border-box' }} />
+      )}
+
+      <Btn onClick={handleSave} disabled={saving || !duree}>
+        {saving ? 'Enregistrement...' : `Enregistrer la charge${charge ? ` (${charge} UA)` : ''}`}
+      </Btn>
     </div>
   )
 }
@@ -91,253 +176,242 @@ function StatBlock({ label, value, unit, sub, color = T.accentLight, big = false
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function PrepChargeExternePage() {
   const { user } = useAuth()
-  const [sessions, setSessions] = useState([])
+  const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState('saisie') // 'saisie' | 'analyse'
 
   const load = useCallback(async () => {
     setLoading(true)
-    // 12 semaines de données
-    const since = new Date(); since.setDate(since.getDate() - 84)
-    const sinceStr = since.toISOString().split('T')[0]
-
-    const { data: sessData } = await supabase
-      .from('sessions').select('id, date, user_id')
-      .eq('user_id', user.id).gte('date', sinceStr)
-      .order('date', { ascending: true })
-
-    const ids = (sessData || []).map(s => s.id)
-    let setsData = []
-    if (ids.length > 0) {
-      const { data } = await supabase.from('sets')
-        .select('session_id, weight, reps')
-        .in('session_id', ids)
-      setsData = data || []
-    }
-
-    const setsBySession = setsData.reduce((acc, s) => {
-      if (!acc[s.session_id]) acc[s.session_id] = []
-      acc[s.session_id].push(s)
-      return acc
-    }, {})
-
-    setSessions((sessData || []).map(s => ({
-      ...s,
-      sets: setsBySession[s.id] || [],
-      volume: (setsBySession[s.id] || []).reduce((sum, st) => sum + (Number(st.weight) || 0) * (Number(st.reps) || 0), 0)
-    })))
+    const since = new Date(); since.setDate(since.getDate() - 84) // 12 semaines
+    const { data } = await supabase.from('charge_externe_logs')
+      .select('*').eq('user_id', user.id)
+      .gte('date', since.toISOString().split('T')[0])
+      .order('date', { ascending: false })
+    setLogs(data || [])
     setLoading(false)
   }, [user.id])
 
   useEffect(() => { load() }, [load])
 
-  // ── Calculs ─────────────────────────────────────────────────────────────────
+  // ── Calculs hebdo ────────────────────────────────────────────────────────────
   const weeklyData = useMemo(() => {
     const weeks = {}
-    for (const s of sessions) {
-      const wk = getWeekKey(s.date)
-      if (!weeks[wk]) weeks[wk] = { sessions: [], volume: 0, seances: 0 }
-      weeks[wk].sessions.push(s)
-      weeks[wk].volume += s.volume
+    for (const log of logs) {
+      const wk = getWeekKey(log.date)
+      if (!weeks[wk]) weeks[wk] = { charge: 0, seances: 0, rpes: [], types: {} }
+      weeks[wk].charge += log.charge_ua || (log.rpe * log.duree_min)
       weeks[wk].seances += 1
+      weeks[wk].rpes.push(log.rpe)
+      const t = log.type_seance || 'autre'
+      weeks[wk].types[t] = (weeks[wk].types[t] || 0) + 1
     }
     return weeks
-  }, [sessions])
+  }, [logs])
 
   const weekKeys = useMemo(() => Object.keys(weeklyData).sort(), [weeklyData])
-  const currentWeek = useMemo(() => getWeekKey(new Date().toISOString().split('T')[0]), [])
+  const currentWeek = getWeekKey(new Date().toISOString().split('T')[0])
 
-  // Volume total (toutes les semaines)
-  const totalVolume = useMemo(() => sessions.reduce((s, se) => s + se.volume, 0), [sessions])
+  // ACWR : charge aiguë / moyenne chronique 4 semaines
+  const acwr = useMemo(() => {
+    const idx = weekKeys.indexOf(currentWeek)
+    if (idx < 0) return null
+    const acute = weeklyData[currentWeek]?.charge || 0
+    const chronic4 = weekKeys.slice(Math.max(0, idx - 3), idx + 1).map(k => weeklyData[k].charge)
+    if (!chronic4.length) return null
+    const avg = chronic4.reduce((s, v) => s + v, 0) / chronic4.length
+    if (!avg) return null
+    return Math.round((acute / avg) * 100) / 100
+  }, [weeklyData, weekKeys, currentWeek])
 
-  // Semaine courante
-  const thisWeek = weeklyData[currentWeek] || { sessions: [], volume: 0, seances: 0 }
+  const thisWeek = weeklyData[currentWeek] || { charge: 0, seances: 0, rpes: [] }
+  const avgRpe = thisWeek.rpes.length ? (thisWeek.rpes.reduce((a, b) => a + b, 0) / thisWeek.rpes.length).toFixed(1) : null
 
-  // Monotonie = volume semaine / écart-type (Foster)
-  // Si toutes les séances ont le même volume → haute monotonie
-  const monotonie = useMemo(() => {
-    const vols = thisWeek.sessions.map(s => s.volume).filter(Boolean)
-    if (vols.length < 2) return null
-    const mean = vols.reduce((a, b) => a + b, 0) / vols.length
-    const std = Math.sqrt(vols.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / vols.length)
-    if (!std) return null
-    return Math.round((mean / std) * 100) / 100
-  }, [thisWeek])
+  const chartData = weekKeys.slice(-8).map(wk => weeklyData[wk].charge)
+  const seancesData = weekKeys.slice(-8).map(wk => weeklyData[wk].seances)
 
-  const monotLabel = !monotonie ? '—'
-    : monotonie < 1.5 ? 'Bonne variété ✓'
-    : monotonie < 2   ? 'Modérée'
-    : 'Élevée ⚠️'
+  const today = new Date().toISOString().split('T')[0]
+  const alreadyToday = logs.some(l => l.date === today)
 
-  const monotColor = !monotonie ? T.textDim
-    : monotonie < 1.5 ? '#3ecf8e'
-    : monotonie < 2   ? '#fbbf24'
-    : '#ff4566'
-
-  // Contrainte = volume × monotonie
-  const contrainte = monotonie && thisWeek.volume
-    ? Math.round(thisWeek.volume * monotonie)
-    : null
-
-  // ACWR
-  const acwr = useMemo(() => calcACWR(weeklyData, currentWeek), [weeklyData, currentWeek])
-
-  // Données graphique 8 semaines
-  const chartData = useMemo(() => {
-    return weekKeys.slice(-8).map(wk => ({
-      value: weeklyData[wk].volume,
-      label: getWeekLabel(wk),
-      highlight: wk === currentWeek,
-    }))
-  }, [weekKeys, weeklyData, currentWeek])
-
-  const seancesChartData = useMemo(() => {
-    return weekKeys.slice(-8).map(wk => ({
-      value: weeklyData[wk].seances,
-      highlight: wk === currentWeek,
-    }))
-  }, [weekKeys, weeklyData, currentWeek])
-
-  if (loading) return (
-    <PageWrap>
-      <div style={{ textAlign: 'center', padding: 40, color: T.textDim }}>Calcul en cours...</div>
-    </PageWrap>
-  )
+  const TABS = [
+    { key: 'saisie',  label: 'Saisir' },
+    { key: 'analyse', label: 'Analyse' },
+  ]
 
   return (
     <PageWrap>
-      <style>{`
-        .charge-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
-        .acwr-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.06); position: relative; overflow: hidden; }
-        .acwr-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
-      `}</style>
-
-      <div style={{ maxWidth: 800, margin: '0 auto', display: 'grid', gap: 16 }}>
+      <div style={{ maxWidth: 720, margin: '0 auto', display: 'grid', gap: 16 }}>
 
         {/* Header */}
         <div>
           <div style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: 999, border: `1px solid ${T.accent}28`, background: T.accentGlowSm, color: T.accentLight, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
             Prépa physique
           </div>
-          <div style={{ fontSize: 'clamp(22px,5vw,30px)', fontWeight: 900, color: T.text, fontFamily: T.fontDisplay }}>Charge externe</div>
-          <div style={{ color: T.textMid, fontSize: 14, marginTop: 6 }}>Analyse sur 12 semaines · {sessions.length} séances</div>
+          <div style={{ fontSize: 'clamp(22px,5vw,28px)', fontWeight: 900, color: T.text, fontFamily: T.fontDisplay }}>Charge externe</div>
+          <div style={{ color: T.textMid, fontSize: 14, marginTop: 4 }}>RPE × Durée — Unités arbitraires (UA)</div>
         </div>
 
-        {/* ACWR — indicateur principal */}
-        <Card glow>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
-            <div>
-              <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>ACWR — Ratio charge aiguë / chronique</div>
-              <div style={{ fontSize: 11, color: T.textDim, marginTop: 3 }}>Zone optimale : 0.8 – 1.3 · Au-delà de 1.5 : risque élevé</div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 36, fontWeight: 900, color: acwrColor(acwr), fontFamily: T.fontDisplay, lineHeight: 1 }}>{acwr ?? '—'}</div>
-              <div style={{ fontSize: 12, color: acwrColor(acwr), fontWeight: 700, marginTop: 4 }}>{acwrLabel(acwr)}</div>
-            </div>
-          </div>
-
-          {/* Barre visuelle */}
-          <div style={{ position: 'relative', height: 12, borderRadius: 6, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: 6 }}>
-            {/* Zones colorées */}
-            <div style={{ position: 'absolute', left: 0, width: '40%', height: '100%', background: 'rgba(77,159,255,0.3)' }} />
-            <div style={{ position: 'absolute', left: '40%', width: '25%', height: '100%', background: 'rgba(62,207,142,0.3)' }} />
-            <div style={{ position: 'absolute', left: '65%', width: '10%', height: '100%', background: 'rgba(251,191,36,0.3)' }} />
-            <div style={{ position: 'absolute', left: '75%', width: '25%', height: '100%', background: 'rgba(255,69,102,0.3)' }} />
-            {/* Curseur */}
-            {acwr && (
-              <div style={{
-                position: 'absolute', top: 0, bottom: 0, width: 4, borderRadius: 2,
-                background: acwrColor(acwr),
-                left: `${Math.min(95, Math.max(2, (acwr / 2) * 100))}%`,
-                transition: 'left 0.4s ease',
-              }} />
-            )}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: T.textDim }}>
-            <span>0</span><span>0.8</span><span>1.3</span><span>1.5</span><span>2+</span>
-          </div>
-        </Card>
-
-        {/* Stats semaine courante */}
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 800, color: T.text, marginBottom: 8 }}>
-            Semaine en cours — {getWeekLabel(currentWeek)}
-          </div>
-          <div className="charge-grid">
-            <StatBlock label="Volume" value={Math.round(thisWeek.volume).toLocaleString('fr-FR')} unit="kg" color="#3ecf8e" />
-            <StatBlock label="Séances" value={thisWeek.seances} unit="séances" color="#4d9fff" />
-            <StatBlock label="Monotonie" value={monotonie ?? '—'} unit="" sub={monotLabel} color={monotColor} />
-            <StatBlock label="Contrainte" value={contrainte ? contrainte.toLocaleString('fr-FR') : '—'} unit="" sub="volume × monotonie" color="#9d7dea" />
-          </div>
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 6 }}>
+          {TABS.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              style={{ flex: 1, padding: '9px', borderRadius: 10, border: `1px solid ${tab === t.key ? T.accent + '40' : T.border}`, background: tab === t.key ? `${T.accent}12` : 'transparent', color: tab === t.key ? T.accentLight : T.textDim, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              {t.label}
+            </button>
+          ))}
         </div>
 
-        {/* Graphiques 8 semaines */}
-        <Card>
-          <div style={{ fontSize: 15, fontWeight: 800, color: T.text, marginBottom: 16 }}>Évolution sur 8 semaines</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-            <div>
-              <BarChart data={chartData} color="#3ecf8e" label="Volume (kg)" />
-            </div>
-            <div>
-              <BarChart data={seancesChartData} color="#4d9fff" label="Séances / semaine" />
-            </div>
-          </div>
-        </Card>
-
-        {/* Tableau hebdomadaire */}
-        <Card>
-          <div style={{ fontSize: 15, fontWeight: 800, color: T.text, marginBottom: 12 }}>Détail par semaine</div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr>
-                  {['Semaine', 'Séances', 'Volume', 'Moy/séance', 'ACWR'].map(h => (
-                    <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: T.textDim, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {weekKeys.slice(-8).reverse().map(wk => {
-                  const w = weeklyData[wk]
-                  const ratio = calcACWR(weeklyData, wk)
-                  const isCurrent = wk === currentWeek
-                  return (
-                    <tr key={wk} style={{ background: isCurrent ? 'rgba(62,207,142,0.04)' : 'transparent' }}>
-                      <td style={{ padding: '8px 10px', color: isCurrent ? T.accentLight : T.textMid, fontWeight: isCurrent ? 700 : 400, borderBottom: `1px solid ${T.border}22`, whiteSpace: 'nowrap' }}>
-                        {getWeekLabel(wk)}{isCurrent ? ' ←' : ''}
-                      </td>
-                      <td style={{ padding: '8px 10px', color: '#4d9fff', fontWeight: 700, borderBottom: `1px solid ${T.border}22` }}>{w.seances}</td>
-                      <td style={{ padding: '8px 10px', color: '#3ecf8e', fontWeight: 700, borderBottom: `1px solid ${T.border}22` }}>{Math.round(w.volume).toLocaleString('fr-FR')} kg</td>
-                      <td style={{ padding: '8px 10px', color: T.textMid, borderBottom: `1px solid ${T.border}22` }}>
-                        {w.seances ? Math.round(w.volume / w.seances).toLocaleString('fr-FR') + ' kg' : '—'}
-                      </td>
-                      <td style={{ padding: '8px 10px', color: acwrColor(ratio), fontWeight: 700, borderBottom: `1px solid ${T.border}22` }}>
-                        {ratio ?? '—'}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-
-        {/* Légende */}
-        <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.02)', borderRadius: 12, border: `1px solid ${T.border}` }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 8 }}>À propos des métriques</div>
-          <div style={{ display: 'grid', gap: 6 }}>
-            {[
-              ['Volume', 'Séries × répétitions × charge. Indicateur de la quantité de travail mécanique.'],
-              ['Monotonie (Foster)', 'Volume moyen ÷ écart-type. Élevée (>2) = risque de surentraînement.'],
-              ['Contrainte', 'Volume × Monotonie. Mesure la charge cumulée avec variation.'],
-              ['ACWR', 'Charge semaine en cours ÷ moyenne 4 dernières semaines. 0.8–1.3 = zone optimale.'],
-            ].map(([label, desc]) => (
-              <div key={label} style={{ fontSize: 12, color: T.textDim, lineHeight: 1.5 }}>
-                <span style={{ color: T.accentLight, fontWeight: 700 }}>{label}</span> — {desc}
+        {/* ── Tab Saisie ── */}
+        {tab === 'saisie' && (
+          <Card>
+            {alreadyToday && (
+              <div style={{ marginBottom: 14, padding: '8px 12px', background: `${T.accent}10`, borderRadius: 10, fontSize: 12, color: T.accentLight, fontWeight: 700 }}>
+                ✓ Une charge a déjà été saisie aujourd'hui — tu peux en ajouter une autre (double séance)
               </div>
-            ))}
-          </div>
-        </div>
+            )}
+            <ChargeExterneForm onSaved={load} />
+          </Card>
+        )}
 
+        {/* ── Tab Analyse ── */}
+        {tab === 'analyse' && (
+          <>
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: 30, color: T.textDim }}>Calcul...</div>
+            ) : (
+              <>
+                {/* ACWR */}
+                <Card glow>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
+                    <div>
+                      <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>ACWR — Ratio charge aiguë / chronique</div>
+                      <div style={{ fontSize: 11, color: T.textDim, marginTop: 3 }}>Charge aiguë = semaine en cours · Charge chronique = moy. 4 semaines</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 40, fontWeight: 900, color: acwrColor(acwr), fontFamily: T.fontDisplay, lineHeight: 1 }}>{acwr ?? '—'}</div>
+                      <div style={{ fontSize: 12, color: acwrColor(acwr), fontWeight: 700, marginTop: 4 }}>{acwrLabel(acwr)}</div>
+                    </div>
+                  </div>
+                  <div style={{ position: 'relative', height: 10, borderRadius: 5, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: 4 }}>
+                    <div style={{ position: 'absolute', left: 0, width: '40%', height: '100%', background: 'rgba(77,159,255,0.3)' }} />
+                    <div style={{ position: 'absolute', left: '40%', width: '25%', height: '100%', background: 'rgba(62,207,142,0.3)' }} />
+                    <div style={{ position: 'absolute', left: '65%', width: '10%', height: '100%', background: 'rgba(251,191,36,0.3)' }} />
+                    <div style={{ position: 'absolute', left: '75%', width: '25%', height: '100%', background: 'rgba(255,69,102,0.3)' }} />
+                    {acwr && <div style={{ position: 'absolute', top: 0, bottom: 0, width: 4, borderRadius: 2, background: acwrColor(acwr), left: `${Math.min(97, Math.max(2, (acwr / 2) * 100))}%`, transition: 'left 0.4s' }} />}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: T.textDim }}>
+                    <span>0</span><span>0.8 Sous</span><span>1.3 Optimal</span><span>1.5</span><span>2+ Surcharge</span>
+                  </div>
+                </Card>
+
+                {/* Stats semaine */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
+                  {[
+                    { label: 'Charge aiguë', value: `${Math.round(thisWeek.charge)}`, unit: 'UA', color: acwrColor(acwr) },
+                    { label: 'Séances', value: thisWeek.seances, unit: '', color: '#4d9fff' },
+                    { label: 'RPE moyen', value: avgRpe ?? '—', unit: '/10', color: avgRpe ? RPE_COLORS[Math.round(avgRpe)] : T.textDim },
+                  ].map(({ label, value, unit, color }) => (
+                    <div key={label} style={{ padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: 14, border: `1px solid ${T.border}` }}>
+                      <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>{label}</div>
+                      <div style={{ fontSize: 22, fontWeight: 900, color, fontFamily: T.fontDisplay }}>
+                        {value} <span style={{ fontSize: 11, color: T.textDim }}>{unit}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Graphiques */}
+                {chartData.length >= 2 && (
+                  <Card>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 14 }}>Évolution 8 semaines</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                      <div>
+                        <div style={{ fontSize: 11, color: T.textDim, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Charge (UA)</div>
+                        <Sparkline data={chartData} color="#3ecf8e" h={60} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 11, color: T.textDim, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Séances / semaine</div>
+                        <Sparkline data={seancesData} color="#4d9fff" h={60} />
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
+                {/* Tableau hebdo */}
+                {weekKeys.length > 0 && (
+                  <Card>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>Détail par semaine</div>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                        <thead>
+                          <tr>{['Semaine', 'Charge (UA)', 'Séances', 'RPE moy.', 'ACWR'].map(h => (
+                            <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: T.textDim, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', borderBottom: `1px solid ${T.border}`, whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}</tr>
+                        </thead>
+                        <tbody>
+                          {weekKeys.slice(-8).reverse().map(wk => {
+                            const w = weeklyData[wk]
+                            const isCurrent = wk === currentWeek
+                            const idx = weekKeys.indexOf(wk)
+                            const chronic = weekKeys.slice(Math.max(0, idx - 3), idx + 1).map(k => weeklyData[k].charge)
+                            const avg = chronic.length ? chronic.reduce((a, b) => a + b, 0) / chronic.length : 0
+                            const ratio = avg ? Math.round((w.charge / avg) * 100) / 100 : null
+                            const avgR = w.rpes.length ? (w.rpes.reduce((a, b) => a + b, 0) / w.rpes.length).toFixed(1) : '—'
+                            return (
+                              <tr key={wk} style={{ background: isCurrent ? 'rgba(62,207,142,0.03)' : 'transparent' }}>
+                                <td style={{ padding: '8px 10px', color: isCurrent ? T.accentLight : T.textMid, fontWeight: isCurrent ? 700 : 400, borderBottom: `1px solid ${T.border}22`, whiteSpace: 'nowrap', fontSize: 12 }}>
+                                  {getWeekLabel(wk)}{isCurrent ? ' ←' : ''}
+                                </td>
+                                <td style={{ padding: '8px 10px', color: '#3ecf8e', fontWeight: 700, borderBottom: `1px solid ${T.border}22` }}>{Math.round(w.charge)}</td>
+                                <td style={{ padding: '8px 10px', color: '#4d9fff', fontWeight: 700, borderBottom: `1px solid ${T.border}22` }}>{w.seances}</td>
+                                <td style={{ padding: '8px 10px', color: RPE_COLORS[Math.round(avgR)] || T.textMid, fontWeight: 700, borderBottom: `1px solid ${T.border}22` }}>{avgR}</td>
+                                <td style={{ padding: '8px 10px', color: acwrColor(ratio), fontWeight: 700, borderBottom: `1px solid ${T.border}22` }}>{ratio ?? '—'}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Card>
+                )}
+
+                {/* Historique séances */}
+                {logs.length > 0 && (
+                  <Card>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>Dernières séances</div>
+                    <div style={{ display: 'grid', gap: 6 }}>
+                      {logs.slice(0, 10).map(log => {
+                        const typeInfo = SESSION_TYPES.find(t => t.key === log.type_seance) || SESSION_TYPES[4]
+                        const ua = log.charge_ua || log.rpe * log.duree_min
+                        return (
+                          <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: `1px solid ${T.border}` }}>
+                            <div>
+                              <div style={{ fontSize: 13, color: T.text, fontWeight: 600, display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <span>{typeInfo.emoji}</span>
+                                <span>{new Date(log.date + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                                <span style={{ fontSize: 11, color: typeInfo.color, fontWeight: 700 }}>{typeInfo.label}</span>
+                              </div>
+                              <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>RPE {log.rpe} × {log.duree_min} min</div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: 18, fontWeight: 900, color: RPE_COLORS[log.rpe], fontFamily: T.fontDisplay }}>{ua}</div>
+                              <div style={{ fontSize: 10, color: T.textDim }}>UA</div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </Card>
+                )}
+
+                {logs.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: 30, color: T.textDim, fontSize: 14 }}>
+                    Aucune donnée — saisis ta première charge !
+                  </div>
+                )}
+              </>
+            )}
+          </>
+        )}
       </div>
     </PageWrap>
   )
