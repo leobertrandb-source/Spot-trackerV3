@@ -4,6 +4,7 @@ import { useAuth } from "../components/AuthContext"
 import { T } from "../lib/data"
 import { computeSmartProgression } from "../lib/smartProgressionEngine"
 import SmartCoachCard from "../components/SmartCoachCard"
+import { ChargeExterneForm } from './PrepChargeExternePage'
 
 const C = {
   bg: '#07090e', card: 'rgba(12,16,24,0.85)', border: 'rgba(255,255,255,0.07)',
@@ -161,12 +162,13 @@ function ExerciseBlock({ exEntry, index, onChange, onRemove, suggestion }) {
 }
 
 export default function SaisiePage() {
-  const { user } = useAuth()
+  const { user, showPrepPhysique } = useAuth()
   const [exercises, setExercises] = useState([])
   const [sessionExercises, setSessionExercises] = useState([])
   const [showPicker, setShowPicker] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [savedSessionId, setSavedSessionId] = useState(null)
 
   useEffect(() => {
     supabase.from('exercises').select('*').order('name').then(({ data }) => setExercises(data || []))
@@ -210,6 +212,7 @@ export default function SaisiePage() {
         }
       }
       setSaved(true)
+      setSavedSessionId(session?.id || null)
       setSessionExercises([])
     } catch (e) { console.error(e) }
     finally { setSaving(false) }
@@ -236,12 +239,20 @@ export default function SaisiePage() {
       </div>
 
       {saved && (
-        <div style={{ ...GLASS, padding: '14px 18px', marginBottom: 16, borderColor: `${C.accent}40`, display: 'flex', gap: 10, alignItems: 'center' }}>
-          <span>✅</span>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>Séance enregistrée !</div>
-            <button onClick={() => setSaved(false)} style={{ background: 'none', border: 'none', color: C.sub, fontSize: 11, cursor: 'pointer', padding: 0, marginTop: 2 }}>Nouvelle séance</button>
+        <div style={{ ...GLASS, marginBottom: 16, overflow: 'hidden' }}>
+          <div style={{ padding: '14px 18px', borderBottom: savedSessionId && showPrepPhysique ? `1px solid ${C.border}` : 'none', display: 'flex', gap: 10, alignItems: 'center' }}>
+            <span>✅</span>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>Séance enregistrée !</div>
+              <button onClick={() => { setSaved(false); setSavedSessionId(null) }} style={{ background: 'none', border: 'none', color: C.sub, fontSize: 11, cursor: 'pointer', padding: 0, marginTop: 2 }}>Nouvelle séance</button>
+            </div>
           </div>
+          {showPrepPhysique && savedSessionId && (
+            <div style={{ padding: '14px 18px' }}>
+              <div style={{ fontSize: 12, color: C.sub, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Charge de séance</div>
+              <ChargeExterneForm sessionId={savedSessionId} compact onSaved={() => {}} />
+            </div>
+          )}
         </div>
       )}
 
