@@ -26,6 +26,37 @@ function getWeekLabel(weekKey) {
 
 const RPE_COLORS = ['','#3ecf8e','#3ecf8e','#3ecf8e','#3ecf8e','#fbbf24','#fbbf24','#ff7043','#ff7043','#ff4566','#ff4566']
 
+const PATTERNS = [
+  {
+    key: 'pousse_haut', label: 'Poussé haut', color: '#4d9fff', emoji: '⬆️',
+    exercises: ['Développé couché barre','Développé couché haltères','Développé incliné','Développé décliné','Développé militaire','Développé militaire haltères','Pompes lestées','Dips lestés'],
+  },
+  {
+    key: 'tire_haut', label: 'Tiré haut', color: '#9d7dea', emoji: '⬇️',
+    exercises: ['Traction prise large','Traction prise serrée','Traction pronation','Tirage vertical prise large','Tirage vertical prise serrée','Rowing barre','Rowing haltère','Rowing poulie basse'],
+  },
+  {
+    key: 'pousse_bas', label: 'Poussé bas', color: '#3ecf8e', emoji: '🦵',
+    exercises: ['Squat barre','Squat avant','Goblet squat','Presse à cuisses','Fente barre','Fente haltères','Split squat','Fente bulgare'],
+  },
+  {
+    key: 'tire_bas', label: 'Tiré bas', color: '#ff7043', emoji: '🏋️',
+    exercises: ['Soulevé de terre','Soulevé de terre roumain','Soulevé de terre sumo','Good morning','Hip thrust barre','Hip thrust machine','Leg curl couché','Leg curl assis'],
+  },
+  {
+    key: 'gainage', label: 'Gainage / Core', color: '#fbbf24', emoji: '🔷',
+    exercises: ['Planche','Planche latérale','Rollout','Ab wheel','Crunch lesté','Relevé de jambes','Russian twist lesté','Pallof press'],
+  },
+  {
+    key: 'explosif', label: 'Explosif / Pliométrique', color: '#ff4566', emoji: '⚡',
+    exercises: ['Épaulé-jeté','Arraché','Épaulé','Jeté','Box jump lesté','Squat jump lesté','Médecine ball slam','Power clean'],
+  },
+  {
+    key: 'cardio', label: 'Cardio / Conditioning', color: '#26d4e8', emoji: '🏃',
+    exercises: ['Sprint','Rameur','Ski erg','Bike assault','Kettlebell swing','Burpees lestés','Sled push','Sled pull'],
+  },
+]
+
 // ─── Sparkline SVG ────────────────────────────────────────────────────────────
 function Sparkline({ points, color = '#3ecf8e', h = 80, showDots = true, showGrid = true }) {
   if (points.length < 2) return (
@@ -79,9 +110,25 @@ function TopsetForm({ exercises, onSaved }) {
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const filteredEx = exercises.filter(e =>
-    !exerciseName || e.toLowerCase().includes(exerciseName.toLowerCase())
-  )
+  const [selectedPattern, setSelectedPattern] = useState(null)
+
+  const filteredEx = useMemo(() => {
+    if (selectedPattern) {
+      const pattern = PATTERNS.find(p => p.key === selectedPattern)
+      if (pattern) {
+        // Merge pattern exercises with DB exercises matching
+        const patternExs = pattern.exercises
+        const dbMatches = exercises.filter(e =>
+          patternExs.some(pe => e.toLowerCase().includes(pe.split(' ')[0].toLowerCase()))
+        )
+        // Combine, deduplicate
+        return [...new Set([...patternExs, ...dbMatches])]
+      }
+    }
+    return exercises.filter(e =>
+      !exerciseName || e.toLowerCase().includes(exerciseName.toLowerCase())
+    )
+  }, [selectedPattern, exercises, exerciseName])
 
   function addSet() { setSets(prev => [...prev, { weight: '', reps: '', rpe: '' }]) }
   function updateSet(i, key, val) { setSets(prev => prev.map((s, idx) => idx === i ? { ...s, [key]: val } : s)) }
@@ -120,24 +167,47 @@ function TopsetForm({ exercises, onSaved }) {
 
   return (
     <div style={{ display: 'grid', gap: 14 }}>
-      {/* Exercice */}
+      {/* Pattern de mouvement */}
+      <div>
+        <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>Pattern de mouvement</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {PATTERNS.map(p => (
+            <button key={p.key} onClick={() => { setSelectedPattern(prev => prev === p.key ? null : p.key); setExerciseName('') }}
+              style={{ padding: '6px 10px', borderRadius: 10, border: `1px solid ${selectedPattern === p.key ? p.color + '50' : T.border}`, background: selectedPattern === p.key ? `${p.color}15` : 'transparent', color: selectedPattern === p.key ? p.color : T.textDim, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+              {p.emoji} {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Exercice — liste déroulante selon le pattern */}
       <div style={{ position: 'relative' }}>
         <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Exercice</div>
-        <input value={exerciseName} onChange={e => { setExerciseName(e.target.value); setShowExList(true) }}
-          onFocus={() => setShowExList(true)}
-          placeholder="Squat, Développé couché, Soulevé de terre..."
-          style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 14px', color: T.text, fontSize: 14, outline: 'none' }} />
-        {showExList && filteredEx.length > 0 && exerciseName && (
-          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, background: '#1a1f2e', border: `1px solid ${T.border}`, borderRadius: 10, maxHeight: 180, overflowY: 'auto', marginTop: 4 }}>
-            {filteredEx.slice(0, 8).map(ex => (
-              <div key={ex} onClick={() => { setExerciseName(ex); setShowExList(false) }}
-                style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 13, color: T.text, borderBottom: `1px solid ${T.border}22` }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                {ex}
+        {selectedPattern ? (
+          <select value={exerciseName} onChange={e => setExerciseName(e.target.value)}
+            style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 14px', color: exerciseName ? T.text : T.textDim, fontSize: 14, outline: 'none', appearance: 'none', cursor: 'pointer' }}>
+            <option value="" style={{ background: '#1a1f2e' }}>— Choisir un exercice —</option>
+            {filteredEx.map(ex => <option key={ex} value={ex} style={{ background: '#1a1f2e' }}>{ex}</option>)}
+          </select>
+        ) : (
+          <>
+            <input value={exerciseName} onChange={e => { setExerciseName(e.target.value); setShowExList(true) }}
+              onFocus={() => setShowExList(true)}
+              placeholder="Ou tape un exercice directement..."
+              style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 14px', color: T.text, fontSize: 14, outline: 'none' }} />
+            {showExList && filteredEx.length > 0 && exerciseName && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, background: '#1a1f2e', border: `1px solid ${T.border}`, borderRadius: 10, maxHeight: 180, overflowY: 'auto', marginTop: 4 }}>
+                {filteredEx.slice(0, 8).map(ex => (
+                  <div key={ex} onClick={() => { setExerciseName(ex); setShowExList(false) }}
+                    style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 13, color: T.text, borderBottom: `1px solid ${T.border}22` }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    {ex}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
 
