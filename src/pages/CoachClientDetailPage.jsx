@@ -961,7 +961,7 @@ function PrepDataView({ prepData }) {
               <div>
                 <div style={{ fontSize: 36, fontWeight: 900, color: si.color, fontFamily: T.fontDisplay, lineHeight: 1 }}>{hooperScore}<span style={{ fontSize: 16 }}>/40</span></div>
                 <div style={{ fontSize: 13, color: si.color, fontWeight: 700, marginTop: 4 }}>{si.text}</div>
-                <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>{lastH.date === today ? '✓ Rempli aujourd'hui' : `Il y a ${Math.floor((Date.now()-new Date(lastH.date+'T00:00:00').getTime())/86400000)}j`}</div>
+                <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>{lastH.date === today ? "✓ Rempli aujourd'hui" : `Il y a ${Math.floor((Date.now()-new Date(lastH.date+'T00:00:00').getTime())/86400000)}j`}</div>
               </div>
               <div style={{ display: 'grid', gap: 4 }}>
                 {[['Fatigue',lastH.fatigue,'#ff7043'],['Sommeil',lastH.sommeil,'#9d7dea'],['Stress',lastH.stress,'#4d9fff'],['Courbatures',lastH.courbatures,'#ff4566']].map(([l,v,c]) => (
