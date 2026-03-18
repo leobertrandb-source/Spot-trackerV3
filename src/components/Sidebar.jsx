@@ -25,6 +25,7 @@ const NAV_ACCENTS = {
   '/prep/compo':               '#9d7dea',
   '/prep/topset':              '#3ecf8e',
   '/prep/charge-externe':      '#fbbf24',
+  '/prep/dashboard':            '#9d7dea',
 }
 
 function NavVisual({ path }) {
