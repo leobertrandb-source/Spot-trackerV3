@@ -268,6 +268,7 @@ function QuickAction({ to, label, sub, color, iconPath, delay = 0 }) {
 
 export default function CoachPage() {
   const { user, profile } = useAuth()
+  const coachId = profile?.id || user?.id || null
   const [clients, setClients]       = useState([])
   const [loading, setLoading]       = useState(true)
   const [weekSessions, setWeekSessions] = useState(0)
@@ -275,10 +276,10 @@ export default function CoachPage() {
   const name = profile?.full_name || user?.email || 'Coach'
 
   const load = useCallback(async () => {
-    if (!user?.id) { setLoading(false); return }
+    if (!coachId) { setLoading(false); return }
     setLoading(true)
     try {
-      const { data: links } = await supabase.from('coach_clients').select('client_id').eq('coach_id', user.id)
+      const { data: links } = await supabase.from('coach_clients').select('client_id').eq('coach_id', coachId)
       const ids = (links || []).map(r => r.client_id).filter(Boolean)
       if (ids.length > 0) {
         const { data: profs } = await supabase.from('profiles').select('id, full_name, email').in('id', ids).order('full_name')
@@ -291,7 +292,7 @@ export default function CoachPage() {
       }
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
-  }, [user?.id])
+  }, [coachId])
 
   useEffect(() => { load() }, [load])
 
