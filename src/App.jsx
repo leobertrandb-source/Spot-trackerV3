@@ -32,6 +32,10 @@ import ProgrammePerteDePoidsPage from './pages/ProgrammePerteDePoidsPage'
 import ProgrammeAthletiquePage from './pages/ProgrammeAthletiquePage'
 
 import ExercisesPage from './pages/ExercisesPage'
+import PrepHooperPage from './pages/PrepHooperPage'
+import PrepChargePage from './pages/PrepChargePage'
+import PrepCompoPage from './pages/PrepCompoPage'
+import PrepTopsetPage from './pages/PrepTopsetPage'
 import { T } from './lib/data'
 
 function LoadingScreen() {
@@ -158,6 +162,11 @@ function PrivateAppShell() {
             path="/exercices"
             element={<ExercisesPage />}
           />
+
+          <Route path="/prep/hooper" element={<PrepHooperPage />} />
+          <Route path="/prep/charge" element={<PrepChargePage />} />
+          <Route path="/prep/compo"  element={<PrepCompoPage />} />
+          <Route path="/prep/topset" element={<PrepTopsetPage />} />
 
           <Route
             path="/coach"
