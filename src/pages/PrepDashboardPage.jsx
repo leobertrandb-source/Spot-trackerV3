@@ -186,7 +186,7 @@ export default function PrepDashboardPage() {
 
               return (
                 <div key={athlete.id}
-                  onClick={() => navigate(`/coach/clients/${athlete.id}`)}
+                  onClick={() => navigate(`/coach/client/${athlete.id}`)}
                   style={{ background: isAlert ? 'rgba(255,69,102,0.04)' : 'rgba(255,255,255,0.025)', border: `1px solid ${isAlert ? 'rgba(255,69,102,0.25)' : T.border}`, borderRadius: 16, padding: '14px 16px', cursor: 'pointer', transition: 'all 0.15s' }}
                   onMouseEnter={e => e.currentTarget.style.background = isAlert ? 'rgba(255,69,102,0.07)' : 'rgba(255,255,255,0.04)'}
                   onMouseLeave={e => e.currentTarget.style.background = isAlert ? 'rgba(255,69,102,0.04)' : 'rgba(255,255,255,0.025)'}>
