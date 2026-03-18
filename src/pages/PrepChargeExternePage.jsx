@@ -69,7 +69,7 @@ function Sparkline({ data, color = '#3ecf8e', h = 50 }) {
 
 // ─── Formulaire saisie rapide ─────────────────────────────────────────────────
 export function ChargeExterneForm({ sessionId = null, onSaved = null, compact = false }) {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const today = new Date().toISOString().split('T')[0]
   const [rpe, setRpe] = useState(6)
   const [duree, setDuree] = useState('')
@@ -175,7 +175,7 @@ export function ChargeExterneForm({ sessionId = null, onSaved = null, compact = 
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function PrepChargeExternePage() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('saisie') // 'saisie' | 'analyse'
@@ -232,9 +232,11 @@ export default function PrepChargeExternePage() {
   const today = new Date().toISOString().split('T')[0]
   const alreadyToday = logs.some(l => l.date === today)
 
+  const isCoach = profile?.role === 'coach'
+
   const TABS = [
     { key: 'saisie',  label: 'Saisir' },
-    { key: 'analyse', label: 'Analyse' },
+    ...(isCoach ? [{ key: 'analyse', label: 'Analyse' }] : []),
   ]
 
   return (
