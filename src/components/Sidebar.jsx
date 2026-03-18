@@ -24,6 +24,7 @@ const NAV_ACCENTS = {
   '/prep/charge':              '#4d9fff',
   '/prep/compo':               '#9d7dea',
   '/prep/topset':              '#3ecf8e',
+  '/prep/charge-externe':      '#fbbf24',
 }
 
 function NavVisual({ path }) {
@@ -154,7 +155,8 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
       { to: '/prep/hooper',  label: 'HOOPER' },
       { to: '/prep/charge',  label: 'Charge interne' },
       { to: '/prep/compo',   label: 'Composition corporelle' },
-      { to: '/prep/topset',  label: 'TOPSET' },
+      { to: '/prep/topset',        label: 'TOPSET' },
+      { to: '/prep/charge-externe', label: 'Charge externe' },
     ] : []),
   ]
 
