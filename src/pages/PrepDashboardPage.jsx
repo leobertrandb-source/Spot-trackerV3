@@ -21,7 +21,8 @@ function daysAgo(dateStr) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function PrepDashboardPage() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
+  const coachId = profile?.id || user?.id || null
   const navigate = useNavigate()
 
   const [athletes, setAthletes] = useState([])
@@ -31,7 +32,7 @@ export default function PrepDashboardPage() {
   const today = new Date().toISOString().split('T')[0]
 
   const load = useCallback(async () => {
-    if (!user?.id) {
+    if (!coachId) {
       setAthletes([])
       setLoading(false)
       return
@@ -44,7 +45,7 @@ export default function PrepDashboardPage() {
       const { data: links, error: linksError } = await supabase
         .from('coach_clients')
         .select('client_id')
-        .eq('coach_id', user.id)
+        .eq('coach_id', coachId)
 
       if (linksError) throw linksError
 
@@ -115,7 +116,7 @@ export default function PrepDashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [user?.id])
+  }, [coachId])
 
   useEffect(() => {
     load()
