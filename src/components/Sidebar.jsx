@@ -156,8 +156,10 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
       { to: '/prep/hooper',  label: 'HOOPER' },
       { to: '/prep/charge',  label: 'Charge interne' },
       { to: '/prep/compo',   label: 'Composition corporelle' },
-      { to: '/prep/topset',        label: 'TOPSET' },
-      { to: '/prep/charge-externe', label: 'Charge externe' },
+      { to: '/prep/topset',  label: 'TOPSET' },
+      ...(profile?.role === 'coach' ? [
+        { to: '/prep/charge-externe', label: 'Charge externe' },
+      ] : []),
     ] : []),
   ]
 
