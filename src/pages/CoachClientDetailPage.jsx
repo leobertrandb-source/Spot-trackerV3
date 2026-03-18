@@ -877,8 +877,6 @@ export default function CoachClientDetailPage() {
                 )}
               </Card>
             </div>
-
-            </div>
           </>
         )}
       </div>
