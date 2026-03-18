@@ -17,15 +17,17 @@ const HOOPER_FIELDS = [
 ]
 
 const DOMS_ZONES = [
-  { key: 'epaules',    label: 'Épaules',          emoji: '🤲' },
-  { key: 'pecs_bras',  label: 'Pectoraux / Bras',  emoji: '💪' },
-  { key: 'dos_haut',   label: 'Dos haut / Dorsaux', emoji: '🔙' },
-  { key: 'lombaires',  label: 'Bas du dos / Lombaires', emoji: '🦴' },
-  { key: 'hanches',    label: 'Hanches / Fessiers', emoji: '🍑' },
-  { key: 'quadriceps', label: 'Quadriceps',         emoji: '🦵' },
-  { key: 'ischio',     label: 'Ischio-jambiers',    emoji: '🦵' },
-  { key: 'genoux',     label: 'Genoux',              emoji: '🦿' },
-  { key: 'mollets',    label: 'Mollets / Chevilles', emoji: '🦶' },
+  { key: 'nuque',      label: 'Nuque / Cou',        emoji: '🔺' },
+  { key: 'epaules',    label: 'Épaules',             emoji: '💠' },
+  { key: 'coudes',     label: 'Coudes',              emoji: '💠' },
+  { key: 'poignets',   label: 'Poignets',            emoji: '💠' },
+  { key: 'tronc',      label: 'Tronc / Abdominaux',  emoji: '🔷' },
+  { key: 'lombaires',  label: 'Bas du dos / Lombaires', emoji: '🔷' },
+  { key: 'hanches',    label: 'Hanches',             emoji: '💠' },
+  { key: 'cuisses',    label: 'Cuisses',             emoji: '🔷' },
+  { key: 'genoux',     label: 'Genoux',              emoji: '💠' },
+  { key: 'chevilles',  label: 'Chevilles',           emoji: '💠' },
+  { key: 'pieds',      label: 'Pieds',               emoji: '🔷' },
 ]
 
 const INQUIETUDE_LABELS = ['', 'Pas inquiet', 'Peu inquiet', 'Très inquiet']
