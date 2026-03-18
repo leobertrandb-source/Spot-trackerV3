@@ -106,6 +106,8 @@ export default function CoachClientDetailPage() {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+  const [activeTab, setActiveTab] = useState('performances')
+  const [prepData, setPrepData] = useState({ hooper: [], compo: [], topsets: [], charge: [] })
   // Nutrition
   const [nutri, setNutri] = useState({ weight: '', height: '', age: '', sex: 'homme', activity: '1.55', goal: 'maintain' })
   const [nutriGoals, setNutriGoals] = useState(null)
@@ -426,7 +428,21 @@ export default function CoachClientDetailPage() {
           </Card>
         ) : (
           <>
-            <Card
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {[
+                { key: 'performances', label: '📊 Performances' },
+                { key: 'nutrition',    label: '🥗 Nutrition' },
+                { key: 'prepa',        label: '⚡ Prépa physique' },
+              ].map(t => (
+                <button key={t.key} onClick={() => setActiveTab(t.key)}
+                  style={{ padding: '8px 16px', borderRadius: 10, border: `1px solid ${activeTab === t.key ? T.accent + '40' : T.border}`, background: activeTab === t.key ? T.accent + '12' : 'transparent', color: activeTab === t.key ? T.accentLight : T.textDim, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {activeTab !== 'prepa' && activeTab !== 'nutrition' && <><Card
               glow
               style={{
                 padding: '22px 20px',
@@ -768,8 +784,9 @@ export default function CoachClientDetailPage() {
               </Card>
             </div>
 
-            {/* ── Nutrition & Métabolisme ── */}
-            <div style={{ marginTop: 24 }}>
+            </>}
+
+            {activeTab === 'nutrition' && <div style={{ marginTop: 0 }}>
               <div style={{ color: T.text, fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 20, marginBottom: 16 }}>
                 Nutrition & Métabolisme
               </div>
@@ -876,10 +893,139 @@ export default function CoachClientDetailPage() {
                   </div>
                 )}
               </Card>
-            </div>
+            </div>}
+
+            {activeTab === 'prepa' && <PrepDataView prepData={prepData} />}
+
           </>
         )}
       </div>
     </PageWrap>
+  )
+}
+
+// ─── Prépa physique view ──────────────────────────────────────────────────────
+function scoreLabel2(total) {
+  if (!total) return { text: '—', color: T.textDim }
+  if (total <= 7)  return { text: 'Très bon',         color: '#3ecf8e' }
+  if (total <= 13) return { text: 'Correct',           color: '#3ecf8e' }
+  if (total <= 20) return { text: 'Vigilance',         color: '#fbbf24' }
+  return               { text: 'Fatigue importante', color: '#ff4566' }
+}
+function calc1RMLocal(w, r) {
+  const wn = parseFloat(w), rn = parseInt(r)
+  if (!wn || !rn) return null
+  return Math.round(wn * (1 + rn / 30) * 10) / 10
+}
+function MiniLine({ data, color = '#3ecf8e' }) {
+  if (data.length < 2) return null
+  const max = Math.max(...data), min = Math.min(...data), range = max - min || 0.1
+  const W = 100, pad = 6, h = 50
+  const pts = data.map((v, i) => `${(pad + (i/(data.length-1))*(W-pad*2)).toFixed(1)},${(h-pad-((v-min)/range)*(h-pad*2)).toFixed(1)}`).join(' ')
+  return <svg viewBox={`0 0 ${W} ${h}`} style={{ width: '100%', display: 'block' }} preserveAspectRatio="none"><polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+}
+function PrepDataView({ prepData }) {
+  const { hooper, compo, topsets, charge } = prepData
+  const today = new Date().toISOString().split('T')[0]
+  const lastH = hooper[0], lastC = compo[0]
+  const hooperScore = lastH ? lastH.fatigue + lastH.sommeil + lastH.stress + lastH.courbatures : null
+  const si = scoreLabel2(hooperScore)
+
+  // ACWR
+  function getWk(d) { const dt = new Date(d+'T00:00:00'), day = dt.getDay()||7; dt.setDate(dt.getDate()-day+1); return dt.toISOString().split('T')[0] }
+  const wkCharge = charge.reduce((acc, c) => { const wk = getWk(c.date); acc[wk]=(acc[wk]||0)+(c.charge_ua||c.rpe*c.duree_min); return acc }, {})
+  const wkKeys = Object.keys(wkCharge).sort()
+  const curWk = getWk(today), idx = wkKeys.indexOf(curWk)
+  const acute = wkCharge[curWk] || 0
+  const chronic = wkKeys.slice(Math.max(0,idx-3), idx+1).map(k => wkCharge[k])
+  const chronAvg = chronic.length ? chronic.reduce((a,b)=>a+b,0)/chronic.length : 0
+  const acwr = chronAvg ? Math.round((acute/chronAvg)*100)/100 : null
+
+  // PRs
+  const prs = topsets.reduce((acc, log) => {
+    const rm = log.estimated_1rm || calc1RMLocal(log.weight_kg, log.reps)
+    if (!acc[log.exercise_name] || (rm||0) > (acc[log.exercise_name].rm||0)) acc[log.exercise_name] = { ...log, rm }
+    return acc
+  }, {})
+
+  const acwrColor = !acwr ? T.textDim : acwr <= 1.3 ? '#3ecf8e' : acwr <= 1.5 ? '#fbbf24' : '#ff4566'
+
+  return (
+    <div style={{ display: 'grid', gap: 14 }}>
+      {/* HOOPER */}
+      <Card>
+        <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>HOOPER</div>
+        {lastH ? (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap', marginBottom: 10 }}>
+              <div>
+                <div style={{ fontSize: 36, fontWeight: 900, color: si.color, fontFamily: T.fontDisplay, lineHeight: 1 }}>{hooperScore}<span style={{ fontSize: 16 }}>/40</span></div>
+                <div style={{ fontSize: 13, color: si.color, fontWeight: 700, marginTop: 4 }}>{si.text}</div>
+                <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>{lastH.date === today ? '✓ Rempli aujourd'hui' : `Il y a ${Math.floor((Date.now()-new Date(lastH.date+'T00:00:00').getTime())/86400000)}j`}</div>
+              </div>
+              <div style={{ display: 'grid', gap: 4 }}>
+                {[['Fatigue',lastH.fatigue,'#ff7043'],['Sommeil',lastH.sommeil,'#9d7dea'],['Stress',lastH.stress,'#4d9fff'],['Courbatures',lastH.courbatures,'#ff4566']].map(([l,v,c]) => (
+                  <div key={l} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, fontSize: 12 }}>
+                    <span style={{ color: T.textDim }}>{l}</span><span style={{ color: c, fontWeight: 700 }}>{v}/10</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {hooper.length >= 2 && <MiniLine data={hooper.slice(0,14).reverse().map(h => h.fatigue+h.sommeil+h.stress+h.courbatures)} color={si.color} />}
+            {lastH.doms_zones && Object.values(lastH.doms_zones).some(z => z.level > 0) && (
+              <div style={{ marginTop: 8, padding: '7px 12px', background: 'rgba(255,69,102,0.06)', borderRadius: 10, fontSize: 12, color: '#ff4566' }}>
+                🩹 DOMS : {Object.entries(lastH.doms_zones).filter(([,v])=>v.level>0).map(([k])=>k.replace('_',' ')).join(', ')}
+              </div>
+            )}
+          </div>
+        ) : <div style={{ color: T.textDim, fontSize: 13 }}>Aucun questionnaire rempli</div>}
+      </Card>
+
+      {/* Compo + Charge */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+        <Card style={{ padding: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: T.text, marginBottom: 10 }}>Composition corporelle</div>
+          {lastC ? (
+            <div style={{ display: 'grid', gap: 8 }}>
+              {[['Poids', lastC.weight_kg, 'kg', '#3ecf8e'],['Masse grasse', lastC.body_fat_pct, '%', '#ff7043'],['Masse maigre', lastC.muscle_mass_kg, 'kg', '#4d9fff']].filter(([,v])=>v).map(([l,v,u,c])=>(
+                <div key={l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, color: T.textDim }}>{l}</span>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: c, fontFamily: T.fontDisplay }}>{v}<span style={{ fontSize: 10, marginLeft: 2 }}>{u}</span></span>
+                </div>
+              ))}
+              <div style={{ fontSize: 10, color: T.textDim }}>{new Date(lastC.date+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'})}</div>
+            </div>
+          ) : <div style={{ color: T.textDim, fontSize: 12 }}>Aucune mesure</div>}
+        </Card>
+
+        <Card style={{ padding: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: T.text, marginBottom: 10 }}>Charge externe</div>
+          {acwr !== null ? (
+            <div>
+              <div style={{ fontSize: 32, fontWeight: 900, color: acwrColor, fontFamily: T.fontDisplay }}>{acwr}</div>
+              <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>ACWR · {Math.round(acute)} UA / semaine</div>
+            </div>
+          ) : <div style={{ color: T.textDim, fontSize: 12 }}>Pas assez de données</div>}
+        </Card>
+      </div>
+
+      {/* TOPSET PRs */}
+      {Object.keys(prs).length > 0 && (
+        <Card>
+          <div style={{ fontSize: 13, fontWeight: 800, color: T.text, marginBottom: 10 }}>TOPSET — Records</div>
+          <div style={{ display: 'grid', gap: 6 }}>
+            {Object.values(prs).sort((a,b)=>(b.rm||0)-(a.rm||0)).slice(0,6).map(pr => (
+              <div key={pr.exercise_name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: `1px solid ${T.border}` }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{pr.exercise_name}</div>
+                  <div style={{ fontSize: 11, color: T.textDim }}>{pr.weight_kg}kg{pr.reps ? ` × ${pr.reps}` : ''}{pr.rpe ? ` @RPE${pr.rpe}` : ''}</div>
+                </div>
+                {pr.rm && <div style={{ fontSize: 18, fontWeight: 900, color: T.accentLight, fontFamily: T.fontDisplay }}>~{pr.rm}kg</div>}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
   )
 }
