@@ -191,10 +191,10 @@ function ProgramEditor({ program, exercises, onSave, onClose }) {
 
       // Créer ou mettre à jour le programme
       if (!progId) {
-        const { data } = await supabase.from('programs').insert({ coach_id: (await supabase.auth.getUser()).data.user.id, name: name.trim(), weeks_count: weeksCount }).select().single()
+        const { data } = await supabase.from('programs').insert({ coach_id: (await supabase.auth.getUser()).data.user.id, name: name.trim(), weeks_count: 1 }).select().single()
         progId = data.id
       } else {
-        await supabase.from('programs').update({ name: name.trim(), weeks_count: weeksCount }).eq('id', progId)
+        await supabase.from('programs').update({ name: name.trim(), weeks_count: 1 }).eq('id', progId)
         // Supprimer les anciens jours
         await supabase.from('program_days').delete().eq('program_id', progId)
       }
@@ -238,48 +238,45 @@ function ProgramEditor({ program, exercises, onSave, onClose }) {
 
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '20px 16px', display: 'grid', gap: 20 }}>
 
-        {/* Nb semaines */}
-        <div style={{ ...GLASS, padding: '14px 18px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Nombre de semaines dans le cycle :</span>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {[1, 2, 3, 4].map(w => (
-              <button key={w} onClick={() => setWeeksCount(w)} style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${weeksCount === w ? C.accent + '60' : C.border}`, background: weeksCount === w ? `${C.accent}15` : 'transparent', color: weeksCount === w ? C.accent : C.sub, fontWeight: 800, cursor: 'pointer', fontSize: 14 }}>{w}</button>
-            ))}
+        {/* Explication semaine type */}
+        <div style={{ ...GLASS, padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'center', borderColor: `${C.accent}30` }}>
+          <span style={{ fontSize: 18 }}>💡</span>
+          <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.5 }}>
+            <span style={{ color: C.text, fontWeight: 700 }}>Semaine type</span> — Configure les jours d'entraînement une seule fois. Tu choisiras sur combien de semaines la répéter lors de l'assignation.
           </div>
         </div>
 
-        {/* Grille semaines × jours */}
-        {Array.from({ length: weeksCount }, (_, wi) => wi + 1).map(week => (
-          <div key={week}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: C.accent, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
-              Semaine {week}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(36px, 1fr))', gap: 4, overflowX: 'auto' }}>
-              {DAYS.map((dayName, di) => {
-                const dayOfWeek = di + 1
-                const dayData = getDay(week, dayOfWeek)
-                const active = activeDay?.week === week && activeDay?.dayOfWeek === dayOfWeek
-                const c = DAY_COLORS[di]
-                return (
-                  <div key={di}>
-                    <button onClick={() => toggleDay(week, dayOfWeek)}
-                      style={{ width: '100%', padding: '8px 4px', borderRadius: 10, border: `1px solid ${dayData ? c + '50' : C.border}`, background: dayData ? `${c}12` : 'transparent', color: dayData ? c : C.sub, fontSize: 11, fontWeight: 700, cursor: 'pointer', textAlign: 'center', lineHeight: 1.3 }}>
-                      <div>{dayName.slice(0, 3)}</div>
-                      {dayData && <div style={{ fontSize: 10, marginTop: 2 }}>{(dayData.program_day_exercises || []).length} exo{(dayData.program_day_exercises || []).length !== 1 ? 's' : ''}</div>}
-                      {!dayData && <div style={{ fontSize: 14 }}>+</div>}
-                    </button>
-                    {dayData && (
-                      <button onClick={() => setActiveWeekDay(week, dayOfWeek)}
-                        style={{ width: '100%', marginTop: 4, padding: '4px', borderRadius: 6, border: `1px solid ${active ? c + '60' : 'transparent'}`, background: active ? `${c}10` : 'transparent', color: active ? c : C.sub, fontSize: 10, cursor: 'pointer', fontWeight: 700 }}>
-                        {active ? '▼ éditer' : '✏️ éditer'}
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+        {/* Grille semaine type — 1 seule semaine */}
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 800, color: C.accent, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
+            Jours d'entraînement
           </div>
-        ))}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(36px, 1fr))', gap: 4 }}>
+            {DAYS.map((dayName, di) => {
+              const week = 1
+              const dayOfWeek = di + 1
+              const dayData = getDay(week, dayOfWeek)
+              const active = activeDay?.week === week && activeDay?.dayOfWeek === dayOfWeek
+              const c = DAY_COLORS[di]
+              return (
+                <div key={di}>
+                  <button onClick={() => toggleDay(week, dayOfWeek)}
+                    style={{ width: '100%', padding: '8px 4px', borderRadius: 10, border: `1px solid ${dayData ? c + '50' : C.border}`, background: dayData ? `${c}12` : 'transparent', color: dayData ? c : C.sub, fontSize: 11, fontWeight: 700, cursor: 'pointer', textAlign: 'center', lineHeight: 1.3 }}>
+                    <div>{dayName.slice(0, 3)}</div>
+                    {dayData && <div style={{ fontSize: 10, marginTop: 2 }}>{(dayData.program_day_exercises || []).length} exo{(dayData.program_day_exercises || []).length !== 1 ? 's' : ''}</div>}
+                    {!dayData && <div style={{ fontSize: 14 }}>+</div>}
+                  </button>
+                  {dayData && (
+                    <button onClick={() => setActiveWeekDay(week, dayOfWeek)}
+                      style={{ width: '100%', marginTop: 4, padding: '4px', borderRadius: 6, border: `1px solid ${active ? c + '60' : 'transparent'}`, background: active ? `${c}10` : 'transparent', color: active ? c : C.sub, fontSize: 10, cursor: 'pointer', fontWeight: 700 }}>
+                      {active ? '▼ éditer' : '✏️ éditer'}
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
 
         {/* Éditeur du jour actif */}
         {activeDay && activeDayData && (
@@ -365,22 +362,20 @@ export default function ProgramBuilderPage() {
     const days = prog.program_days || []
     const start = new Date(startDate)
 
+    // La semaine type est toujours la semaine 1 — on la répète N fois
+    const daysThisWeek = days.filter(d => d.week_number === 1)
     for (let w = 0; w < weeksCount; w++) {
-      const cycleWeek = (w % (prog.weeks_count || 1)) + 1
-      const daysThisWeek = days.filter(d => d.week_number === cycleWeek)
 
       for (const day of daysThisWeek) {
         const assignDate = new Date(start)
-        assignDate.setDate(start.getDate() + w * 7 + (day.day_of_week - 1))
+        // Lundi de la semaine W + décalage du jour
+        const mondayOffset = w * 7
+        assignDate.setDate(start.getDate() + mondayOffset + (day.day_of_week - 1))
         const iso = assignDate.toISOString().split('T')[0]
-
         await supabase.from('assignments').insert({
-          coach_id: user.id,
-          client_id: clientId,
-          program_id: prog.id,
-          program_day_id: day.id,
-          assigned_date: iso,
-          week_offset: w,
+          coach_id: user.id, client_id: clientId,
+          program_id: prog.id, program_day_id: day.id,
+          assigned_date: iso, week_offset: w,
         })
       }
     }
@@ -452,7 +447,7 @@ export default function ProgramBuilderPage() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 16, fontWeight: 800, color: C.text, fontFamily: "'Syne',sans-serif" }}>{prog.name}</div>
                       <div style={{ fontSize: 12, color: C.sub, marginTop: 4, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                        <span>📅 {prog.weeks_count || 1} semaine{(prog.weeks_count || 1) > 1 ? 's' : ''} / cycle</span>
+                        <span>📅 Semaine type · {totalDays} jour{totalDays !== 1 ? 's' : ''}</span>
                         <span>🏋️ {totalDays} jour{totalDays !== 1 ? 's' : ''} · {totalExos} exercice{totalExos !== 1 ? 's' : ''}</span>
                       </div>
 
