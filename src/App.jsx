@@ -36,6 +36,7 @@ import PrepHooperPage from './pages/PrepHooperPage'
 import PrepChargePage from './pages/PrepChargePage'
 import PrepCompoPage from './pages/PrepCompoPage'
 import PrepTopsetPage from './pages/PrepTopsetPage'
+import PrepChargeExternePage from './pages/PrepChargeExternePage'
 import { T } from './lib/data'
 
 function LoadingScreen() {
@@ -167,6 +168,7 @@ function PrivateAppShell() {
           <Route path="/prep/charge" element={<PrepChargePage />} />
           <Route path="/prep/compo"  element={<PrepCompoPage />} />
           <Route path="/prep/topset" element={<PrepTopsetPage />} />
+          <Route path="/prep/charge-externe" element={<PrepChargeExternePage />} />
 
           <Route
             path="/coach"
