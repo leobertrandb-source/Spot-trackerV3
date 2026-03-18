@@ -34,33 +34,33 @@ export default function CoachClientsPage() {
     setErrorMessage('')
 
     try {
-      const { data: links, error: linksError } = await supabase
+      const { data, error } = await supabase
         .from('coach_clients')
-        .select('client_id')
+        .select(`
+          client_id,
+          profiles!coach_clients_client_id_fkey (
+            id,
+            full_name,
+            email,
+            role,
+            goal_type
+          )
+        `)
         .eq('coach_id', user.id)
 
-      if (linksError) {
-        throw linksError
+      console.log('CoachClientsPage result:', data)
+      console.log('CoachClientsPage error:', error)
+
+      if (error) {
+        throw error
       }
 
-      const ids = (links || []).map((row) => row.client_id).filter(Boolean)
+      const normalizedClients = (data || [])
+        .map((row) => row.profiles)
+        .filter(Boolean)
+        .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
 
-      if (!ids.length) {
-        setClients([])
-        return
-      }
-
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, role, goal_type')
-        .in('id', ids)
-        .order('full_name', { ascending: true })
-
-      if (profilesError) {
-        throw profilesError
-      }
-
-      setClients(profilesData || [])
+      setClients(normalizedClients)
     } catch (error) {
       console.error('Erreur chargement clients:', error)
       setClients([])
