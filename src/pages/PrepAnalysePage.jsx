@@ -550,11 +550,11 @@ export default function PrepAnalysePage() {
                     </div>
                   )}
 
-                  {/* MG1 + MG2 */}
-                  {(n.mg1 || n.mg2) && (
+                  {/* MG1 + MG2 — dernière mesure + évolution */}
+                  {(plioData.mg1.length>0 || plioData.mg2.length>0) && (
                     <div>
-                      <div style={{ fontSize:11, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub, marginBottom:10 }}>Pliométrie cutanée — dernière mesure</div>
-                      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px,1fr))', gap:12 }}>
+                      <div style={{ fontSize:11, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub, marginBottom:10 }}>Pliométrie cutanée</div>
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px,1fr))', gap:12, marginBottom: plioData.mg1.length>=2||plioData.mg2.length>=2 ? 16 : 0 }}>
                         {n.mg1 && (
                           <div style={{ padding:'14px 16px', background:P.bg, borderRadius:12, border:`1px solid ${P.border}` }}>
                             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:10 }}>
@@ -588,14 +588,21 @@ export default function PrepAnalysePage() {
                           </div>
                         )}
                       </div>
+                      {/* Graphes évolution si >= 2 mesures */}
+                      {(plioData.mg1.length>=2 || plioData.mg2.length>=2) && (
+                        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px,1fr))', gap:16 }}>
+                          {plioData.mg1.length>=2 && <D3Chart data={plioData.mg1} color={CHART_COLORS.mg1} h={90} title="Évolution MG1" unit="%" lastValue={plioData.mg1[plioData.mg1.length-1]?.value} delta={plioData.mg1[plioData.mg1.length-1].value-plioData.mg1[plioData.mg1.length-2].value} />}
+                          {plioData.mg2.length>=2 && <D3Chart data={plioData.mg2} color={CHART_COLORS.mg2} h={90} title="Évolution MG2" unit="%" lastValue={plioData.mg2[plioData.mg2.length-1]?.value} delta={plioData.mg2[plioData.mg2.length-1].value-plioData.mg2[plioData.mg2.length-2].value} />}
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {/* Silhouette dernière mesure */}
+                  {/* Silhouette — dernière mesure + évolution */}
                   {n.silhouette && Object.values(n.silhouette).some(v=>v) && (
                     <div>
-                      <div style={{ fontSize:11, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub, marginBottom:10 }}>Mesure silhouette — dernière mesure (cm)</div>
-                      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(100px,1fr))', gap:8 }}>
+                      <div style={{ fontSize:11, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub, marginBottom:10 }}>Mesure silhouette (cm)</div>
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(100px,1fr))', gap:8, marginBottom:16 }}>
                         {[['epaule','Épaule'],['poitrine','Poitrine'],['hanche','Hanche'],['taille','Taille'],['cuisse','Cuisse'],['genoux','Genoux']].filter(([k])=>n.silhouette[k]).map(([k,l])=>(
                           <div key={k} style={{ padding:'10px 12px', background:P.bg, borderRadius:10, border:`1px solid ${P.border}`, textAlign:'center' }}>
                             <div style={{ fontSize:10, color:P.sub, marginBottom:4 }}>{l}</div>
@@ -603,64 +610,27 @@ export default function PrepAnalysePage() {
                           </div>
                         ))}
                       </div>
+                      {/* Graphes évolution si >= 2 mesures */}
+                      {Object.values(silhoData).some(d=>d.length>=2) && (
+                        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px,1fr))', gap:16 }}>
+                          {Object.entries({epaule:'Épaule',poitrine:'Poitrine',hanche:'Hanche',taille:'Taille',cuisse:'Cuisse',genoux:'Genoux'})
+                            .filter(([k])=>silhoData[k]?.length>=2)
+                            .map(([k,l])=>{
+                              const colors={epaule:P.blue,poitrine:P.purple,hanche:P.red,taille:P.yellow,cuisse:P.green,genoux:P.teal}
+                              const d=silhoData[k]
+                              return <D3Chart key={k} data={d} color={colors[k]||P.accent} h={80} title={`${l}`} lastValue={d[d.length-1]?.value} unit=" cm" delta={d[d.length-1].value-d[d.length-2].value} />
+                            })
+                          }
+                        </div>
+                      )}
                     </div>
                   )}
+
                 </div>
               )
             })()}
           </div>
         </Section>
-
-        {/* ── PLIOMÉTRIE ── */}
-        {(plioData.mg1.length>0||plioData.mg2.length>0) && (
-          <Section title="Pliométrie cutanée" icon="📐" color={P.yellow}
-            badge={`MG1: ${plioData.mg1.length?plioData.mg1[plioData.mg1.length-1].value+'%':'—'} · MG2: ${plioData.mg2.length?plioData.mg2[plioData.mg2.length-1].value+'%':'—'}`}>
-            <div style={{ paddingTop:20, display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px,1fr))', gap:20 }}>
-              {plioData.mg1.length>=1 && (
-                plioData.mg1.length>=2
-                  ? <D3Chart data={plioData.mg1} color={CHART_COLORS.mg1} h={100} title="MG1 — 4 plis" unit="%" lastValue={plioData.mg1[plioData.mg1.length-1]?.value} delta={plioData.mg1[plioData.mg1.length-1].value-plioData.mg1[plioData.mg1.length-2].value} />
-                  : <div style={{ padding:'14px 16px', background:P.bg, borderRadius:12, border:`1px solid ${P.border}` }}>
-                      <div style={{ fontSize:11, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub, marginBottom:8 }}>MG1 — 4 plis</div>
-                      <div style={{ fontSize:28, fontWeight:700, color:CHART_COLORS.mg1, fontFamily:"'DM Serif Display',serif" }}>{plioData.mg1[0].value}<span style={{ fontSize:14 }}>%</span></div>
-                      <div style={{ fontSize:11, color:P.dim, marginTop:4 }}>1 mesure · {new Date(plioData.mg1[0].date+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</div>
-                    </div>
-              )}
-              {plioData.mg2.length>=1 && (
-                plioData.mg2.length>=2
-                  ? <D3Chart data={plioData.mg2} color={CHART_COLORS.mg2} h={100} title="MG2 — 7 plis" unit="%" lastValue={plioData.mg2[plioData.mg2.length-1]?.value} delta={plioData.mg2[plioData.mg2.length-1].value-plioData.mg2[plioData.mg2.length-2].value} />
-                  : <div style={{ padding:'14px 16px', background:P.bg, borderRadius:12, border:`1px solid ${P.border}` }}>
-                      <div style={{ fontSize:11, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub, marginBottom:8 }}>MG2 — 7 plis</div>
-                      <div style={{ fontSize:28, fontWeight:700, color:CHART_COLORS.mg2, fontFamily:"'DM Serif Display',serif" }}>{plioData.mg2[0].value}<span style={{ fontSize:14 }}>%</span></div>
-                      <div style={{ fontSize:11, color:P.dim, marginTop:4 }}>1 mesure · {new Date(plioData.mg2[0].date+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</div>
-                    </div>
-              )}
-            </div>
-          </Section>
-        )}
-
-        {/* ── SILHOUETTE ── */}
-        {Object.values(silhoData).some(d=>d.length>=1) && (
-          <Section title="Mesure silhouette" icon="📏" color={P.purple}
-            badge={`${Object.keys(silhoData).filter(k=>silhoData[k]?.length>0).length} zones suivies`}>
-            <div style={{ paddingTop:20, display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px,1fr))', gap:16 }}>
-              {Object.entries({epaule:'Épaule',poitrine:'Poitrine',hanche:'Hanche',taille:'Taille',cuisse:'Cuisse',genoux:'Genoux'})
-                .filter(([k])=>silhoData[k]?.length>=1)
-                .map(([k,l])=>{
-                  const colors={epaule:P.blue,poitrine:P.purple,hanche:P.red,taille:P.yellow,cuisse:P.green,genoux:P.teal}
-                  const d=silhoData[k]
-                  if (d.length>=2) return <D3Chart key={k} data={d} color={colors[k]||P.accent} h={90} title={`${l} (cm)`} lastValue={d[d.length-1]?.value} unit=" cm" delta={d[d.length-1].value-d[d.length-2].value} />
-                  return (
-                    <div key={k} style={{ padding:'14px 16px', background:P.bg, borderRadius:12, border:`1px solid ${P.border}` }}>
-                      <div style={{ fontSize:11, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub, marginBottom:8 }}>{l}</div>
-                      <div style={{ fontSize:28, fontWeight:700, color:colors[k]||P.accent, fontFamily:"'DM Serif Display',serif" }}>{d[0].value}<span style={{ fontSize:14 }}> cm</span></div>
-                      <div style={{ fontSize:11, color:P.dim, marginTop:4 }}>1 mesure · {new Date(d[0].date+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</div>
-                    </div>
-                  )
-                })
-              }
-            </div>
-          </Section>
-        )}
 
         {/* ── TOPSET ── */}
         <Section title="TOPSET — Progression 1RM" icon="🏋️" color={P.teal}
