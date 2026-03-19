@@ -39,6 +39,7 @@ import PrepTopsetPage from './pages/PrepTopsetPage'
 import PrepChargeExternePage from './pages/PrepChargeExternePage'
 import PrepDashboardPage from './pages/PrepDashboardPage'
 import PrepAnalysePage from './pages/PrepAnalysePage'
+import CoachPageProSport from './pages/CoachPage_ProSport'
 import { T } from './lib/data'
 
 function LoadingScreen() {
@@ -176,7 +177,7 @@ function PrivateAppShell() {
 
           <Route
             path="/coach"
-            element={isCoach ? <CoachPage /> : <Navigate to={athleteHome} replace />}
+            element={isCoach ? (showPrepPhysique ? <CoachPageProSport /> : <CoachPage />) : <Navigate to={athleteHome} replace />}
           />
 
           <Route
