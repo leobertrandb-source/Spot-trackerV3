@@ -3,6 +3,19 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from './AuthContext'
 import { T } from '../lib/data'
 
+
+// ─── Tokens ProSportConcept ───────────────────────────────────────────────────
+const PS = {
+  bg:     '#f5f3ef',
+  card:   '#ffffff',
+  border: '#e8e4dc',
+  text:   '#1a1a1a',
+  sub:    '#6b6b6b',
+  dim:    '#9e9e9e',
+  accent: '#1a3a2a',
+  active: '#1a3a2a',
+}
+
 // ─── Images depuis Supabase Storage ──────────────────────────────────────────
 import { NAV_IMAGES } from '../lib/navImages'
 
@@ -93,6 +106,37 @@ function NavItem({ to, label, active, onClick, index = 0 }) {
 
 // ─── Section header ───────────────────────────────────────────────────────────
 
+function NavItemPS({ to, label, active, onClick, index = 0 }) {
+  const style = {
+    display: 'flex', alignItems: 'center', gap: 10,
+    padding: '9px 12px', borderRadius: 10,
+    textDecoration: 'none',
+    fontSize: 13, fontWeight: active ? 600 : 400,
+    color: active ? PS.active : PS.sub,
+    background: active ? `${PS.accent}10` : 'transparent',
+    border: `1px solid ${active ? PS.accent+'25' : 'transparent'}`,
+    transition: 'all 0.15s',
+    animation: `navSlideIn 0.2s ease both`,
+    animationDelay: `${index * 0.04}s`,
+  }
+  return (
+    <Link to={to} style={style} onClick={onClick}
+      onMouseEnter={e => { if (!active) { e.currentTarget.style.background = '#f0ede8'; e.currentTarget.style.color = PS.text } }}
+      onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = PS.sub } }}>
+      <span style={{ flex: 1, fontFamily: "'DM Sans', sans-serif" }}>{label}</span>
+      {active && <div style={{ width: 5, height: 5, borderRadius: '50%', background: PS.active, flexShrink: 0 }} />}
+    </Link>
+  )
+}
+
+function SectionLabelPS({ children }) {
+  return (
+    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', color: PS.dim, padding: '4px 10px 2px', fontFamily: "'DM Sans', sans-serif" }}>
+      {children}
+    </div>
+  )
+}
+
 function SectionLabel({ children }) {
   return (
     <div style={{
@@ -177,6 +221,87 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
     } catch (e) {
       console.error(e)
     }
+  }
+
+  // ProSportConcept blanc cassé vs Le Spot sombre
+  if (showPrepPhysique) {
+    const psContent = (
+      <aside style={{
+        width: 260, height: isMobile ? '100dvh' : '100vh',
+        background: PS.bg,
+        borderRight: `1px solid ${PS.border}`,
+        padding: '20px 12px',
+        boxSizing: 'border-box',
+        display: 'flex', flexDirection: 'column', gap: 4,
+        overflowY: 'auto',
+        boxShadow: isMobile ? '8px 0 24px rgba(0,0,0,0.08)' : 'none',
+      }}>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+          @keyframes navSlideIn { from { opacity: 0; transform: translateX(-8px) } to { opacity: 1; transform: translateX(0) } }
+          .ps-logout:hover { background: #fee2e2 !important; color: #c0392b !important; }
+        `}</style>
+
+        {/* Logo ProSportConcept */}
+        <div style={{ padding: '12px 10px 16px', borderBottom: `1px solid ${PS.border}`, marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: PS.accent, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L15 9H22L16.5 13.5L18.5 21L12 17L5.5 21L7.5 13.5L2 9H9L12 2Z" fill="white" opacity="0.9"/>
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontFamily: "'DM Serif Display', serif", fontWeight: 400, fontSize: 15, color: PS.text, lineHeight: 1 }}>ProSportConcept</div>
+              <div style={{ fontSize: 9, fontWeight: 600, color: PS.sub, textTransform: 'uppercase', letterSpacing: 1, marginTop: 2 }}>
+                {isCoach ? 'Préparateur physique' : 'Athlète'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        {isCoach ? (
+          <div style={{ display: 'grid', gap: 2 }}>
+            <SectionLabelPS>Navigation</SectionLabelPS>
+            {coachLinks.map((item, i) => (
+              <NavItemPS key={item.to} {...item} active={isActive(item.to)} onClick={isMobile ? onClose : undefined} index={i} />
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: 2 }}>
+            <SectionLabelPS>Entraînement</SectionLabelPS>
+            {athleteMainLinks.map((item, i) => (
+              <NavItemPS key={item.to} {...item} active={isActive(item.to)} onClick={isMobile ? onClose : undefined} index={i} />
+            ))}
+          </div>
+        )}
+
+        {/* Profile + Logout */}
+        <div style={{ marginTop: 'auto', paddingTop: 12, borderTop: `1px solid ${PS.border}`, display: 'grid', gap: 6 }}>
+          <div style={{ padding: '10px 12px', borderRadius: 12, background: PS.card, border: `1px solid ${PS.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: PS.accent, display: 'grid', placeItems: 'center', color: '#fff', fontSize: 13, fontWeight: 700, flexShrink: 0, fontFamily: "'DM Serif Display', serif" }}>
+              {(profile?.full_name || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase()}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: PS.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {profile?.full_name || user?.email || 'Utilisateur'}
+              </div>
+              <div style={{ fontSize: 10, color: PS.sub, marginTop: 1 }}>{isCoach ? 'Coach' : 'Athlète'}</div>
+            </div>
+          </div>
+          <button type="button" onClick={handleLogout} className="ps-logout" style={{ height: 36, borderRadius: 10, border: `1px solid ${PS.border}`, background: PS.card, color: PS.sub, fontWeight: 600, cursor: 'pointer', fontSize: 12, transition: 'all 0.15s', fontFamily: "'DM Sans', sans-serif" }}>
+            Déconnexion
+          </button>
+        </div>
+      </aside>
+    )
+    if (!isMobile) return psContent
+    return (
+      <>
+        {mobileOpen && <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 60, backdropFilter: 'blur(2px)' }} />}
+        <div style={{ position: 'fixed', top: 0, left: mobileOpen ? 0 : -280, zIndex: 70, transition: 'left 0.28s cubic-bezier(0.4, 0, 0.2, 1)' }}>{psContent}</div>
+      </>
+    )
   }
 
   const content = (
