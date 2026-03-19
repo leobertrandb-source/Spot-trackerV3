@@ -581,7 +581,7 @@ export default function PrepAnalysePage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [client, setClient] = useState(null)
-  const [data, setData] = useState({ hooper: [], compo: [], topsets: [], charge: [] })
+  const [data, setData] = useState({ hooper: [], compo: [], topsets: [], charge: [], chargeInterne: [] })
   const [loading, setLoading] = useState(true)
   const [selectedEx, setSelectedEx] = useState(null)
 
@@ -593,15 +593,17 @@ export default function PrepAnalysePage() {
       { data: compo },
       { data: topsets },
       { data: charge },
+      { data: chargeInterne },
     ] = await Promise.all([
       supabase.from('profiles').select('full_name, email').eq('id', id).single(),
       supabase.from('hooper_logs').select('*').eq('user_id', id).order('date',{ascending:true}).limit(60),
       supabase.from('body_composition_logs').select('*').eq('user_id', id).order('date',{ascending:true}).limit(30),
       supabase.from('topset_logs').select('*').eq('user_id', id).order('date',{ascending:true}).limit(100),
       supabase.from('charge_externe_logs').select('*').eq('user_id', id).order('date',{ascending:true}),
+      supabase.from('charge_logs').select('*').eq('user_id', id).order('date',{ascending:true}).limit(60),
     ])
     setClient(profile)
-    setData({ hooper: hooper||[], compo: compo||[], topsets: topsets||[], charge: charge||[] })
+    setData({ hooper: hooper||[], compo: compo||[], topsets: topsets||[], charge: charge||[], chargeInterne: chargeInterne||[] })
     setLoading(false)
   }, [id])
 
@@ -965,6 +967,84 @@ export default function PrepAnalysePage() {
             })()}
           </div>
         </Section>
+
+        {/* ── TESTS CHARGE INTERNE ── */}
+        {data.chargeInterne.length > 0 && (() => {
+          const ci = data.chargeInterne
+          const last = ci[ci.length-1]
+          const prev = ci.length > 1 ? ci[ci.length-2] : null
+          const grip  = ci.filter(c=>c.prehension_kg).map(c=>({value:parseFloat(c.prehension_kg),date:c.date}))
+          const submax = ci.filter(c=>c.submax_kg).map(c=>({value:parseFloat(c.submax_kg),date:c.date}))
+          const cmj   = ci.filter(c=>c.cmj_cm).map(c=>({value:parseFloat(c.cmj_cm),date:c.date}))
+          const badge = [
+            last.prehension_kg ? `Grip ${last.prehension_kg}kg` : null,
+            last.submax_kg     ? `Submax ${last.submax_kg}kg`   : null,
+            last.cmj_cm        ? `CMJ ${last.cmj_cm}cm`         : null,
+          ].filter(Boolean).join(' · ') || 'Données disponibles'
+          return (
+            <Section title="Tests — Charge interne" icon="💪" color={P.blue} badge={badge}>
+              <div style={{ paddingTop:20, display:'grid', gap:20 }}>
+
+                {/* Dernières valeurs */}
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(130px,1fr))', gap:10 }}>
+                  {[
+                    { key:'prehension_kg', label:'Force préhension', unit:'kg', color:CHART_COLORS.stress,   desc:'GRIP' },
+                    { key:'submax_kg',     label:'Submax',           unit:'kg', color:CHART_COLORS.sommeil,  desc:"FC 3' / FC 1'" },
+                    { key:'cmj_cm',        label:'CMJ',              unit:'cm', color:CHART_COLORS.hooper,   desc:'Counter Movement Jump' },
+                  ].filter(f => last[f.key]).map(({key,label,unit,color,desc}) => {
+                    const delta = prev?.[key] ? parseFloat(last[key]) - parseFloat(prev[key]) : null
+                    return (
+                      <div key={key} style={{ padding:'12px 16px', background:P.bg, borderRadius:10, border:`1px solid ${P.border}` }}>
+                        <div style={{ fontSize:10, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub, marginBottom:4 }}>{label}</div>
+                        <div style={{ fontSize:22, fontWeight:700, color, fontFamily:"'DM Serif Display',serif", lineHeight:1 }}>
+                          {last[key]}<span style={{ fontSize:12, color:P.sub, marginLeft:3 }}>{unit}</span>
+                        </div>
+                        {delta !== null && (
+                          <div style={{ fontSize:11, color: delta > 0 ? P.green : P.red, marginTop:4, fontWeight:600 }}>
+                            {delta > 0 ? '↑' : '↓'} {Math.abs(Math.round(delta*10)/10)}{unit}
+                          </div>
+                        )}
+                        <div style={{ fontSize:10, color:P.dim, marginTop:4 }}>{desc}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Graphes évolution */}
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px,1fr))', gap:16 }}>
+                  {grip.length>=2   && <ClickableChart data={grip}   color={CHART_COLORS.stress}  unit=" kg" title="Force de préhension (GRIP)"><D3Chart data={grip}   color={CHART_COLORS.stress}  h={100} title="Préhension (GRIP)" unit=" kg" lastValue={grip[grip.length-1]?.value}     delta={grip.length>1   ? grip[grip.length-1].value   - grip[grip.length-2].value   : null} /></ClickableChart>}
+                  {submax.length>=2 && <ClickableChart data={submax} color={CHART_COLORS.sommeil} unit=" kg" title="Submax (FC 3' / FC 1')"><D3Chart data={submax} color={CHART_COLORS.sommeil} h={100} title="Submax" unit=" kg"            lastValue={submax[submax.length-1]?.value} delta={submax.length>1 ? submax[submax.length-1].value - submax[submax.length-2].value : null} /></ClickableChart>}
+                  {cmj.length>=2    && <ClickableChart data={cmj}    color={CHART_COLORS.hooper}  unit=" cm" title="CMJ (Counter Movement Jump)"><D3Chart data={cmj}    color={CHART_COLORS.hooper}  h={100} title="CMJ" unit=" cm"              lastValue={cmj[cmj.length-1]?.value}       delta={cmj.length>1    ? cmj[cmj.length-1].value    - cmj[cmj.length-2].value    : null} /></ClickableChart>}
+                </div>
+
+                {/* Historique tableau */}
+                <div style={{ overflowX:'auto' }}>
+                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                    <thead>
+                      <tr style={{ borderBottom:`2px solid ${P.border}` }}>
+                        {['Date','Préhension','Submax','CMJ','Notes'].map(h=>(
+                          <th key={h} style={{ padding:'8px 10px', textAlign:'left', fontSize:10, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...ci].reverse().map(log=>(
+                        <tr key={log.id} style={{ borderBottom:`1px solid ${P.border}` }}>
+                          <td style={{ padding:'8px 10px', color:P.text }}>{new Date(log.date+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'2-digit'})}</td>
+                          <td style={{ padding:'8px 10px', fontWeight:600, color:CHART_COLORS.stress  }}>{log.prehension_kg ? `${log.prehension_kg} kg` : '—'}</td>
+                          <td style={{ padding:'8px 10px', fontWeight:600, color:CHART_COLORS.sommeil }}>{log.submax_kg     ? `${log.submax_kg} kg`     : '—'}</td>
+                          <td style={{ padding:'8px 10px', fontWeight:600, color:CHART_COLORS.hooper  }}>{log.cmj_cm        ? `${log.cmj_cm} cm`        : '—'}</td>
+                          <td style={{ padding:'8px 10px', color:P.dim, fontSize:11 }}>{log.notes || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+            </Section>
+          )
+        })()}
 
         {/* ── TOPSET ── */}
         <Section title="TOPSET — Progression 1RM" icon="🏋️" color={P.teal}
