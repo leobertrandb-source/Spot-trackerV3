@@ -148,12 +148,48 @@ export default function PrepCompoPage() {
   // Données graphiques
   const chartData = useMemo(() => {
     const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date))
+
+    // Extraire MG1/MG2 depuis notes JSON
+    const mg1Series = []
+    const mg2Series = []
+    for (const h of sorted) {
+      try {
+        const n = h.notes ? JSON.parse(h.notes) : null
+        if (n?.mg1?.resultat) mg1Series.push({ value: parseFloat(n.mg1.resultat), date: h.date })
+        if (n?.mg2?.resultat) mg2Series.push({ value: parseFloat(n.mg2.resultat), date: h.date })
+      } catch {}
+    }
+
+    // Extraire silhouette par zone
+    const silhoKeys = ['epaule', 'poitrine', 'hanche', 'taille', 'cuisse', 'genoux']
+    const silhoByKey = {}
+    for (const h of sorted) {
+      try {
+        const n = h.notes ? JSON.parse(h.notes) : null
+        if (!n?.silhouette) continue
+        for (const k of silhoKeys) {
+          if (n.silhouette[k]) {
+            if (!silhoByKey[k]) silhoByKey[k] = []
+            silhoByKey[k].push({ value: parseFloat(n.silhouette[k]), date: h.date })
+          }
+        }
+      } catch {}
+    }
+
     return {
       poids:   sorted.filter(h => h.weight_kg).map(h => ({ value: parseFloat(h.weight_kg), date: h.date })),
       graisse: sorted.filter(h => h.body_fat_pct).map(h => ({ value: parseFloat(h.body_fat_pct), date: h.date })),
       maigre:  sorted.filter(h => h.muscle_mass_kg).map(h => ({ value: parseFloat(h.muscle_mass_kg), date: h.date })),
+      mg1: mg1Series,
+      mg2: mg2Series,
+      silhouette: silhoByKey,
     }
   }, [history])
+
+  const lastNotes = useMemo(() => {
+    if (!last?.notes) return null
+    try { return JSON.parse(last.notes) } catch { return null }
+  }, [last])
 
   const last = history[0]
   const prev = history[1]
@@ -217,6 +253,7 @@ export default function PrepCompoPage() {
                   <input type="time" value={pesee.heure} onChange={e => setPesee(p => ({...p, heure: e.target.value}))}
                     style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 8, padding: '8px 10px', color: T.text, fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
                 </div>
+                {isCoach && (<>
                 <div>
                   <div style={{ fontSize: 11, color: T.textDim, marginBottom: 5 }}>Tenue</div>
                   {inp(pesee.tenue, v => setPesee(p => ({...p, tenue: v})), 'ex: sous-vêtements', 'text')}
@@ -225,8 +262,12 @@ export default function PrepCompoPage() {
                   <div style={{ fontSize: 11, color: T.textDim, marginBottom: 5 }}>Modèle balance</div>
                   {inp(pesee.modele_balance, v => setPesee(p => ({...p, modele_balance: v})), 'ex: InBody 270', 'text')}
                 </div>
+                </>)}
               </div>
             </Card>
+
+            {/* Sections coach uniquement */}
+            {isCoach && (<>
 
             {/* Questionnaire impédancemétrie */}
             <Card>
@@ -363,6 +404,8 @@ export default function PrepCompoPage() {
               </div>
             </Card>
 
+            </>)} {/* fin sections coach */}
+
             {/* Mesure silhouette */}
             <Card>
               <SectionTitle>Mesure silhouette (cm)</SectionTitle>
@@ -414,10 +457,10 @@ export default function PrepCompoPage() {
                   </div>
                 )}
 
-                {/* Graphiques */}
+                {/* Graphiques impédancemétrie */}
                 {[
                   { data: chartData.poids,   label: 'Poids',        unit: ' kg', color: '#3ecf8e' },
-                  { data: chartData.graisse, label: 'Masse grasse',  unit: '%',  color: '#ff7043' },
+                  { data: chartData.graisse, label: 'Masse grasse (impédance)',  unit: '%',  color: '#ff7043' },
                   { data: chartData.maigre,  label: 'Masse maigre',  unit: ' kg', color: '#4d9fff' },
                 ].filter(c => c.data.length >= 2).map(({ data, label, unit, color }) => (
                   <Card key={label}>
@@ -425,6 +468,162 @@ export default function PrepCompoPage() {
                     <LineGraph data={data} color={color} h={90} unit={unit} />
                   </Card>
                 ))}
+
+                {/* Graphiques pliométrie MG1 / MG2 */}
+                {(chartData.mg1.length >= 1 || chartData.mg2.length >= 1) && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+                    {chartData.mg1.length >= 1 && (
+                      <Card>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: T.text }}>MG1 — 4 plis</div>
+                          <div style={{ padding: '2px 8px', borderRadius: 999, background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.25)', fontSize: 10, fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: 0.8 }}>Pliométrie</div>
+                          {chartData.mg1.length >= 1 && (
+                            <div style={{ marginLeft: 'auto', fontSize: 18, fontWeight: 900, color: '#fbbf24', fontFamily: T.fontDisplay }}>
+                              {chartData.mg1[chartData.mg1.length - 1].value}%
+                            </div>
+                          )}
+                        </div>
+                        {chartData.mg1.length >= 2
+                          ? <LineGraph data={chartData.mg1} color="#fbbf24" h={90} unit="%" />
+                          : <div style={{ padding: '10px 0', fontSize: 13, color: T.textDim }}>
+                              1 mesure enregistrée — dernière valeur : <strong style={{ color: '#fbbf24' }}>{chartData.mg1[0].value}%</strong>
+                              <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>Ajoutez un 2ème bilan pour voir l'évolution</div>
+                            </div>
+                        }
+                      </Card>
+                    )}
+                    {chartData.mg2.length >= 1 && (
+                      <Card>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                          <div style={{ fontSize: 14, fontWeight: 800, color: T.text }}>MG2 — 7 plis</div>
+                          <div style={{ padding: '2px 8px', borderRadius: 999, background: 'rgba(157,125,234,0.12)', border: '1px solid rgba(157,125,234,0.25)', fontSize: 10, fontWeight: 700, color: '#9d7dea', textTransform: 'uppercase', letterSpacing: 0.8 }}>Pliométrie</div>
+                          {chartData.mg2.length >= 1 && (
+                            <div style={{ marginLeft: 'auto', fontSize: 18, fontWeight: 900, color: '#9d7dea', fontFamily: T.fontDisplay }}>
+                              {chartData.mg2[chartData.mg2.length - 1].value}%
+                            </div>
+                          )}
+                        </div>
+                        {chartData.mg2.length >= 2
+                          ? <LineGraph data={chartData.mg2} color="#9d7dea" h={90} unit="%" />
+                          : <div style={{ padding: '10px 0', fontSize: 13, color: T.textDim }}>
+                              1 mesure enregistrée — dernière valeur : <strong style={{ color: '#9d7dea' }}>{chartData.mg2[0].value}%</strong>
+                              <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>Ajoutez un 2ème bilan pour voir l'évolution</div>
+                            </div>
+                        }
+                      </Card>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Dernière mesure — détail complet ── */}
+                {lastNotes && (
+                  <>
+                    {/* Conditions de mesure */}
+                    {lastNotes.impedance && (
+                      <Card>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>Conditions — dernière mesure</div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          {lastNotes.heure && <span style={{ padding: '4px 10px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${T.border}`, borderRadius: 20, fontSize: 12, color: T.textMid }}>🕐 {lastNotes.heure}</span>}
+                          {lastNotes.modele_balance && <span style={{ padding: '4px 10px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${T.border}`, borderRadius: 20, fontSize: 12, color: T.textMid }}>⚖️ {lastNotes.modele_balance}</span>}
+                          {lastNotes.tenue && <span style={{ padding: '4px 10px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${T.border}`, borderRadius: 20, fontSize: 12, color: T.textMid }}>👕 {lastNotes.tenue}</span>}
+                          {lastNotes.impedance.eau_litres && <span style={{ padding: '4px 10px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${T.border}`, borderRadius: 20, fontSize: 12, color: T.textMid }}>💧 {lastNotes.impedance.eau_litres}L</span>}
+                          {lastNotes.impedance.heure_repas && <span style={{ padding: '4px 10px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${T.border}`, borderRadius: 20, fontSize: 12, color: T.textMid }}>🍽️ Repas {lastNotes.impedance.heure_repas}</span>}
+                          {lastNotes.impedance.activite_veille && lastNotes.impedance.activite_veille !== 'non' && <span style={{ padding: '4px 10px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${T.border}`, borderRadius: 20, fontSize: 12, color: T.textMid }}>🏃 Activité H-12 : {lastNotes.impedance.activite_veille}</span>}
+                          {lastNotes.impedance.cycle_phase && lastNotes.impedance.cycle_phase !== 'na' && (() => { const ph = CYCLE_PHASES.find(p => p.key === lastNotes.impedance.cycle_phase); return ph ? <span style={{ padding: '4px 10px', background: `${ph.color}15`, border: `1px solid ${ph.color}40`, borderRadius: 20, fontSize: 12, color: ph.color }}>🔄 {ph.label}</span> : null })()}
+                          {lastNotes.impedance.alcool_veille && <span style={{ padding: '4px 10px', background: 'rgba(255,69,102,0.1)', border: '1px solid rgba(255,69,102,0.3)', borderRadius: 20, fontSize: 12, color: '#ff4566' }}>🍷 Alcool H-24</span>}
+                          {lastNotes.impedance.cafeine_veille && <span style={{ padding: '4px 10px', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 20, fontSize: 12, color: '#fbbf24' }}>☕ Caféïne</span>}
+                          {lastNotes.impedance.pacemaker && <span style={{ padding: '4px 10px', background: 'rgba(255,69,102,0.1)', border: '1px solid rgba(255,69,102,0.3)', borderRadius: 20, fontSize: 12, color: '#ff4566' }}>⚠️ Pacemaker</span>}
+                          {lastNotes.impedance.enceinte && <span style={{ padding: '4px 10px', background: 'rgba(255,69,102,0.1)', border: '1px solid rgba(255,69,102,0.3)', borderRadius: 20, fontSize: 12, color: '#ff4566' }}>⚠️ Enceinte</span>}
+                        </div>
+                      </Card>
+                    )}
+
+                    {/* Pliométrie — détail plis */}
+                    {(lastNotes.mg1 || lastNotes.mg2) && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+                        {lastNotes.mg1 && (
+                          <Card>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                              <div>
+                                <div style={{ fontSize: 14, fontWeight: 800, color: T.text }}>MG1 — 4 plis</div>
+                                <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>Dernière mesure</div>
+                              </div>
+                              {lastNotes.mg1.resultat && <div style={{ fontSize: 26, fontWeight: 900, color: '#fbbf24', fontFamily: T.fontDisplay }}>{lastNotes.mg1.resultat}<span style={{ fontSize: 13 }}>%</span></div>}
+                            </div>
+                            <div style={{ display: 'grid', gap: 6 }}>
+                              {MG1_PLIS.filter(k => lastNotes.mg1[k]).map(k => (
+                                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: 'rgba(251,191,36,0.05)', borderRadius: 8, border: '1px solid rgba(251,191,36,0.12)' }}>
+                                  <span style={{ fontSize: 12, color: T.textMid }}>{PLI_LABELS[k]}</span>
+                                  <span style={{ fontSize: 13, fontWeight: 700, color: '#fbbf24' }}>{lastNotes.mg1[k]} mm</span>
+                                </div>
+                              ))}
+                            </div>
+                          </Card>
+                        )}
+                        {lastNotes.mg2 && (
+                          <Card>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                              <div>
+                                <div style={{ fontSize: 14, fontWeight: 800, color: T.text }}>MG2 — 7 plis</div>
+                                <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>Dernière mesure</div>
+                              </div>
+                              {lastNotes.mg2.resultat && <div style={{ fontSize: 26, fontWeight: 900, color: '#9d7dea', fontFamily: T.fontDisplay }}>{lastNotes.mg2.resultat}<span style={{ fontSize: 13 }}>%</span></div>}
+                            </div>
+                            <div style={{ display: 'grid', gap: 6 }}>
+                              {MG2_PLIS.filter(k => lastNotes.mg2[k]).map(k => (
+                                <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: 'rgba(157,125,234,0.05)', borderRadius: 8, border: '1px solid rgba(157,125,234,0.12)' }}>
+                                  <span style={{ fontSize: 12, color: T.textMid }}>{PLI_LABELS[k]}</span>
+                                  <span style={{ fontSize: 13, fontWeight: 700, color: '#9d7dea' }}>{lastNotes.mg2[k]} mm</span>
+                                </div>
+                              ))}
+                            </div>
+                          </Card>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Silhouette — dernière mesure */}
+                    {lastNotes.silhouette && Object.values(lastNotes.silhouette).some(v => v) && (
+                      <Card>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>Mesure silhouette — dernière mesure</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8 }}>
+                          {SILHOUETTE_ZONES.filter(z => lastNotes.silhouette[z.key]).map(({ key, label, color }) => (
+                            <div key={key} style={{ padding: '10px 12px', background: `${color}08`, borderRadius: 10, border: `1px solid ${color}25`, textAlign: 'center' }}>
+                              <div style={{ fontSize: 10, color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>{label}</div>
+                              <div style={{ fontSize: 20, fontWeight: 900, color, fontFamily: T.fontDisplay }}>{lastNotes.silhouette[key]}</div>
+                              <div style={{ fontSize: 10, color: T.textDim }}>cm</div>
+                            </div>
+                          ))}
+                        </div>
+                      </Card>
+                    )}
+                  </>
+                )}
+
+                {/* Évolution silhouette par zone */}
+                {Object.values(chartData.silhouette || {}).some(d => d?.length >= 2) && (
+                  <Card>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 14 }}>Évolution silhouette (cm)</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+                      {SILHOUETTE_ZONES.filter(z => chartData.silhouette[z.key]?.length >= 2).map(({ key, label, color }) => {
+                        const d = chartData.silhouette[key]
+                        const delta = d[d.length-1].value - d[d.length-2].value
+                        return (
+                          <div key={key}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                              <span style={{ fontSize: 12, fontWeight: 700, color }}>{label}</span>
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
+                                <span style={{ fontSize: 11, color: delta > 0 ? '#ff7043' : '#3ecf8e', fontWeight: 700 }}>{delta > 0 ? '+' : ''}{Math.round(delta*10)/10} cm</span>
+                                <span style={{ fontSize: 15, fontWeight: 900, color, fontFamily: T.fontDisplay }}>{d[d.length-1].value} cm</span>
+                              </div>
+                            </div>
+                            <LineGraph data={d} color={color} h={70} unit=" cm" />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </Card>
+                )}
 
                 {/* Historique bilans */}
                 <Card>
