@@ -209,7 +209,7 @@ export default function CoachClientDetailPage() {
 
       let topsetsData = []
       const topsetsQuery = await supabase
-        .from('topset_logs')
+        .from('topsets_logs')
         .select('*')
         .eq('user_id', id)
         .order('date', { ascending: false })
@@ -217,7 +217,7 @@ export default function CoachClientDetailPage() {
       if (!topsetsQuery.error) {
         topsetsData = topsetsQuery.data || []
       } else {
-        console.warn('topset_logs indisponible ou inaccessible :', topsetsQuery.error.message)
+        console.warn('topsets_logs indisponible ou inaccessible :', topsetsQuery.error.message)
       }
 
       setPrepData({
@@ -970,7 +970,7 @@ function MiniLine({ data, color = '#3ecf8e' }) {
   const max = Math.max(...data), min = Math.min(...data), range = max - min || 0.1
   const W = 100, pad = 6, h = 50
   const pts = data.map((v, i) => `${(pad + (i / (data.length - 1)) * (W - pad * 2)).toFixed(1)},${(h - pad - ((v - min) / range) * (h - pad * 2)).toFixed(1)}`).join(' ')
-  return <div style={{ maxHeight: 80, overflow: 'hidden' }}><svg viewBox={`0 0 ${W} ${h}`} style={{ width: '100%', height: 80, display: 'block' }} preserveAspectRatio="none"><polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></div>
+  return <svg viewBox={`0 0 ${W} ${h}`} style={{ width: '100%', display: 'block' }} preserveAspectRatio="none"><polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
 }
 function PrepDataView({ prepData }) {
   const { hooper, compo, topsets, charge } = prepData
@@ -1029,17 +1029,58 @@ function PrepDataView({ prepData }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
         <Card style={{ padding: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: T.text, marginBottom: 10 }}>Composition corporelle</div>
-          {lastC ? (
-            <div style={{ display: 'grid', gap: 8 }}>
-              {[['Poids', lastC.weight_kg, 'kg', '#3ecf8e'], ['Masse grasse', lastC.body_fat_pct, '%', '#ff7043'], ['Masse maigre', lastC.muscle_mass_kg, 'kg', '#4d9fff']].filter(([, v]) => v).map(([l, v, u, c]) => (
-                <div key={l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, color: T.textDim }}>{l}</span>
-                  <span style={{ fontSize: 16, fontWeight: 900, color: c, fontFamily: T.fontDisplay }}>{v}<span style={{ fontSize: 10, marginLeft: 2 }}>{u}</span></span>
-                </div>
-              ))}
-              <div style={{ fontSize: 10, color: T.textDim }}>{new Date(lastC.date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
-            </div>
-          ) : <div style={{ color: T.textDim, fontSize: 12 }}>Aucune mesure</div>}
+          {lastC ? (() => {
+            let n = null; try { n = lastC.notes ? JSON.parse(lastC.notes) : null } catch {}
+            return (
+              <div style={{ display: 'grid', gap: 8 }}>
+                {/* Impédancemétrie */}
+                {[['Poids', lastC.weight_kg, 'kg', '#3ecf8e'], ['Masse grasse', lastC.body_fat_pct, '%', '#ff7043'], ['Masse maigre', lastC.muscle_mass_kg, 'kg', '#4d9fff']].filter(([, v]) => v).map(([l, v, u, c]) => (
+                  <div key={l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: T.textDim }}>{l}</span>
+                    <span style={{ fontSize: 16, fontWeight: 900, color: c, fontFamily: T.fontDisplay }}>{v}<span style={{ fontSize: 10, marginLeft: 2 }}>{u}</span></span>
+                  </div>
+                ))}
+                {/* Pliométrie */}
+                {n?.mg1?.resultat && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: T.textDim }}>MG1 (4 plis)</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#fbbf24' }}>{n.mg1.resultat}%</span>
+                  </div>
+                )}
+                {n?.mg2?.resultat && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: T.textDim }}>MG2 (7 plis)</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#ff7043' }}>{n.mg2.resultat}%</span>
+                  </div>
+                )}
+                {/* Silhouette */}
+                {n?.silhouette && Object.values(n.silhouette).some(v => v) && (
+                  <div style={{ marginTop: 4, paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
+                    <div style={{ fontSize: 11, color: T.textDim, marginBottom: 6, fontWeight: 700 }}>Silhouette (cm)</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                      {[['epaule','Épaule'],['poitrine','Poitrine'],['hanche','Hanche'],['taille','Taille'],['cuisse','Cuisse'],['genoux','Genoux']].filter(([k]) => n.silhouette[k]).map(([k,l]) => (
+                        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                          <span style={{ color: T.textDim }}>{l}</span>
+                          <span style={{ color: T.text, fontWeight: 700 }}>{n.silhouette[k]}cm</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Conditions */}
+                {n?.impedance && (
+                  <div style={{ fontSize: 10, color: T.textDim, marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {n.heure && <span>🕐 {n.heure}</span>}
+                    {n.impedance.eau_litres && <span>💧{n.impedance.eau_litres}L</span>}
+                    {n.impedance.alcool_veille && <span>🍷Alcool</span>}
+                    {n.impedance.cafeine_veille && <span>☕Caféïne</span>}
+                    {n.impedance.cycle_phase && n.impedance.cycle_phase !== 'na' && <span>🔄{n.impedance.cycle_phase}</span>}
+                  </div>
+                )}
+                <div style={{ fontSize: 10, color: T.textDim }}>{new Date(lastC.date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+              </div>
+            )
+          })() : <div style={{ color: T.textDim, fontSize: 12 }}>Aucune mesure</div>}
         </Card>
 
         <Card style={{ padding: 16 }}>
