@@ -137,8 +137,135 @@ function useD3Chart(containerRef, data, options = {}) {
   return rendered
 }
 
-// ─── Chart component ──────────────────────────────────────────────────────────
-function D3Chart({ data, color, h = 120, title, lastValue, unit = '', delta = null }) {
+// ─── Modal historique ─────────────────────────────────────────────────────────
+function ChartModal({ open, onClose, title, data, color, unit = '', series = null }) {
+  useEffect(() => {
+    if (!open) return
+    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [open, onClose])
+
+  if (!open) return null
+
+  const sorted = series
+    ? null
+    : [...data].sort((a, b) => b.date.localeCompare(a.date))
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)',
+      display: 'grid', placeItems: 'center', padding: '20px',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: P.card, borderRadius: 20, width: '100%', maxWidth: 560,
+        maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 24px 60px rgba(0,0,0,0.18)',
+      }}>
+        {/* Header */}
+        <div style={{ padding: '20px 24px 16px', borderBottom: `1px solid ${P.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: P.text }}>{title}</div>
+            <div style={{ fontSize: 12, color: P.sub, marginTop: 2 }}>
+              {series ? series.reduce((acc, s) => acc + s.data.length, 0) : data.length} entrée{(series ? series[0].data.length : data.length) > 1 ? 's' : ''}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', border: `1px solid ${P.border}`, background: P.bg, color: P.sub, fontSize: 16, cursor: 'pointer', display: 'grid', placeItems: 'center' }}>×</button>
+        </div>
+
+        {/* Contenu scrollable */}
+        <div style={{ overflowY: 'auto', padding: '20px 24px' }}>
+
+          {/* Tableau multi-séries (HOOPER détail) */}
+          {series && (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: `2px solid ${P.border}` }}>
+                  <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: P.sub }}>Date</th>
+                  {series.map(s => (
+                    <th key={s.label} style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: s.color }}>{s.label}</th>
+                  ))}
+                  <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: P.sub }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  const dates = [...new Set(series.flatMap(s => s.data.map(d => d.date)))].sort((a,b) => b.localeCompare(a))
+                  return dates.map(date => {
+                    const vals = series.map(s => s.data.find(d => d.date === date)?.value ?? null)
+                    const total = vals.every(v => v !== null) ? vals.reduce((a,b) => a+b, 0) : null
+                    return (
+                      <tr key={date} style={{ borderBottom: `1px solid ${P.border}` }}>
+                        <td style={{ padding: '9px 10px', color: P.text, fontWeight: 500 }}>{new Date(date+'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}</td>
+                        {vals.map((v, i) => (
+                          <td key={i} style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 600, color: v !== null ? series[i].color : P.dim }}>{v !== null ? v : '—'}</td>
+                        ))}
+                        <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 700, color: total !== null ? P.text : P.dim, fontFamily: "'DM Serif Display', serif", fontSize: 15 }}>{total !== null ? total : '—'}</td>
+                      </tr>
+                    )
+                  })
+                })()}
+              </tbody>
+            </table>
+          )}
+
+          {/* Tableau série simple */}
+          {!series && (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: `2px solid ${P.border}` }}>
+                  <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: P.sub }}>Date</th>
+                  <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: P.sub }}>Valeur</th>
+                  <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: P.sub }}>Évolution</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((d, i) => {
+                  const next = sorted[i + 1]
+                  const delta = next ? d.value - next.value : null
+                  return (
+                    <tr key={d.date + i} style={{ borderBottom: `1px solid ${P.border}` }}>
+                      <td style={{ padding: '9px 10px', color: P.text, fontWeight: 500 }}>
+                        {new Date(d.date+'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: '2-digit' })}
+                      </td>
+                      <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 700, color, fontFamily: "'DM Serif Display', serif", fontSize: 16 }}>
+                        {d.value}{unit}
+                      </td>
+                      <td style={{ padding: '9px 10px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: delta === null ? P.dim : delta > 0 ? P.green : delta < 0 ? P.red : P.sub }}>
+                        {delta === null ? '—' : `${delta > 0 ? '+' : ''}${Math.round(delta*10)/10}${unit}`}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Chart wrapper cliquable ──────────────────────────────────────────────────
+function ClickableChart({ children, data, color, unit, title, series }) {
+  const [open, setOpen] = useState(false)
+  const hasData = series ? series.some(s => s.data.length > 0) : data?.length >= 1
+  if (!hasData) return children
+  return (
+    <>
+      <div onClick={() => setOpen(true)} style={{ cursor: 'pointer', borderRadius: 8, transition: 'opacity 0.15s' }}
+        onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+        onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
+        {children}
+        <div style={{ textAlign: 'right', fontSize: 10, color: P.dim, marginTop: 4, letterSpacing: 0.5 }}>↗ Voir l'historique</div>
+      </div>
+      <ChartModal open={open} onClose={() => setOpen(false)} title={title} data={data || []} color={color} unit={unit} series={series} />
+    </>
+  )
+}
+
+
   const ref = useRef(null)
   useD3Chart(ref, data, { color, h })
 
@@ -455,15 +582,24 @@ export default function PrepAnalysePage() {
           badge={lastScore !== null ? `Score actuel : ${lastScore}/40 · ${lastScore<=7?'Très bon':lastScore<=13?'Correct':lastScore<=20?'Vigilance':'⚠️ Fatigue importante'}` : 'Aucune donnée'}
           defaultOpen={true}>
           <div style={{ paddingTop:20, display:'grid', gap:24 }}>
-            <D3Chart data={hooperScores} color={P.green} h={130} title="Score total /40" lastValue={lastScore} delta={prevScore!==null?lastScore-prevScore:null} />
+            <ClickableChart data={hooperScores} color={P.green} unit="" title="HOOPER — Score total /40">
+              <D3Chart data={hooperScores} color={P.green} h={130} title="Score total /40" lastValue={lastScore} delta={prevScore!==null?lastScore-prevScore:null} />
+            </ClickableChart>
             <div>
               <div style={{ fontSize:11, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub, marginBottom:12 }}>Détail par item</div>
+            <ClickableChart title="HOOPER — Détail par item" series={[
+                {label:'Fatigue',    color:CHART_COLORS.fatigue,     data:data.hooper.map(h=>({value:h.fatigue,    date:h.date}))},
+                {label:'Sommeil',    color:CHART_COLORS.sommeil,     data:data.hooper.map(h=>({value:h.sommeil,    date:h.date}))},
+                {label:'Stress',     color:CHART_COLORS.stress,      data:data.hooper.map(h=>({value:h.stress,     date:h.date}))},
+                {label:'Courbatures',color:CHART_COLORS.courbatures, data:data.hooper.map(h=>({value:h.courbatures,date:h.date}))},
+              ]}>
               <MultiD3Chart h={110} series={[
                 {label:'Fatigue',    color:CHART_COLORS.fatigue,     data:data.hooper.map(h=>({value:h.fatigue,    date:h.date}))},
                 {label:'Sommeil',    color:CHART_COLORS.sommeil,     data:data.hooper.map(h=>({value:h.sommeil,    date:h.date}))},
                 {label:'Stress',     color:CHART_COLORS.stress,      data:data.hooper.map(h=>({value:h.stress,     date:h.date}))},
                 {label:'Courbatures',color:CHART_COLORS.courbatures, data:data.hooper.map(h=>({value:h.courbatures,date:h.date}))},
               ]} />
+            </ClickableChart>
               <div style={{ display:'flex', gap:16, marginTop:10, flexWrap:'wrap' }}>
                 {[['Fatigue',CHART_COLORS.fatigue],['Sommeil',CHART_COLORS.sommeil],['Stress',CHART_COLORS.stress],['Courbatures',CHART_COLORS.courbatures]].map(([l,c])=>(
                   <div key={l} style={{ display:'flex', gap:5, alignItems:'center', fontSize:11, color:P.sub }}>
@@ -518,8 +654,10 @@ export default function PrepAnalysePage() {
                 {data:compoData.graisse, color:CHART_COLORS.graisse, title:'Masse grasse', unit:'%', key:'body_fat_pct'},
                 {data:compoData.maigre,  color:CHART_COLORS.maigre,  title:'Masse maigre', unit:' kg', key:'muscle_mass_kg'},
               ].filter(g=>g.data.length>=2).map(({data,color,title,unit,key})=>(
-                <D3Chart key={title} data={data} color={color} h={110} title={title} unit={unit}
-                  lastValue={lastC?.[key]} delta={prevC?.[key]?parseFloat(lastC[key])-parseFloat(prevC[key]):null} />
+                <ClickableChart key={title} data={data} color={color} unit={unit} title={title}>
+                  <D3Chart data={data} color={color} h={110} title={title} unit={unit}
+                    lastValue={lastC?.[key]} delta={prevC?.[key]?parseFloat(lastC[key])-parseFloat(prevC[key]):null} />
+                </ClickableChart>
               ))}
             </div>
 
@@ -591,8 +729,8 @@ export default function PrepAnalysePage() {
                       {/* Graphes évolution si >= 2 mesures */}
                       {(plioData.mg1.length>=2 || plioData.mg2.length>=2) && (
                         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px,1fr))', gap:16 }}>
-                          {plioData.mg1.length>=2 && <D3Chart data={plioData.mg1} color={CHART_COLORS.mg1} h={90} title="Évolution MG1" unit="%" lastValue={plioData.mg1[plioData.mg1.length-1]?.value} delta={plioData.mg1[plioData.mg1.length-1].value-plioData.mg1[plioData.mg1.length-2].value} />}
-                          {plioData.mg2.length>=2 && <D3Chart data={plioData.mg2} color={CHART_COLORS.mg2} h={90} title="Évolution MG2" unit="%" lastValue={plioData.mg2[plioData.mg2.length-1]?.value} delta={plioData.mg2[plioData.mg2.length-1].value-plioData.mg2[plioData.mg2.length-2].value} />}
+                          {plioData.mg1.length>=2 && <ClickableChart data={plioData.mg1} color={CHART_COLORS.mg1} unit="%" title="Évolution MG1 — 4 plis"><D3Chart data={plioData.mg1} color={CHART_COLORS.mg1} h={90} title="Évolution MG1" unit="%" lastValue={plioData.mg1[plioData.mg1.length-1]?.value} delta={plioData.mg1[plioData.mg1.length-1].value-plioData.mg1[plioData.mg1.length-2].value} /></ClickableChart>}
+                          {plioData.mg2.length>=2 && <ClickableChart data={plioData.mg2} color={CHART_COLORS.mg2} unit="%" title="Évolution MG2 — 7 plis"><D3Chart data={plioData.mg2} color={CHART_COLORS.mg2} h={90} title="Évolution MG2" unit="%" lastValue={plioData.mg2[plioData.mg2.length-1]?.value} delta={plioData.mg2[plioData.mg2.length-1].value-plioData.mg2[plioData.mg2.length-2].value} /></ClickableChart>}
                         </div>
                       )}
                     </div>
@@ -618,7 +756,7 @@ export default function PrepAnalysePage() {
                             .map(([k,l])=>{
                               const colors={epaule:P.blue,poitrine:P.purple,hanche:P.red,taille:P.yellow,cuisse:P.green,genoux:P.teal}
                               const d=silhoData[k]
-                              return <D3Chart key={k} data={d} color={colors[k]||P.accent} h={80} title={`${l}`} lastValue={d[d.length-1]?.value} unit=" cm" delta={d[d.length-1].value-d[d.length-2].value} />
+                              return <ClickableChart key={k} data={d} color={colors[k]||P.accent} unit=" cm" title={`Silhouette — ${l}`}><D3Chart data={d} color={colors[k]||P.accent} h={80} title={`${l}`} lastValue={d[d.length-1]?.value} unit=" cm" delta={d[d.length-1].value-d[d.length-2].value} /></ClickableChart>
                             })
                           }
                         </div>
@@ -646,7 +784,7 @@ export default function PrepAnalysePage() {
                 ))}
               </div>
             )}
-            {topsetSeries.length>=2 && <D3Chart data={topsetSeries} color={CHART_COLORS.topset} h={130} title={`1RM estimé — ${selectedEx}`} unit=" kg" lastValue={topsetSeries[topsetSeries.length-1]?.value} delta={topsetSeries.length>1?topsetSeries[topsetSeries.length-1].value-topsetSeries[topsetSeries.length-2].value:null} />}
+            {topsetSeries.length>=2 && <ClickableChart data={topsetSeries} color={CHART_COLORS.topset} unit=" kg" title={`1RM — ${selectedEx}`}><D3Chart data={topsetSeries} color={CHART_COLORS.topset} h={130} title={`1RM estimé — ${selectedEx}`} unit=" kg" lastValue={topsetSeries[topsetSeries.length-1]?.value} delta={topsetSeries.length>1?topsetSeries[topsetSeries.length-1].value-topsetSeries[topsetSeries.length-2].value:null} /></ClickableChart>}
             <div>
               <div style={{ fontSize:11, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub, marginBottom:10 }}>Records par exercice</div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px,1fr))', gap:8 }}>
@@ -690,7 +828,7 @@ export default function PrepAnalysePage() {
                 <span>0</span><span>0.8</span><span>1.3</span><span>1.5</span><span>2</span>
               </div>
             </div>
-            {chargeSeriesData.length>=2 && <D3Chart data={chargeSeriesData} color={CHART_COLORS.charge} h={120} title="Charge hebdomadaire (UA)" lastValue={Math.round(acute)} unit=" UA" />}
+            {chargeSeriesData.length>=2 && <ClickableChart data={chargeSeriesData} color={CHART_COLORS.charge} unit=" UA" title="Charge hebdomadaire (UA)"><D3Chart data={chargeSeriesData} color={CHART_COLORS.charge} h={120} title="Charge hebdomadaire (UA)" lastValue={Math.round(acute)} unit=" UA" /></ClickableChart>}
           </div>
         </Section>
 
