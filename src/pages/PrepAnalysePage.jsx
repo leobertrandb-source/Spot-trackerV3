@@ -1047,7 +1047,7 @@ export default function PrepAnalysePage() {
         })()}
 
         {/* ── TOPSET ── */}
-        <Section title="TOPSET — Progression 1RM" icon="🏋️" color={P.teal}
+        <Section title="TOPSET — Progression & Volumétrie" icon="🏋️" color={P.teal}
           badge={selectedEx&&prs[selectedEx]?`${selectedEx} · Record : ~${prs[selectedEx]}kg`:exerciseNames.length?`${exerciseNames.length} exercices`:'Aucune donnée'}>
           <div style={{ paddingTop:20, display:'grid', gap:16 }}>
             {exerciseNames.length > 0 && (
@@ -1060,12 +1060,118 @@ export default function PrepAnalysePage() {
                 ))}
               </div>
             )}
-            {topsetSeries.length>=2 && <ClickableChart data={topsetSeries} color={CHART_COLORS.topset} unit=" kg" title={`1RM — ${selectedEx}`}><D3Chart data={topsetSeries} color={CHART_COLORS.topset} h={130} title={`1RM estimé — ${selectedEx}`} unit=" kg" lastValue={topsetSeries[topsetSeries.length-1]?.value} delta={topsetSeries.length>1?topsetSeries[topsetSeries.length-1].value-topsetSeries[topsetSeries.length-2].value:null} /></ClickableChart>}
+
+            {selectedEx && (() => {
+              const logs = data.topsets.filter(t => t.exercise_name === selectedEx)
+              if (!logs.length) return null
+
+              // Calculs volumétrie
+              const calc1RM = (w, r) => { const ww=parseFloat(w),rr=parseInt(r); if(!ww||!rr||rr<=0) return null; return Math.round(ww*(1+rr/30)*10)/10 }
+
+              // Volume par séance (charge × reps par set, groupé par date)
+              const volumeByDate = {}
+              const tonnageByDate = {}
+              const rpeByDate = {}
+              const setsCountByDate = {}
+              for (const t of logs) {
+                if (!volumeByDate[t.date]) { volumeByDate[t.date]=0; tonnageByDate[t.date]=0; rpeByDate[t.date]=[]; setsCountByDate[t.date]=0 }
+                const vol = (parseFloat(t.weight_kg)||0) * (parseInt(t.reps)||0)
+                volumeByDate[t.date] += vol
+                tonnageByDate[t.date] += parseFloat(t.weight_kg)||0
+                if (t.rpe) rpeByDate[t.date].push(parseFloat(t.rpe))
+                setsCountByDate[t.date] += 1
+              }
+              const dates = Object.keys(volumeByDate).sort()
+              const volumeSeries = dates.map(d => ({ value: Math.round(volumeByDate[d]), date: d }))
+              const rpeSeries = dates.filter(d => rpeByDate[d].length).map(d => ({ value: Math.round((rpeByDate[d].reduce((a,b)=>a+b,0)/rpeByDate[d].length)*10)/10, date: d }))
+
+              // Totaux globaux
+              const totalTonnage = logs.reduce((s,t) => s+(parseFloat(t.weight_kg)||0)*(parseInt(t.reps)||0),0)
+              const totalSets = logs.length
+              const avgRpe = logs.filter(t=>t.rpe).length ? Math.round((logs.filter(t=>t.rpe).reduce((s,t)=>s+parseFloat(t.rpe),0)/logs.filter(t=>t.rpe).length)*10)/10 : null
+
+              return (
+                <>
+                  {/* Stats clés */}
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(120px,1fr))', gap:10 }}>
+                    {[
+                      { label:'Record 1RM', value:`~${prs[selectedEx]}`, unit:'kg', color:P.teal },
+                      { label:'Tonnage total', value:Math.round(totalTonnage).toLocaleString('fr-FR'), unit:'kg', color:P.blue },
+                      { label:'Sets total', value:totalSets, unit:'sets', color:P.purple },
+                      ...(avgRpe ? [{ label:'RPE moyen', value:avgRpe, unit:'/10', color: avgRpe>=8?P.red:avgRpe>=6?P.yellow:P.green }] : []),
+                    ].map(({label,value,unit,color}) => (
+                      <div key={label} style={{ padding:'12px 14px', background:P.bg, borderRadius:10, border:`1px solid ${P.border}` }}>
+                        <div style={{ fontSize:10, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub, marginBottom:4 }}>{label}</div>
+                        <div style={{ fontSize:20, fontWeight:700, color, fontFamily:"'DM Serif Display',serif", lineHeight:1 }}>
+                          {value}<span style={{ fontSize:11, color:P.sub, marginLeft:3 }}>{unit}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Graphe 1RM */}
+                  {topsetSeries.length>=2 && (
+                    <ClickableChart data={topsetSeries} color={CHART_COLORS.topset} unit=" kg" title={`1RM — ${selectedEx}`}>
+                      <D3Chart data={topsetSeries} color={CHART_COLORS.topset} h={110} title={`1RM estimé — ${selectedEx}`} unit=" kg" lastValue={topsetSeries[topsetSeries.length-1]?.value} delta={topsetSeries.length>1?topsetSeries[topsetSeries.length-1].value-topsetSeries[topsetSeries.length-2].value:null} />
+                    </ClickableChart>
+                  )}
+
+                  {/* Graphe volume par séance */}
+                  {volumeSeries.length>=2 && (
+                    <ClickableChart data={volumeSeries} color={P.blue} unit=" kg" title={`Volume par séance — ${selectedEx}`}>
+                      <D3Chart data={volumeSeries} color={P.blue} h={90} title="Volume par séance (charge × reps)" unit=" kg" lastValue={volumeSeries[volumeSeries.length-1]?.value} delta={volumeSeries.length>1?volumeSeries[volumeSeries.length-1].value-volumeSeries[volumeSeries.length-2].value:null} />
+                    </ClickableChart>
+                  )}
+
+                  {/* Graphe RPE */}
+                  {rpeSeries.length>=2 && (
+                    <ClickableChart data={rpeSeries} color={P.yellow} unit="" title={`RPE moyen — ${selectedEx}`}>
+                      <D3Chart data={rpeSeries} color={P.yellow} h={80} title="RPE moyen par séance" unit="" lastValue={rpeSeries[rpeSeries.length-1]?.value} delta={rpeSeries.length>1?rpeSeries[rpeSeries.length-1].value-rpeSeries[rpeSeries.length-2].value:null} />
+                    </ClickableChart>
+                  )}
+
+                  {/* Historique détaillé par séance */}
+                  <div>
+                    <div style={{ fontSize:11, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub, marginBottom:10 }}>Détail des séances</div>
+                    <div style={{ overflowX:'auto' }}>
+                      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                        <thead>
+                          <tr style={{ borderBottom:`2px solid ${P.border}` }}>
+                            {['Date','Charge','Reps','RPE','1RM est.','Volume','Sets'].map(h=>(
+                              <th key={h} style={{ padding:'7px 10px', textAlign:'left', fontSize:10, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[...logs].reverse().slice(0,20).map(log => {
+                            const rm = log.estimated_1rm || calc1RM(log.weight_kg, log.reps)
+                            const vol = (parseFloat(log.weight_kg)||0)*(parseInt(log.reps)||0)
+                            return (
+                              <tr key={log.id} style={{ borderBottom:`1px solid ${P.border}` }}>
+                                <td style={{ padding:'7px 10px', color:P.text }}>{new Date(log.date+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'2-digit'})}</td>
+                                <td style={{ padding:'7px 10px', fontWeight:700, color:P.teal }}>{log.weight_kg ? `${log.weight_kg} kg` : '—'}</td>
+                                <td style={{ padding:'7px 10px', color:P.text }}>{log.reps || '—'}</td>
+                                <td style={{ padding:'7px 10px', fontWeight:600, color:log.rpe>=8?P.red:log.rpe>=6?P.yellow:P.green }}>{log.rpe ? `@${log.rpe}` : '—'}</td>
+                                <td style={{ padding:'7px 10px', fontWeight:700, color:P.teal, fontFamily:"'DM Serif Display',serif" }}>{rm ? `~${rm}kg` : '—'}</td>
+                                <td style={{ padding:'7px 10px', color:P.blue, fontWeight:600 }}>{vol > 0 ? `${Math.round(vol).toLocaleString('fr-FR')} kg` : '—'}</td>
+                                <td style={{ padding:'7px 10px', color:P.sub }}>{setsCountByDate[log.date] || '—'}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )
+            })()}
+
+            {/* Records tous exercices */}
             <div>
               <div style={{ fontSize:11, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub, marginBottom:10 }}>Records par exercice</div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px,1fr))', gap:8 }}>
                 {Object.entries(prs).sort((a,b)=>b[1]-a[1]).map(([ex,rm])=>(
-                  <div key={ex} style={{ padding:'10px 14px', background:P.bg, borderRadius:10, border:`1px solid ${P.border}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <div key={ex} onClick={()=>setSelectedEx(ex)} style={{ padding:'10px 14px', background: selectedEx===ex?`${P.teal}10`:P.bg, borderRadius:10, border:`1px solid ${selectedEx===ex?P.teal:P.border}`, display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer' }}>
                     <span style={{ fontSize:12, color:P.text, fontWeight:500 }}>{ex}</span>
                     <span style={{ fontSize:16, fontWeight:700, color:P.teal, fontFamily:"'DM Serif Display',serif" }}>~{rm}kg</span>
                   </div>
