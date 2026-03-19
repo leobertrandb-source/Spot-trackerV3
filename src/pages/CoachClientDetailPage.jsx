@@ -981,7 +981,7 @@ function MiniLine({ data, color = '#3ecf8e' }) {
   const max = Math.max(...data), min = Math.min(...data), range = max - min || 0.1
   const W = 100, pad = 6, h = 50
   const pts = data.map((v, i) => `${(pad + (i / (data.length - 1)) * (W - pad * 2)).toFixed(1)},${(h - pad - ((v - min) / range) * (h - pad * 2)).toFixed(1)}`).join(' ')
-  return <svg viewBox={`0 0 ${W} ${h}`} style={{ width: '100%', display: 'block' }} preserveAspectRatio="none"><polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+  return <div style={{ height: 70, overflow: 'hidden' }}><svg viewBox={`0 0 ${W} ${h}`} style={{ width: '100%', height: '100%', display: 'block' }} preserveAspectRatio="none"><polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></div>
 }
 function PrepDataView({ prepData }) {
   const { hooper, compo, topsets, charge } = prepData
