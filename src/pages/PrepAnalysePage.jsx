@@ -247,6 +247,41 @@ function ChartModal({ open, onClose, title, data, color, unit = '', series = nul
   )
 }
 
+// ─── Chart component ──────────────────────────────────────────────────────────
+function D3Chart({ data, color, h = 120, title, lastValue, unit = '', delta = null }) {
+  const ref = useRef(null)
+  useD3Chart(ref, data, { color, h })
+
+  if (data.length < 2) return (
+    <div style={{ height: h, display: 'grid', placeItems: 'center', color: P.dim, fontSize: 12, border: `1px dashed ${P.border}`, borderRadius: 8 }}>
+      Pas assez de données (min. 2 mesures)
+    </div>
+  )
+
+  return (
+    <div>
+      {title && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase', color: P.sub }}>{title}</div>
+          {lastValue != null && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+              {delta != null && (
+                <span style={{ fontSize: 11, color: delta > 0 ? P.red : P.green, fontWeight: 600 }}>
+                  {delta > 0 ? '+' : ''}{Math.round(delta*10)/10}{unit}
+                </span>
+              )}
+              <span style={{ fontSize: 18, fontWeight: 700, color, fontFamily: "'DM Serif Display', serif" }}>
+                {lastValue}{unit}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+      <div ref={ref} />
+    </div>
+  )
+}
+
 // ─── Chart wrapper cliquable ──────────────────────────────────────────────────
 function ClickableChart({ children, data, color, unit, title, series }) {
   const [open, setOpen] = useState(false)
