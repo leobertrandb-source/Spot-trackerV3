@@ -23,8 +23,8 @@ return (
 <div
 style={{
 minHeight: '100vh',
-background: showPrepPhysique ? '#f5f3ef' : T.bg,
-color: showPrepPhysique ? '#1a1a1a' : T.text,
+background: T.bg,
+color: T.text,
 display: 'flex',
 position: 'relative',
 zIndex: 1,
