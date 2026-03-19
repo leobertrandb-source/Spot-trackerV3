@@ -1,9 +1,8 @@
-// CoachPage.jsx — version ProSportConcept
-// Remplace CoachPage.jsx uniquement pour les coachs showPrepPhysique
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
+import NotificationManager from '../components/NotificationManager'
 
 const P = {
   bg: '#f5f3ef',
@@ -47,6 +46,7 @@ export default function CoachPageProSport() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteMsg, setInviteMsg] = useState('')
   const [inviting, setInviting] = useState(false)
+  const [mainTab, setMainTab] = useState('dashboard') // 'dashboard' | 'notifications'
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -130,15 +130,34 @@ export default function CoachPageProSport() {
               ProSportConcept · Préparation physique
             </div>
             <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(26px,4vw,36px)', fontWeight: 400, color: P.text, margin: 0, lineHeight: 1.2 }}>
-              Tableau de bord
+              {mainTab === 'dashboard' ? 'Tableau de bord' : 'Notifications'}
             </h1>
             <div style={{ fontSize: 13, color: P.sub, marginTop: 6, textTransform: 'capitalize' }}>{dateLabel}</div>
           </div>
-          <button onClick={() => setShowInvite(s => !s)}
-            style={{ padding: '10px 20px', borderRadius: 20, border: `1px solid ${P.accent}`, background: showInvite ? P.accent : 'transparent', color: showInvite ? '#fff' : P.accent, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 }}>
-            + Inviter un athlète
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Onglets principaux */}
+            {[{ key: 'dashboard', label: '📊 Dashboard' }, { key: 'notifications', label: '🔔 Notifications' }].map(t => (
+              <button key={t.key} onClick={() => setMainTab(t.key)}
+                style={{ padding: '8px 16px', borderRadius: 20, border: `1px solid ${mainTab === t.key ? P.accent : P.border}`, background: mainTab === t.key ? P.accent : 'transparent', color: mainTab === t.key ? '#fff' : P.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}>
+                {t.label}
+              </button>
+            ))}
+            <button onClick={() => setShowInvite(s => !s)}
+              style={{ padding: '10px 20px', borderRadius: 20, border: `1px solid ${P.accent}`, background: showInvite ? P.accent : 'transparent', color: showInvite ? '#fff' : P.accent, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 }}>
+              + Inviter un athlète
+            </button>
+          </div>
         </div>
+
+        {/* Panel notifications */}
+        {mainTab === 'notifications' && (
+          <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 16, padding: '20px 24px' }}>
+            <NotificationManager clients={clients.map(c => ({ id: c.id, full_name: c.full_name, email: c.email }))} />
+          </div>
+        )}
+
+        {/* Contenu dashboard */}
+        {mainTab === 'dashboard' && (<>
 
         {/* Panel invitation */}
         {showInvite && (
@@ -277,6 +296,7 @@ export default function CoachPageProSport() {
         <div style={{ marginTop: 20, textAlign: 'center', fontSize: 11, color: P.sub }}>
           Cliquez sur un athlète pour accéder à son analyse complète
         </div>
+        </>)} {/* fin dashboard */}
       </div>
     </div>
   )
