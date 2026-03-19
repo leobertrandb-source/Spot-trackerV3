@@ -247,7 +247,7 @@ export default function PrepHooperPage() {
               <div style={{ fontSize: 48, fontWeight: 900, color: scoreInfo.color, fontFamily: T.fontDisplay, lineHeight: 1 }}>{total}</div>
               <div style={{ fontSize: 13, color: scoreInfo.color, fontWeight: 700, marginTop: 4 }}>/40 — {scoreInfo.text}</div>
             </div>
-            {zTotal !== null && (
+            {isCoach && zTotal !== null && (
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 11, color: T.textDim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
                   Z-score {sampleSize ? `(n=${sampleSize})` : ''}
@@ -256,7 +256,7 @@ export default function PrepHooperPage() {
                 <div style={{ fontSize: 11, color: zColor(zTotal), fontWeight: 600, marginTop: 2 }}>{zLabel(zTotal)}</div>
               </div>
             )}
-            {!sampleSize && (
+            {isCoach && !sampleSize && history.length > 0 && (
               <div style={{ fontSize: 11, color: T.textDim, textAlign: 'right' }}>
                 Z-score disponible<br />dès 10 réponses<br />({Math.max(0, 10 - history.length)} restantes)
               </div>
@@ -294,8 +294,8 @@ export default function PrepHooperPage() {
                 onChange={v => setValues(p => ({ ...p, [field.key]: v }))} />
             ))}
 
-            {/* Z-scores par item */}
-            {sampleSize && (
+            {/* Z-scores par item — coach uniquement */}
+            {isCoach && sampleSize && (
               <Card>
                 <div style={{ fontSize: 13, fontWeight: 800, color: T.text, marginBottom: 12 }}>
                   Z-scores par item <span style={{ fontSize: 11, color: T.textDim, fontWeight: 400 }}>(n={sampleSize})</span>
