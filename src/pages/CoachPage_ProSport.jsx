@@ -124,41 +124,42 @@ export default function CoachPageProSport() {
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
 
         {/* Header */}
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: P.sub, marginBottom: 8 }}>
-            ProSportConcept · Préparation physique
+        <div style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: P.sub, marginBottom: 8 }}>
+              ProSportConcept · Préparation physique
+            </div>
+            <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(26px,4vw,36px)', fontWeight: 400, color: P.text, margin: 0, lineHeight: 1.2 }}>
+              Tableau de bord
+            </h1>
+            <div style={{ fontSize: 13, color: P.sub, marginTop: 6, textTransform: 'capitalize' }}>{dateLabel}</div>
           </div>
-          <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(26px,4vw,36px)', fontWeight: 400, color: P.text, margin: 0, lineHeight: 1.2 }}>
-            Tableau de bord
-          </h1>
-          <div style={{ fontSize: 13, color: P.sub, marginTop: 6, textTransform: 'capitalize' }}>{dateLabel}</div>
+          <button onClick={() => setShowInvite(s => !s)}
+            style={{ padding: '10px 20px', borderRadius: 20, border: `1px solid ${P.accent}`, background: showInvite ? P.accent : 'transparent', color: showInvite ? '#fff' : P.accent, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 }}>
+            + Inviter un athlète
+          </button>
         </div>
-        <button onClick={() => setShowInvite(s => !s)}
-          style={{ padding: '10px 20px', borderRadius: 20, border: `1px solid ${P.accent}`, background: showInvite ? P.accent : 'transparent', color: showInvite ? '#fff' : P.accent, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 }}>
-          + Inviter un athlète
-        </button>
-      </div>
 
-      {/* Panel invitation */}
-      {showInvite && (
-        <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 14, padding: '18px 20px', marginBottom: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: P.text, marginBottom: 10 }}>Générer un lien d'invitation</div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleInvite()}
-              placeholder="email@athlete.com"
-              style={{ flex: 1, minWidth: 200, background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, padding: '10px 14px', color: P.text, fontSize: 14, outline: 'none' }} />
-            <button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}
-              style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: P.accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: inviting || !inviteEmail.trim() ? 0.6 : 1, whiteSpace: 'nowrap' }}>
-              {inviting ? 'Génération...' : 'Générer & copier'}
-            </button>
-          </div>
+        {/* Panel invitation */}
+        {showInvite && (
+          <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 14, padding: '18px 20px', marginBottom: 24 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: P.text, marginBottom: 10 }}>Générer un lien d'invitation</div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleInvite()}
+                placeholder="email@athlete.com"
+                style={{ flex: 1, minWidth: 200, background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, padding: '10px 14px', color: P.text, fontSize: 14, outline: 'none' }} />
+              <button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}
+                style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: P.accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: inviting || !inviteEmail.trim() ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+                {inviting ? 'Génération...' : 'Générer & copier'}
+              </button>
+            </div>
           {inviteMsg && (
-            <div style={{ marginTop: 8, fontSize: 12, color: P.green, fontWeight: 600 }}>{inviteMsg}</div>
-          )}
-          <div style={{ marginTop: 8, fontSize: 11, color: P.sub }}>Le lien est automatiquement copié dans le presse-papier. Envoyez-le à votre athlète par email ou SMS.</div>
-        </div>
-      )}
+              <div style={{ marginTop: 8, fontSize: 12, color: P.green, fontWeight: 600 }}>{inviteMsg}</div>
+            )}
+            <div style={{ marginTop: 8, fontSize: 11, color: P.sub }}>Le lien est copié automatiquement. Envoyez-le par email ou SMS.</div>
+          </div>
+        )}
 
         {/* KPIs */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px,1fr))', gap: 12, marginBottom: 28 }}>
