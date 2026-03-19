@@ -118,6 +118,7 @@ export default function CoachClientDetailPage() {
     if (!id) {
       setClient(null)
       setSessions([])
+      setPrepData({ hooper: [], compo: [], topsets: [], charge: [] })
       setLoading(false)
       return
     }
@@ -179,24 +180,77 @@ export default function CoachClientDetailPage() {
 
       setSessions(builtSessions)
 
+      // 🔥 FIX PRINCIPAL : charger les données de prépa avec l'ID DU CLIENT de l'URL
+      const [
+        { data: hooperData, error: hooperError },
+        { data: compoData, error: compoError },
+        { data: chargeData, error: chargeError },
+      ] = await Promise.all([
+        supabase
+          .from('hooper_logs')
+          .select('*')
+          .eq('user_id', id)
+          .order('date', { ascending: false }),
+        supabase
+          .from('body_composition_logs')
+          .select('*')
+          .eq('user_id', id)
+          .order('date', { ascending: false }),
+        supabase
+          .from('charge_externe_logs')
+          .select('*')
+          .eq('user_id', id)
+          .order('date', { ascending: false }),
+      ])
+
+      if (hooperError) throw hooperError
+      if (compoError) throw compoError
+      if (chargeError) throw chargeError
+
+      let topsetsData = []
+      const topsetsQuery = await supabase
+        .from('topsets_logs')
+        .select('*')
+        .eq('user_id', id)
+        .order('date', { ascending: false })
+
+      if (!topsetsQuery.error) {
+        topsetsData = topsetsQuery.data || []
+      } else {
+        console.warn('topsets_logs indisponible ou inaccessible :', topsetsQuery.error.message)
+      }
+
+      setPrepData({
+        hooper: hooperData || [],
+        compo: compoData || [],
+        topsets: topsetsData,
+        charge: chargeData || [],
+      })
+
       // Charger objectifs nutrition
-      const { data: goalsData } = await supabase.from('nutrition_goals').select('*').eq('user_id', id).maybeSingle()
+      const { data: goalsData } = await supabase
+        .from('nutrition_goals')
+        .select('*')
+        .eq('user_id', id)
+        .maybeSingle()
+
       if (goalsData) {
         setNutriGoals(goalsData)
-        setNutri(prev => ({
+        setNutri((prev) => ({
           ...prev,
           weight: goalsData.weight_kg || '',
           height: goalsData.height_cm || '',
-          age:    goalsData.age || '',
-          sex:    goalsData.sex || 'homme',
+          age: goalsData.age || '',
+          sex: goalsData.sex || 'homme',
           activity: goalsData.activity_factor || '1.55',
-          goal:   goalsData.goal_type || 'maintain',
+          goal: goalsData.goal_type || 'maintain',
         }))
       }
     } catch (error) {
       console.error('Erreur chargement fiche client :', error)
       setClient(null)
       setSessions([])
+      setPrepData({ hooper: [], compo: [], topsets: [], charge: [] })
       setErrorMessage("Impossible de charger la fiche client pour le moment.")
     } finally {
       setLoading(false)
@@ -275,7 +329,6 @@ export default function CoachClientDetailPage() {
       .slice(0, 5)
   }, [sessions])
 
-  // ── Calcul Mifflin-St Jeor ────────────────────────────────────────────────
   function calcMifflin({ weight, height, age, sex, activity, goal }) {
     const w = parseFloat(weight), h = parseFloat(height), a = parseFloat(age)
     if (!w || !h || !a) return null
@@ -291,8 +344,8 @@ export default function CoachClientDetailPage() {
       tdee: Math.round(tdee),
       calories: goalKcal,
       proteins: Math.round(w * 2),
-      carbs:    Math.round((goalKcal * 0.40) / 4),
-      fats:     Math.round((goalKcal * 0.25) / 9),
+      carbs: Math.round((goalKcal * 0.40) / 4),
+      fats: Math.round((goalKcal * 0.25) / 9),
     }
   }
 
@@ -303,18 +356,18 @@ export default function CoachClientDetailPage() {
     setNutriSaving(true)
     setNutriMsg('')
     const payload = {
-      user_id:         id,
-      calories:        calculated.calories,
-      proteins:        calculated.proteins,
-      carbs:           calculated.carbs,
-      fats:            calculated.fats,
-      weight_kg:       parseFloat(nutri.weight) || null,
-      height_cm:       parseFloat(nutri.height) || null,
-      age:             parseInt(nutri.age) || null,
-      sex:             nutri.sex,
+      user_id: id,
+      calories: calculated.calories,
+      proteins: calculated.proteins,
+      carbs: calculated.carbs,
+      fats: calculated.fats,
+      weight_kg: parseFloat(nutri.weight) || null,
+      height_cm: parseFloat(nutri.height) || null,
+      age: parseInt(nutri.age) || null,
+      sex: nutri.sex,
       activity_factor: nutri.activity,
-      goal_type:       nutri.goal,
-      updated_at:      new Date().toISOString(),
+      goal_type: nutri.goal,
+      updated_at: new Date().toISOString(),
     }
     const { error } = await supabase.from('nutrition_goals').upsert(payload, { onConflict: 'user_id' })
     if (error) setNutriMsg('Erreur : ' + error.message)
@@ -428,13 +481,12 @@ export default function CoachClientDetailPage() {
           </Card>
         ) : (
           <>
-            {/* Tabs */}
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {[
                 { key: 'performances', label: '📊 Performances' },
-                { key: 'nutrition',    label: '🥗 Nutrition' },
-                { key: 'prepa',        label: '⚡ Prépa physique' },
-              ].map(t => (
+                { key: 'nutrition', label: '🥗 Nutrition' },
+                { key: 'prepa', label: '⚡ Prépa physique' },
+              ].map((t) => (
                 <button key={t.key} onClick={() => setActiveTab(t.key)}
                   style={{ padding: '8px 16px', borderRadius: 10, border: `1px solid ${activeTab === t.key ? T.accent + '40' : T.border}`, background: activeTab === t.key ? T.accent + '12' : 'transparent', color: activeTab === t.key ? T.accentLight : T.textDim, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                   {t.label}
@@ -442,348 +494,348 @@ export default function CoachClientDetailPage() {
               ))}
             </div>
 
-            {activeTab !== 'prepa' && activeTab !== 'nutrition' && <><Card
-              glow
-              style={{
-                padding: '22px 20px',
-                background:
-                  'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.10), transparent 30%), linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
-              }}
-            >
-              <div
+            {activeTab !== 'prepa' && activeTab !== 'nutrition' && <>
+              <Card
+                glow
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  gap: 14,
-                  alignItems: 'flex-start',
-                  flexWrap: 'wrap',
+                  padding: '22px 20px',
+                  background:
+                    'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.10), transparent 30%), linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
                 }}
               >
-                <div>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: 14,
+                    alignItems: 'flex-start',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        color: T.text,
+                        fontWeight: 900,
+                        fontSize: 22,
+                      }}
+                    >
+                      {client.full_name || 'Client'}
+                    </div>
+
+                    <div style={{ color: T.textDim, fontSize: 13, marginTop: 6 }}>
+                      {client.email || 'Email non renseigné'}
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: 10,
+                        display: 'flex',
+                        gap: 8,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <Badge>{client.role || 'athlete'}</Badge>
+                      {client.goal_type ? <Badge color={T.blue}>{client.goal_type}</Badge> : null}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gap: 8,
+                      justifyItems: 'end',
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: 999,
+                        border: `1px solid ${(getStatusColor(stats.status) || T.border) + '30'}`,
+                        background: `${getStatusColor(stats.status)}18`,
+                        color: getStatusColor(stats.status),
+                        fontWeight: 800,
+                        fontSize: 12,
+                      }}
+                    >
+                      {stats.status}
+                    </div>
+
+                    <div
+                      style={{
+                        color: T.textMid,
+                        fontSize: 12,
+                      }}
+                    >
+                      Dernière séance : {stats.lastSessionDate ? formatDate(stats.lastSessionDate) : '—'}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                  gap: 12,
+                }}
+              >
+                <Card style={{ padding: 16 }}>
+                  <div
+                    style={{
+                      color: T.textSub,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                    }}
+                  >
+                    Séances
+                  </div>
+                  <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
+                    {stats.sessionsCount}
+                  </div>
+                </Card>
+
+                <Card style={{ padding: 16 }}>
+                  <div
+                    style={{
+                      color: T.textSub,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                    }}
+                  >
+                    Séries
+                  </div>
+                  <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
+                    {stats.totalSets}
+                  </div>
+                </Card>
+
+                <Card style={{ padding: 16 }}>
+                  <div
+                    style={{
+                      color: T.textSub,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                    }}
+                  >
+                    Meilleure charge
+                  </div>
+                  <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
+                    {stats.bestWeight ? `${stats.bestWeight.toFixed(1)} kg` : '—'}
+                  </div>
+                </Card>
+
+                <Card style={{ padding: 16 }}>
+                  <div
+                    style={{
+                      color: T.textSub,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                    }}
+                  >
+                    1RM estimé
+                  </div>
+                  <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
+                    {stats.best1RM ? `${stats.best1RM.toFixed(1)} kg` : '—'}
+                  </div>
+                </Card>
+
+                <Card style={{ padding: 16 }}>
+                  <div
+                    style={{
+                      color: T.textSub,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                    }}
+                  >
+                    Volume total
+                  </div>
+                  <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
+                    {stats.totalVolume ? `${Math.round(stats.totalVolume)} kg` : '—'}
+                  </div>
+                </Card>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0, 1.35fr) minmax(320px, 0.9fr)',
+                  gap: 18,
+                }}
+              >
+                <Card style={{ padding: '18px 18px' }}>
                   <div
                     style={{
                       color: T.text,
-                      fontWeight: 900,
-                      fontSize: 22,
-                    }}
-                  >
-                    {client.full_name || 'Client'}
-                  </div>
-
-                  <div style={{ color: T.textDim, fontSize: 13, marginTop: 6 }}>
-                    {client.email || 'Email non renseigné'}
-                  </div>
-
-                  <div
-                    style={{
-                      marginTop: 10,
-                      display: 'flex',
-                      gap: 8,
-                      flexWrap: 'wrap',
-                    }}
-                  >
-                    <Badge>{client.role || 'athlete'}</Badge>
-                    {client.goal_type ? <Badge color={T.blue}>{client.goal_type}</Badge> : null}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: 'grid',
-                    gap: 8,
-                    justifyItems: 'end',
-                  }}
-                >
-                  <div
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: 999,
-                      border: `1px solid ${(getStatusColor(stats.status) || T.border) + '30'}`,
-                      background: `${getStatusColor(stats.status)}18`,
-                      color: getStatusColor(stats.status),
+                      fontFamily: T.fontDisplay,
                       fontWeight: 800,
-                      fontSize: 12,
+                      fontSize: 18,
+                      marginBottom: 12,
                     }}
                   >
-                    {stats.status}
+                    Dernières séances
                   </div>
 
+                  {sessions.length === 0 ? (
+                    <div style={{ color: T.textMid, fontSize: 14 }}>
+                      Aucune séance enregistrée.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gap: 10 }}>
+                      {sessions.slice(0, 8).map((session) => {
+                        const totalVolume = getSessionVolume(session)
+                        const avgRpeValues = (session.sets || [])
+                          .map((set) => Number(set.rpe || 0))
+                          .filter(Boolean)
+
+                        const avgRpe = avgRpeValues.length
+                          ? avgRpeValues.reduce((a, b) => a + b, 0) / avgRpeValues.length
+                          : null
+
+                        return (
+                          <div
+                            key={session.id}
+                            style={{
+                              padding: '12px 14px',
+                              borderRadius: 14,
+                              background: 'rgba(255,255,255,0.03)',
+                              border: '1px solid rgba(255,255,255,0.06)',
+                              display: 'grid',
+                              gap: 8,
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                gap: 12,
+                                alignItems: 'center',
+                                flexWrap: 'wrap',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div style={{ fontSize: 18 }}>
+                                  {SEANCE_ICONS[session.seance_type] || '💪'}
+                                </div>
+
+                                <div>
+                                  <div
+                                    style={{
+                                      color: T.text,
+                                      fontWeight: 800,
+                                      fontSize: 14,
+                                    }}
+                                  >
+                                    {session.seance_type || 'Séance'}
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      color: T.textDim,
+                                      fontSize: 12,
+                                      marginTop: 4,
+                                    }}
+                                  >
+                                    {formatDate(session.date)}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div
+                                style={{
+                                  color: T.textMid,
+                                  fontSize: 12,
+                                  fontWeight: 800,
+                                }}
+                              >
+                                {session.sets.length} séries • {Math.round(totalVolume)} kg
+                                {avgRpe ? ` • RPE ${avgRpe.toFixed(1)}` : ''}
+                              </div>
+                            </div>
+
+                            {session.notes ? (
+                              <div
+                                style={{
+                                  color: T.textMid,
+                                  fontSize: 12,
+                                  lineHeight: 1.55,
+                                }}
+                              >
+                                Notes : {session.notes}
+                              </div>
+                            ) : null}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </Card>
+
+                <Card style={{ padding: 18 }}>
                   <div
                     style={{
-                      color: T.textMid,
-                      fontSize: 12,
+                      color: T.text,
+                      fontFamily: T.fontDisplay,
+                      fontWeight: 800,
+                      fontSize: 18,
+                      marginBottom: 12,
                     }}
                   >
-                    Dernière séance : {stats.lastSessionDate ? formatDate(stats.lastSessionDate) : '—'}
+                    Exercices les plus travaillés
                   </div>
-                </div>
-              </div>
-            </Card>
 
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                gap: 12,
-              }}
-            >
-              <Card style={{ padding: 16 }}>
-                <div
-                  style={{
-                    color: T.textSub,
-                    fontSize: 11,
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    letterSpacing: 1,
-                  }}
-                >
-                  Séances
-                </div>
-                <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
-                  {stats.sessionsCount}
-                </div>
-              </Card>
-
-              <Card style={{ padding: 16 }}>
-                <div
-                  style={{
-                    color: T.textSub,
-                    fontSize: 11,
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    letterSpacing: 1,
-                  }}
-                >
-                  Séries
-                </div>
-                <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
-                  {stats.totalSets}
-                </div>
-              </Card>
-
-              <Card style={{ padding: 16 }}>
-                <div
-                  style={{
-                    color: T.textSub,
-                    fontSize: 11,
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    letterSpacing: 1,
-                  }}
-                >
-                  Meilleure charge
-                </div>
-                <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
-                  {stats.bestWeight ? `${stats.bestWeight.toFixed(1)} kg` : '—'}
-                </div>
-              </Card>
-
-              <Card style={{ padding: 16 }}>
-                <div
-                  style={{
-                    color: T.textSub,
-                    fontSize: 11,
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    letterSpacing: 1,
-                  }}
-                >
-                  1RM estimé
-                </div>
-                <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
-                  {stats.best1RM ? `${stats.best1RM.toFixed(1)} kg` : '—'}
-                </div>
-              </Card>
-
-              <Card style={{ padding: 16 }}>
-                <div
-                  style={{
-                    color: T.textSub,
-                    fontSize: 11,
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    letterSpacing: 1,
-                  }}
-                >
-                  Volume total
-                </div>
-                <div style={{ color: T.text, fontSize: 22, fontWeight: 900, marginTop: 8 }}>
-                  {stats.totalVolume ? `${Math.round(stats.totalVolume)} kg` : '—'}
-                </div>
-              </Card>
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(0, 1.35fr) minmax(320px, 0.9fr)',
-                gap: 18,
-              }}
-            >
-              <Card style={{ padding: '18px 18px' }}>
-                <div
-                  style={{
-                    color: T.text,
-                    fontFamily: T.fontDisplay,
-                    fontWeight: 800,
-                    fontSize: 18,
-                    marginBottom: 12,
-                  }}
-                >
-                  Dernières séances
-                </div>
-
-                {sessions.length === 0 ? (
-                  <div style={{ color: T.textMid, fontSize: 14 }}>
-                    Aucune séance enregistrée.
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    {sessions.slice(0, 8).map((session) => {
-                      const totalVolume = getSessionVolume(session)
-                      const avgRpeValues = (session.sets || [])
-                        .map((set) => Number(set.rpe || 0))
-                        .filter(Boolean)
-
-                      const avgRpe = avgRpeValues.length
-                        ? avgRpeValues.reduce((a, b) => a + b, 0) / avgRpeValues.length
-                        : null
-
-                      return (
+                  {topExercises.length === 0 ? (
+                    <div style={{ color: T.textMid, fontSize: 14 }}>
+                      Pas encore assez de données d'exercices.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gap: 10 }}>
+                      {topExercises.map((exercise) => (
                         <div
-                          key={session.id}
+                          key={exercise.name}
                           style={{
                             padding: '12px 14px',
                             borderRadius: 14,
                             background: 'rgba(255,255,255,0.03)',
                             border: '1px solid rgba(255,255,255,0.06)',
-                            display: 'grid',
-                            gap: 8,
                           }}
                         >
                           <div
                             style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              gap: 12,
-                              alignItems: 'center',
-                              flexWrap: 'wrap',
+                              color: T.text,
+                              fontWeight: 800,
+                              fontSize: 14,
                             }}
                           >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              <div style={{ fontSize: 18 }}>
-                                {SEANCE_ICONS[session.seance_type] || '💪'}
-                              </div>
-
-                              <div>
-                                <div
-                                  style={{
-                                    color: T.text,
-                                    fontWeight: 800,
-                                    fontSize: 14,
-                                  }}
-                                >
-                                  {session.seance_type || 'Séance'}
-                                </div>
-
-                                <div
-                                  style={{
-                                    color: T.textDim,
-                                    fontSize: 12,
-                                    marginTop: 4,
-                                  }}
-                                >
-                                  {formatDate(session.date)}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div
-                              style={{
-                                color: T.textMid,
-                                fontSize: 12,
-                                fontWeight: 800,
-                              }}
-                            >
-                              {session.sets.length} séries • {Math.round(totalVolume)} kg
-                              {avgRpe ? ` • RPE ${avgRpe.toFixed(1)}` : ''}
-                            </div>
+                            {exercise.name}
                           </div>
 
-                          {session.notes ? (
-                            <div
-                              style={{
-                                color: T.textMid,
-                                fontSize: 12,
-                                lineHeight: 1.55,
-                              }}
-                            >
-                              Notes : {session.notes}
-                            </div>
-                          ) : null}
+                          <div
+                            style={{
+                              color: T.textDim,
+                              fontSize: 12,
+                              marginTop: 6,
+                            }}
+                          >
+                            {exercise.sets} séries • {Math.round(exercise.volume)} kg de volume • meilleur set à{' '}
+                            {exercise.bestWeight ? `${exercise.bestWeight} kg` : '—'}
+                          </div>
                         </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </Card>
-
-              <Card style={{ padding: 18 }}>
-                <div
-                  style={{
-                    color: T.text,
-                    fontFamily: T.fontDisplay,
-                    fontWeight: 800,
-                    fontSize: 18,
-                    marginBottom: 12,
-                  }}
-                >
-                  Exercices les plus travaillés
-                </div>
-
-                {topExercises.length === 0 ? (
-                  <div style={{ color: T.textMid, fontSize: 14 }}>
-                    Pas encore assez de données d'exercices.
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    {topExercises.map((exercise) => (
-                      <div
-                        key={exercise.name}
-                        style={{
-                          padding: '12px 14px',
-                          borderRadius: 14,
-                          background: 'rgba(255,255,255,0.03)',
-                          border: '1px solid rgba(255,255,255,0.06)',
-                        }}
-                      >
-                        <div
-                          style={{
-                            color: T.text,
-                            fontWeight: 800,
-                            fontSize: 14,
-                          }}
-                        >
-                          {exercise.name}
-                        </div>
-
-                        <div
-                          style={{
-                            color: T.textDim,
-                            fontSize: 12,
-                            marginTop: 6,
-                          }}
-                        >
-                          {exercise.sets} séries • {Math.round(exercise.volume)} kg de volume • meilleur set à{' '}
-                          {exercise.bestWeight ? `${exercise.bestWeight} kg` : '—'}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-            </div>
-
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              </div>
             </>}
 
             {activeTab === 'nutrition' && <div style={{ marginTop: 0 }}>
@@ -794,16 +846,15 @@ export default function CoachClientDetailPage() {
               <Card style={{ padding: 20 }}>
                 <div style={{ color: T.text, fontWeight: 800, fontSize: 15, marginBottom: 14 }}>Calcul Mifflin-St Jeor</div>
 
-                {/* Inputs */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 16 }}>
                   {[
                     { key: 'weight', label: 'Poids (kg)', placeholder: '75' },
                     { key: 'height', label: 'Taille (cm)', placeholder: '175' },
-                    { key: 'age',    label: 'Âge',         placeholder: '25' },
+                    { key: 'age', label: 'Âge', placeholder: '25' },
                   ].map(({ key, label, placeholder }) => (
                     <div key={key}>
                       <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>{label}</div>
-                      <input type="number" value={nutri[key]} onChange={e => setNutri(p => ({ ...p, [key]: e.target.value }))}
+                      <input type="number" value={nutri[key]} onChange={(e) => setNutri((p) => ({ ...p, [key]: e.target.value }))}
                         placeholder={placeholder}
                         style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '9px 12px', color: T.text, fontSize: 14, outline: 'none' }} />
                     </div>
@@ -811,7 +862,7 @@ export default function CoachClientDetailPage() {
 
                   <div>
                     <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Sexe</div>
-                    <select value={nutri.sex} onChange={e => setNutri(p => ({ ...p, sex: e.target.value }))}
+                    <select value={nutri.sex} onChange={(e) => setNutri((p) => ({ ...p, sex: e.target.value }))}
                       style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '9px 12px', color: T.text, fontSize: 14, outline: 'none', appearance: 'none' }}>
                       <option value="homme" style={{ background: '#1a1a2e' }}>Homme</option>
                       <option value="femme" style={{ background: '#1a1a2e' }}>Femme</option>
@@ -820,19 +871,19 @@ export default function CoachClientDetailPage() {
 
                   <div>
                     <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Activité</div>
-                    <select value={nutri.activity} onChange={e => setNutri(p => ({ ...p, activity: e.target.value }))}
+                    <select value={nutri.activity} onChange={(e) => setNutri((p) => ({ ...p, activity: e.target.value }))}
                       style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '9px 12px', color: T.text, fontSize: 14, outline: 'none', appearance: 'none' }}>
-                      <option value="1.2"  style={{ background: '#1a1a2e' }}>Sédentaire</option>
+                      <option value="1.2" style={{ background: '#1a1a2e' }}>Sédentaire</option>
                       <option value="1.375" style={{ background: '#1a1a2e' }}>Légèrement actif</option>
                       <option value="1.55" style={{ background: '#1a1a2e' }}>Modérément actif</option>
                       <option value="1.725" style={{ background: '#1a1a2e' }}>Très actif</option>
-                      <option value="1.9"  style={{ background: '#1a1a2e' }}>Extrêmement actif</option>
+                      <option value="1.9" style={{ background: '#1a1a2e' }}>Extrêmement actif</option>
                     </select>
                   </div>
 
                   <div>
                     <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Objectif</div>
-                    <select value={nutri.goal} onChange={e => setNutri(p => ({ ...p, goal: e.target.value }))}
+                    <select value={nutri.goal} onChange={(e) => setNutri((p) => ({ ...p, goal: e.target.value }))}
                       style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '9px 12px', color: T.text, fontSize: 14, outline: 'none', appearance: 'none' }}>
                       <option value="deficit" style={{ background: '#1a1a2e' }}>Perte de poids (−400 kcal)</option>
                       <option value="maintain" style={{ background: '#1a1a2e' }}>Maintien</option>
@@ -841,7 +892,6 @@ export default function CoachClientDetailPage() {
                   </div>
                 </div>
 
-                {/* Résultats */}
                 {calculated && (
                   <div style={{ background: 'rgba(62,207,142,0.06)', border: '1px solid rgba(62,207,142,0.2)', borderRadius: 14, padding: '16px 18px', marginBottom: 14 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 12, marginBottom: 10 }}>
@@ -859,8 +909,8 @@ export default function CoachClientDetailPage() {
                     <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
                       {[
                         { label: 'Protéines', value: `${calculated.proteins}g`, color: '#4d9fff' },
-                        { label: 'Glucides',  value: `${calculated.carbs}g`,    color: '#3ecf8e' },
-                        { label: 'Lipides',   value: `${calculated.fats}g`,     color: '#ff7043' },
+                        { label: 'Glucides', value: `${calculated.carbs}g`, color: '#3ecf8e' },
+                        { label: 'Lipides', value: `${calculated.fats}g`, color: '#ff7043' },
                       ].map(({ label, value, color }) => (
                         <div key={label} style={{ padding: '6px 14px', borderRadius: 20, background: `${color}15`, border: `1px solid ${color}30` }}>
                           <span style={{ fontWeight: 800, color, fontSize: 13 }}>{value}</span>
@@ -896,7 +946,6 @@ export default function CoachClientDetailPage() {
             </div>}
 
             {activeTab === 'prepa' && <PrepDataView prepData={prepData} />}
-
           </>
         )}
       </div>
@@ -904,13 +953,12 @@ export default function CoachClientDetailPage() {
   )
 }
 
-// ─── Prépa physique view ──────────────────────────────────────────────────────
 function scoreLabel2(total) {
   if (!total) return { text: '—', color: T.textDim }
-  if (total <= 7)  return { text: 'Très bon',         color: '#3ecf8e' }
-  if (total <= 13) return { text: 'Correct',           color: '#3ecf8e' }
-  if (total <= 20) return { text: 'Vigilance',         color: '#fbbf24' }
-  return               { text: 'Fatigue importante', color: '#ff4566' }
+  if (total <= 7) return { text: 'Très bon', color: '#3ecf8e' }
+  if (total <= 13) return { text: 'Correct', color: '#3ecf8e' }
+  if (total <= 20) return { text: 'Vigilance', color: '#fbbf24' }
+  return { text: 'Fatigue importante', color: '#ff4566' }
 }
 function calc1RMLocal(w, r) {
   const wn = parseFloat(w), rn = parseInt(r)
@@ -921,7 +969,7 @@ function MiniLine({ data, color = '#3ecf8e' }) {
   if (data.length < 2) return null
   const max = Math.max(...data), min = Math.min(...data), range = max - min || 0.1
   const W = 100, pad = 6, h = 50
-  const pts = data.map((v, i) => `${(pad + (i/(data.length-1))*(W-pad*2)).toFixed(1)},${(h-pad-((v-min)/range)*(h-pad*2)).toFixed(1)}`).join(' ')
+  const pts = data.map((v, i) => `${(pad + (i / (data.length - 1)) * (W - pad * 2)).toFixed(1)},${(h - pad - ((v - min) / range) * (h - pad * 2)).toFixed(1)}`).join(' ')
   return <svg viewBox={`0 0 ${W} ${h}`} style={{ width: '100%', display: 'block' }} preserveAspectRatio="none"><polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
 }
 function PrepDataView({ prepData }) {
@@ -931,20 +979,18 @@ function PrepDataView({ prepData }) {
   const hooperScore = lastH ? lastH.fatigue + lastH.sommeil + lastH.stress + lastH.courbatures : null
   const si = scoreLabel2(hooperScore)
 
-  // ACWR
-  function getWk(d) { const dt = new Date(d+'T00:00:00'), day = dt.getDay()||7; dt.setDate(dt.getDate()-day+1); return dt.toISOString().split('T')[0] }
-  const wkCharge = charge.reduce((acc, c) => { const wk = getWk(c.date); acc[wk]=(acc[wk]||0)+(c.charge_ua||c.rpe*c.duree_min); return acc }, {})
+  function getWk(d) { const dt = new Date(d + 'T00:00:00'), day = dt.getDay() || 7; dt.setDate(dt.getDate() - day + 1); return dt.toISOString().split('T')[0] }
+  const wkCharge = charge.reduce((acc, c) => { const wk = getWk(c.date); acc[wk] = (acc[wk] || 0) + (c.charge_ua || c.rpe * c.duree_min); return acc }, {})
   const wkKeys = Object.keys(wkCharge).sort()
   const curWk = getWk(today), idx = wkKeys.indexOf(curWk)
   const acute = wkCharge[curWk] || 0
-  const chronic = wkKeys.slice(Math.max(0,idx-3), idx+1).map(k => wkCharge[k])
-  const chronAvg = chronic.length ? chronic.reduce((a,b)=>a+b,0)/chronic.length : 0
-  const acwr = chronAvg ? Math.round((acute/chronAvg)*100)/100 : null
+  const chronic = wkKeys.slice(Math.max(0, idx - 3), idx + 1).map((k) => wkCharge[k])
+  const chronAvg = chronic.length ? chronic.reduce((a, b) => a + b, 0) / chronic.length : 0
+  const acwr = chronAvg ? Math.round((acute / chronAvg) * 100) / 100 : null
 
-  // PRs
   const prs = topsets.reduce((acc, log) => {
     const rm = log.estimated_1rm || calc1RMLocal(log.weight_kg, log.reps)
-    if (!acc[log.exercise_name] || (rm||0) > (acc[log.exercise_name].rm||0)) acc[log.exercise_name] = { ...log, rm }
+    if (!acc[log.exercise_name] || (rm || 0) > (acc[log.exercise_name].rm || 0)) acc[log.exercise_name] = { ...log, rm }
     return acc
   }, {})
 
@@ -952,7 +998,6 @@ function PrepDataView({ prepData }) {
 
   return (
     <div style={{ display: 'grid', gap: 14 }}>
-      {/* HOOPER */}
       <Card>
         <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>HOOPER</div>
         {lastH ? (
@@ -961,39 +1006,38 @@ function PrepDataView({ prepData }) {
               <div>
                 <div style={{ fontSize: 36, fontWeight: 900, color: si.color, fontFamily: T.fontDisplay, lineHeight: 1 }}>{hooperScore}<span style={{ fontSize: 16 }}>/40</span></div>
                 <div style={{ fontSize: 13, color: si.color, fontWeight: 700, marginTop: 4 }}>{si.text}</div>
-                <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>{lastH.date === today ? "✓ Rempli aujourd'hui" : `Il y a ${Math.floor((Date.now()-new Date(lastH.date+'T00:00:00').getTime())/86400000)}j`}</div>
+                <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>{lastH.date === today ? "✓ Rempli aujourd'hui" : `Il y a ${Math.floor((Date.now() - new Date(lastH.date + 'T00:00:00').getTime()) / 86400000)}j`}</div>
               </div>
               <div style={{ display: 'grid', gap: 4 }}>
-                {[['Fatigue',lastH.fatigue,'#ff7043'],['Sommeil',lastH.sommeil,'#9d7dea'],['Stress',lastH.stress,'#4d9fff'],['Courbatures',lastH.courbatures,'#ff4566']].map(([l,v,c]) => (
+                {[['Fatigue', lastH.fatigue, '#ff7043'], ['Sommeil', lastH.sommeil, '#9d7dea'], ['Stress', lastH.stress, '#4d9fff'], ['Courbatures', lastH.courbatures, '#ff4566']].map(([l, v, c]) => (
                   <div key={l} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, fontSize: 12 }}>
                     <span style={{ color: T.textDim }}>{l}</span><span style={{ color: c, fontWeight: 700 }}>{v}/10</span>
                   </div>
                 ))}
               </div>
             </div>
-            {hooper.length >= 2 && <MiniLine data={hooper.slice(0,14).reverse().map(h => h.fatigue+h.sommeil+h.stress+h.courbatures)} color={si.color} />}
-            {lastH.doms_zones && Object.values(lastH.doms_zones).some(z => z.level > 0) && (
+            {hooper.length >= 2 && <MiniLine data={hooper.slice(0, 14).reverse().map((h) => h.fatigue + h.sommeil + h.stress + h.courbatures)} color={si.color} />}
+            {lastH.doms_zones && Object.values(lastH.doms_zones).some((z) => z.level > 0) && (
               <div style={{ marginTop: 8, padding: '7px 12px', background: 'rgba(255,69,102,0.06)', borderRadius: 10, fontSize: 12, color: '#ff4566' }}>
-                🩹 DOMS : {Object.entries(lastH.doms_zones).filter(([,v])=>v.level>0).map(([k])=>k.replace('_',' ')).join(', ')}
+                🩹 DOMS : {Object.entries(lastH.doms_zones).filter(([, v]) => v.level > 0).map(([k]) => k.replace('_', ' ')).join(', ')}
               </div>
             )}
           </div>
         ) : <div style={{ color: T.textDim, fontSize: 13 }}>Aucun questionnaire rempli</div>}
       </Card>
 
-      {/* Compo + Charge */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
         <Card style={{ padding: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: T.text, marginBottom: 10 }}>Composition corporelle</div>
           {lastC ? (
             <div style={{ display: 'grid', gap: 8 }}>
-              {[['Poids', lastC.weight_kg, 'kg', '#3ecf8e'],['Masse grasse', lastC.body_fat_pct, '%', '#ff7043'],['Masse maigre', lastC.muscle_mass_kg, 'kg', '#4d9fff']].filter(([,v])=>v).map(([l,v,u,c])=>(
+              {[['Poids', lastC.weight_kg, 'kg', '#3ecf8e'], ['Masse grasse', lastC.body_fat_pct, '%', '#ff7043'], ['Masse maigre', lastC.muscle_mass_kg, 'kg', '#4d9fff']].filter(([, v]) => v).map(([l, v, u, c]) => (
                 <div key={l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: 12, color: T.textDim }}>{l}</span>
                   <span style={{ fontSize: 16, fontWeight: 900, color: c, fontFamily: T.fontDisplay }}>{v}<span style={{ fontSize: 10, marginLeft: 2 }}>{u}</span></span>
                 </div>
               ))}
-              <div style={{ fontSize: 10, color: T.textDim }}>{new Date(lastC.date+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'})}</div>
+              <div style={{ fontSize: 10, color: T.textDim }}>{new Date(lastC.date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
             </div>
           ) : <div style={{ color: T.textDim, fontSize: 12 }}>Aucune mesure</div>}
         </Card>
@@ -1009,12 +1053,11 @@ function PrepDataView({ prepData }) {
         </Card>
       </div>
 
-      {/* TOPSET PRs */}
       {Object.keys(prs).length > 0 && (
         <Card>
           <div style={{ fontSize: 13, fontWeight: 800, color: T.text, marginBottom: 10 }}>TOPSET — Records</div>
           <div style={{ display: 'grid', gap: 6 }}>
-            {Object.values(prs).sort((a,b)=>(b.rm||0)-(a.rm||0)).slice(0,6).map(pr => (
+            {Object.values(prs).sort((a, b) => (b.rm || 0) - (a.rm || 0)).slice(0, 6).map((pr) => (
               <div key={pr.exercise_name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: `1px solid ${T.border}` }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{pr.exercise_name}</div>
