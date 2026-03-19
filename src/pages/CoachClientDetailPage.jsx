@@ -102,7 +102,6 @@ function getSessionVolume(session) {
 export default function CoachClientDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const navigate = useNavigate()
 
   const [client, setClient] = useState(null)
   const [sessions, setSessions] = useState([])
