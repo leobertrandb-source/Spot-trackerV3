@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { PageWrap, Card, Btn, Badge } from '../components/UI'
 import { T, SEANCE_ICONS } from '../lib/data'
@@ -101,6 +101,8 @@ function getSessionVolume(session) {
 
 export default function CoachClientDetailPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
+  const navigate = useNavigate()
 
   const [client, setClient] = useState(null)
   const [sessions, setSessions] = useState([])
@@ -945,7 +947,17 @@ export default function CoachClientDetailPage() {
               </Card>
             </div>}
 
-            {activeTab === 'prepa' && <PrepDataView prepData={prepData} />}
+            {activeTab === 'prepa' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                  <button onClick={() => navigate(`/prep/analyse/${id}`)}
+                    style={{ padding: '9px 18px', borderRadius: 12, border: `1px solid ${T.accent}40`, background: `${T.accent}12`, color: T.accentLight, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                    📊 Analyse complète →
+                  </button>
+                </div>
+                <PrepDataView prepData={prepData} />
+              </div>
+            )}
           </>
         )}
       </div>
