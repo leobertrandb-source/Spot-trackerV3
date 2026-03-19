@@ -21,13 +21,20 @@ if (pathname.startsWith('/progression')) return 'Progression'
 if (pathname.startsWith('/mon-espace')) return 'Mon espace'
 if (pathname.startsWith('/objectif')) return 'Objectif'
 
+if (pathname.startsWith('/prep/hooper')) return 'HOOPER'
+if (pathname.startsWith('/prep/charge-externe')) return 'Charge externe'
+if (pathname.startsWith('/prep/charge')) return 'Charge interne'
+if (pathname.startsWith('/prep/compo')) return 'Composition corporelle'
+if (pathname.startsWith('/prep/topset')) return 'TOPSET'
+if (pathname.startsWith('/prep/analyse')) return 'Analyse athlète'
+
 return 'Le Spot'
 }
 
 export default function Topbar({ isMobile = false, onMenuClick }) {
 const navigate = useNavigate()
 const location = useLocation()
-const { user, profile } = useAuth()
+const { user, profile, showPrepPhysique } = useAuth()
 const [loggingOut, setLoggingOut] = useState(false)
 
 const isCoach = profile?.role === 'coach'
@@ -54,6 +61,52 @@ window.alert('Impossible de se déconnecter pour le moment.')
 } finally {
 setLoggingOut(false)
 }
+}
+
+if (showPrepPhysique) {
+  return (
+    <header style={{
+      height: 64,
+      borderBottom: '1px solid #e8e4dc',
+      background: '#ffffff',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '0 24px',
+      boxSizing: 'border-box',
+      position: 'sticky',
+      top: 0,
+      zIndex: 20,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {isMobile && (
+          <button type="button" onClick={onMenuClick}
+            style={{ width: 36, height: 36, borderRadius: 8, border: '1px solid #e8e4dc', background: 'transparent', color: '#1a1a1a', fontSize: 18, cursor: 'pointer' }}>
+            ☰
+          </button>
+        )}
+        <div>
+          <div style={{ fontFamily: "'DM Serif Display', serif", fontWeight: 400, fontSize: 17, color: '#1a1a1a', lineHeight: 1 }}>
+            {pageTitle}
+          </div>
+          <div style={{ fontSize: 10, color: '#9e9e9e', marginTop: 3, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 600 }}>
+            {isCoach ? 'ProSportConcept · Préparateur physique' : 'ProSportConcept · Athlète'}
+          </div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {!isMobile && (
+          <div style={{ padding: '7px 14px', borderRadius: 20, border: '1px solid #e8e4dc', background: '#f5f3ef', color: '#6b6b6b', fontSize: 12, fontWeight: 600 }}>
+            {displayName}
+          </div>
+        )}
+        <button type="button" onClick={handleLogout} disabled={loggingOut}
+          style={{ height: 36, borderRadius: 8, border: '1px solid #e8e4dc', background: '#f5f3ef', color: '#1a1a1a', padding: '0 14px', cursor: 'pointer', fontWeight: 600, fontSize: 12, opacity: loggingOut ? 0.7 : 1 }}>
+          {loggingOut ? '...' : 'Déconnexion'}
+        </button>
+      </div>
+    </header>
+  )
 }
 
 return (
