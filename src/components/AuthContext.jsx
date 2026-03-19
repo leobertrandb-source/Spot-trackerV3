@@ -49,13 +49,13 @@ export function AuthProvider({ children }) {
 
         const nextUser = session?.user ?? null
         setUser(nextUser)
-        setLoading(false)
 
         if (nextUser?.id) {
-          fetchProfile(nextUser.id)
+          await fetchProfile(nextUser.id)
         } else {
           setProfile(null)
         }
+        setLoading(false)
       } catch (error) {
         console.error('init auth error:', error)
         if (!active) return
@@ -74,12 +74,12 @@ export function AuthProvider({ children }) {
 
       const nextUser = session?.user ?? null
       setUser(nextUser)
-      setLoading(false)
 
       if (nextUser?.id) {
-        fetchProfile(nextUser.id)
+        fetchProfile(nextUser.id).then(() => setLoading(false))
       } else {
         setProfile(null)
+        setLoading(false)
       }
     })
 
