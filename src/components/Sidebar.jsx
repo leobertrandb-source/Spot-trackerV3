@@ -203,11 +203,9 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
     ...(showPrepPhysique ? [
       { to: '/prep/hooper',  label: 'HOOPER' },
       { to: '/prep/charge',  label: 'Charge interne' },
+      { to: '/prep/charge-externe', label: 'Charge externe' },
       { to: '/prep/compo',   label: 'Composition corporelle' },
       { to: '/prep/topset',  label: 'TOPSET' },
-      ...(profile?.role === 'coach' ? [
-        { to: '/prep/charge-externe', label: 'Charge externe' },
-      ] : []),
     ] : []),
   ]
 
