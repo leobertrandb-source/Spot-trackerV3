@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import { PageWrap, Card, Btn } from '../components/UI'
 import { T } from '../lib/data'
+import PushNotifToggle from '../components/PushNotifToggle'
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const HOOPER_FIELDS = [
@@ -194,7 +195,18 @@ export default function PrepHooperPage() {
     setSaving(true)
     const payload = { user_id: user.id, date: today, ...values, doms_zones: domsZones, notes }
     const { error } = await supabase.from('hooper_logs').upsert(payload, { onConflict: 'user_id,date' })
-    if (!error) { setSavedToday(true); loadData() }
+    if (!error) {
+      setSavedToday(true)
+      loadData()
+      // Alerte coach si score élevé
+      const score = values.fatigue + values.sommeil + values.stress + values.courbatures
+      if (score >= 21) {
+        fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/send-notifications/fatigue`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}` },
+        }).catch(() => {})
+      }
+    }
     setSaving(false)
   }
 
@@ -237,6 +249,9 @@ export default function PrepHooperPage() {
             {savedToday && <span style={{ marginLeft: 10, color: T.accentLight, fontSize: 12, fontWeight: 700 }}>✓ Rempli aujourd'hui</span>}
           </div>
         </div>
+
+        {/* Notifications push */}
+        <PushNotifToggle />
 
         {/* Score du jour */}
         <Card glow>
