@@ -13,6 +13,13 @@ const SESSION_TYPES = [
   { key: 'autre',     label: 'Autre',      color: '#8899aa', emoji: '📋' },
 ]
 
+const SPEED_BANDS = [
+  { key: 'lent',    label: 'Lent',    range: '< 8 km/h',     color: '#3ecf8e' },
+  { key: 'modere',  label: 'Modéré',  range: '8–12 km/h',    color: '#fbbf24' },
+  { key: 'rapide',  label: 'Rapide',  range: '12–18 km/h',   color: '#ff7043' },
+  { key: 'sprint',  label: 'Sprint',  range: '> 18 km/h',    color: '#ff4566' },
+]
+
 const RPE_LABELS = ['','Repos actif','Très facile','Facile','Modéré','Modéré+','Difficile','Difficile+','Très difficile','Très difficile+','Maximum']
 const RPE_COLORS = ['','#3ecf8e','#3ecf8e','#3ecf8e','#3ecf8e','#fbbf24','#fbbf24','#ff7043','#ff7043','#ff4566','#ff4566']
 
@@ -75,6 +82,9 @@ export function ChargeExterneForm({ sessionId = null, onSaved = null, compact = 
   const [duree, setDuree] = useState('')
   const [type, setType] = useState('force')
   const [notes, setNotes] = useState('')
+  const [km, setKm] = useState('')
+  const [vitesseMoy, setVitesseMoy] = useState('')
+  const [speedBands, setSpeedBands] = useState({ lent: '', modere: '', rapide: '', sprint: '' })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -83,12 +93,17 @@ export function ChargeExterneForm({ sessionId = null, onSaved = null, compact = 
   async function handleSave() {
     if (!duree) return
     setSaving(true)
+    const kmData = {
+      km_total: parseFloat(km) || null,
+      vitesse_moy: parseFloat(vitesseMoy) || null,
+      speed_bands: Object.values(speedBands).some(v => v) ? speedBands : null,
+    }
     const { error } = await supabase.from('charge_externe_logs').insert({
       user_id: user.id, date: today,
       rpe, duree_min: parseInt(duree),
       type_seance: type,
       session_id: sessionId || null,
-      notes: notes || null,
+      notes: notes ? `${notes} | km:${JSON.stringify(kmData)}` : JSON.stringify(kmData),
     })
     if (!error) { setSaved(true); if (onSaved) onSaved() }
     setSaving(false)
@@ -148,6 +163,51 @@ export function ChargeExterneForm({ sessionId = null, onSaved = null, compact = 
               {t.emoji} {t.label}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Kilométrage */}
+      <div>
+        <div style={{ fontSize: 12, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Kilométrage (optionnel)</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 11, color: T.textDim, marginBottom: 4 }}>Distance totale (km)</div>
+            <input type="number" step="0.1" value={km} onChange={e => setKm(e.target.value)} placeholder="ex: 8.5"
+              style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '9px 12px', color: T.text, fontSize: 14, outline: 'none' }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: T.textDim, marginBottom: 4 }}>Vitesse moyenne (km/h)</div>
+            <input type="number" step="0.1" value={vitesseMoy} onChange={e => setVitesseMoy(e.target.value)} placeholder="ex: 12"
+              style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '9px 12px', color: T.text, fontSize: 14, outline: 'none' }} />
+          </div>
+        </div>
+
+        {/* Bandes de vitesse */}
+        <div style={{ marginTop: 10 }}>
+          <div style={{ fontSize: 11, color: T.textDim, marginBottom: 8 }}>Répartition par bandes de vitesse (km)</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px,1fr))', gap: 8 }}>
+            {SPEED_BANDS.map(band => (
+              <div key={band.key}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: band.color, marginBottom: 4 }}>{band.label}</div>
+                <div style={{ fontSize: 9, color: T.textDim, marginBottom: 4 }}>{band.range}</div>
+                <input type="number" step="0.1" value={speedBands[band.key]} onChange={e => setSpeedBands(p => ({...p, [band.key]: e.target.value}))}
+                  placeholder="km"
+                  style={{ width: '100%', boxSizing: 'border-box', background: `${band.color}08`, border: `1px solid ${band.color}30`, borderRadius: 8, padding: '7px 8px', color: band.color, fontSize: 13, fontWeight: 700, outline: 'none', textAlign: 'center' }} />
+              </div>
+            ))}
+          </div>
+          {/* Barre visuelle */}
+          {Object.values(speedBands).some(v => parseFloat(v) > 0) && (() => {
+            const total = SPEED_BANDS.reduce((s, b) => s + (parseFloat(speedBands[b.key]) || 0), 0)
+            return total > 0 ? (
+              <div style={{ marginTop: 10, height: 10, borderRadius: 5, overflow: 'hidden', display: 'flex' }}>
+                {SPEED_BANDS.map(band => {
+                  const pct = ((parseFloat(speedBands[band.key]) || 0) / total) * 100
+                  return pct > 0 ? <div key={band.key} style={{ width: `${pct}%`, background: band.color, transition: 'width 0.3s' }} title={`${band.label}: ${speedBands[band.key]}km`} /> : null
+                })}
+              </div>
+            ) : null
+          })()}
         </div>
       </div>
 
