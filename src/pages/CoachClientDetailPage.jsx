@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { PageWrap, Card, Btn, Badge } from '../components/UI'
 import { T, SEANCE_ICONS } from '../lib/data'
+import PrepCompoPage from './PrepCompoPage'
 
 function estimate1RM(weight, reps) {
   const w = Number(weight || 0)
@@ -108,6 +109,7 @@ export default function CoachClientDetailPage() {
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const [activeTab, setActiveTab] = useState('performances')
+  const [prepSubTab, setPrepSubTab] = useState('apercu')
   const [prepData, setPrepData] = useState({ hooper: [], compo: [], topsets: [], charge: [] })
   // Nutrition
   const [nutri, setNutri] = useState({ weight: '', height: '', age: '', sex: 'homme', activity: '1.55', goal: 'maintain' })
@@ -948,13 +950,22 @@ export default function CoachClientDetailPage() {
 
             {activeTab === 'prepa' && (
               <div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {[{ key: 'apercu', label: '📊 Aperçu' }, { key: 'bilan', label: '⚖️ Saisir un bilan compo' }].map(t => (
+                      <button key={t.key} onClick={() => setPrepSubTab(t.key)}
+                        style={{ padding: '7px 14px', borderRadius: 10, border: `1px solid ${prepSubTab === t.key ? T.accent + '40' : T.border}`, background: prepSubTab === t.key ? T.accent + '12' : 'transparent', color: prepSubTab === t.key ? T.accentLight : T.textDim, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
                   <button onClick={() => navigate(`/prep/analyse/${id}`)}
                     style={{ padding: '9px 18px', borderRadius: 12, border: `1px solid ${T.accent}40`, background: `${T.accent}12`, color: T.accentLight, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                     📊 Analyse complète →
                   </button>
                 </div>
-                <PrepDataView prepData={prepData} />
+                {prepSubTab === 'apercu' && <PrepDataView prepData={prepData} />}
+                {prepSubTab === 'bilan' && <PrepCompoPage athleteId={id} />}
               </div>
             )}
           </>
