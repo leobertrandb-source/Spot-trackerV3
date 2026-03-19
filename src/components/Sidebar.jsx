@@ -176,7 +176,11 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
   const { profile, user, signOut, showMethodeSpot, showPrepPhysique } = useAuth()
   const isCoach = profile?.role === 'coach'
 
-  const coachLinks = [
+  const coachLinks = showPrepPhysique ? [
+    { to: '/coach',          label: 'Dashboard' },
+    { to: '/programmes',     label: 'Programmes' },
+    { to: '/exercices',      label: 'Exercices' },
+  ] : [
     { to: '/coach',          label: 'Dashboard' },
     { to: '/coach/clients',  label: 'Clients' },
     { to: '/programmes',     label: 'Programmes' },
