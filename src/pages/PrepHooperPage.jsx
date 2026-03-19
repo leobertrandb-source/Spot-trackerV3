@@ -158,7 +158,7 @@ function TrendChart({ data, color = '#3ecf8e', height = 60 }) {
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function PrepHooperPage() {
-  const { user, profile } = useAuth()
+  const { user, profile, isCoach } = useAuth()
   const today = new Date().toISOString().split('T')[0]
 
   const [values, setValues] = useState({ fatigue: 5, sommeil: 5, stress: 5, courbatures: 5 })
@@ -215,7 +215,6 @@ export default function PrepHooperPage() {
   const trendData = useMemo(() => history.slice(0, 14).reverse().map(h => h.fatigue + h.sommeil + h.stress + h.courbatures), [history])
   const activeDoms = Object.entries(domsZones).filter(([, v]) => v.level > 0)
 
-  const isCoach = profile?.role === 'coach'
 
   const TABS = [
     { key: 'saisie',     label: 'HOOPER' },
