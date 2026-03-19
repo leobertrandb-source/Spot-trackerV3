@@ -241,13 +241,17 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
               <NavItem key={item.to} {...item} active={isActive(item.to)} onClick={isMobile ? onClose : undefined} index={i} />
             ))}
           </div>
-          <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '8px 4px' }} />
-          <div style={{ display: 'grid', gap: 2 }}>
-            <SectionLabel>Nutrition</SectionLabel>
-            {athleteNutritionLinks.map((item, i) => (
-              <NavItem key={item.to} {...item} active={isActive(item.to)} onClick={isMobile ? onClose : undefined} index={i + 4} />
-            ))}
-          </div>
+          {!showPrepPhysique && (
+            <>
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.04)', margin: '8px 4px' }} />
+              <div style={{ display: 'grid', gap: 2 }}>
+                <SectionLabel>Nutrition</SectionLabel>
+                {athleteNutritionLinks.map((item, i) => (
+                  <NavItem key={item.to} {...item} active={isActive(item.to)} onClick={isMobile ? onClose : undefined} index={i + 4} />
+                ))}
+              </div>
+            </>
+          )}
         </>
       )}
 
