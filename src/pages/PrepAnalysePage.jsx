@@ -509,7 +509,9 @@ export default function PrepAnalysePage() {
         {/* ── COMPOSITION ── */}
         <Section title="Composition corporelle" icon="⚖️" color={P.blue}
           badge={lastC ? `${lastC.weight_kg||'—'}kg · MG ${lastC.body_fat_pct||'—'}% · MM ${lastC.muscle_mass_kg||'—'}kg` : 'Aucune mesure'}>
-          <div style={{ paddingTop:20, display:'grid', gap:20 }}>
+          <div style={{ paddingTop:20, display:'grid', gap:24 }}>
+
+            {/* Graphiques courbes */}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px,1fr))', gap:20 }}>
               {[
                 {data:compoData.poids,   color:CHART_COLORS.poids,   title:'Poids', unit:' kg',  key:'weight_kg'},
@@ -520,6 +522,92 @@ export default function PrepAnalysePage() {
                   lastValue={lastC?.[key]} delta={prevC?.[key]?parseFloat(lastC[key])-parseFloat(prevC[key]):null} />
               ))}
             </div>
+
+            {/* Dernière mesure détaillée */}
+            {lastC && (() => {
+              let n = null; try { n = lastC.notes ? JSON.parse(lastC.notes) : null } catch {}
+              if (!n) return null
+              return (
+                <div style={{ display:'grid', gap:16, paddingTop:16, borderTop:`1px solid ${P.border}` }}>
+
+                  {/* Conditions mesure */}
+                  {n.impedance && (
+                    <div>
+                      <div style={{ fontSize:11, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub, marginBottom:8 }}>Conditions de mesure</div>
+                      <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                        {n.heure && <span style={{ padding:'4px 10px', background:P.bg, border:`1px solid ${P.border}`, borderRadius:20, fontSize:11, color:P.text }}>🕐 {n.heure}</span>}
+                        {n.modele_balance && <span style={{ padding:'4px 10px', background:P.bg, border:`1px solid ${P.border}`, borderRadius:20, fontSize:11, color:P.text }}>⚖️ {n.modele_balance}</span>}
+                        {n.tenue && <span style={{ padding:'4px 10px', background:P.bg, border:`1px solid ${P.border}`, borderRadius:20, fontSize:11, color:P.text }}>👕 {n.tenue}</span>}
+                        {n.impedance.eau_litres && <span style={{ padding:'4px 10px', background:P.bg, border:`1px solid ${P.border}`, borderRadius:20, fontSize:11, color:P.text }}>💧 {n.impedance.eau_litres}L</span>}
+                        {n.impedance.heure_repas && <span style={{ padding:'4px 10px', background:P.bg, border:`1px solid ${P.border}`, borderRadius:20, fontSize:11, color:P.text }}>🍽️ Repas {n.impedance.heure_repas}</span>}
+                        {n.impedance.activite_veille && <span style={{ padding:'4px 10px', background:P.bg, border:`1px solid ${P.border}`, borderRadius:20, fontSize:11, color:P.text }}>🏃 {n.impedance.activite_veille}</span>}
+                        {n.impedance.cycle_phase && n.impedance.cycle_phase !== 'na' && <span style={{ padding:'4px 10px', background:P.bg, border:`1px solid ${P.border}`, borderRadius:20, fontSize:11, color:P.text }}>🔄 {n.impedance.cycle_phase}</span>}
+                        {n.impedance.alcool_veille && <span style={{ padding:'4px 10px', background:'#fee2e2', border:'1px solid #fca5a5', borderRadius:20, fontSize:11, color:P.red }}>🍷 Alcool H-24</span>}
+                        {n.impedance.cafeine_veille && <span style={{ padding:'4px 10px', background:'#fef3c7', border:'1px solid #fcd34d', borderRadius:20, fontSize:11, color:P.yellow }}>☕ Caféïne</span>}
+                        {n.impedance.pacemaker && <span style={{ padding:'4px 10px', background:'#fee2e2', border:'1px solid #fca5a5', borderRadius:20, fontSize:11, color:P.red }}>⚠️ Pacemaker</span>}
+                        {n.impedance.enceinte && <span style={{ padding:'4px 10px', background:'#fee2e2', border:'1px solid #fca5a5', borderRadius:20, fontSize:11, color:P.red }}>⚠️ Enceinte</span>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* MG1 + MG2 */}
+                  {(n.mg1 || n.mg2) && (
+                    <div>
+                      <div style={{ fontSize:11, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub, marginBottom:10 }}>Pliométrie cutanée — dernière mesure</div>
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px,1fr))', gap:12 }}>
+                        {n.mg1 && (
+                          <div style={{ padding:'14px 16px', background:P.bg, borderRadius:12, border:`1px solid ${P.border}` }}>
+                            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:10 }}>
+                              <span style={{ fontSize:12, fontWeight:600, color:P.text }}>MG1 — 4 plis</span>
+                              {n.mg1.resultat && <span style={{ fontSize:20, fontWeight:700, color:P.yellow, fontFamily:"'DM Serif Display',serif" }}>{n.mg1.resultat}%</span>}
+                            </div>
+                            <div style={{ display:'grid', gap:4 }}>
+                              {['sous_scapulaire','tricipital','supra_iliaque','ombilical'].filter(k=>n.mg1[k]).map(k=>(
+                                <div key={k} style={{ display:'flex', justifyContent:'space-between', fontSize:12 }}>
+                                  <span style={{ color:P.sub, textTransform:'capitalize' }}>{k.replace(/_/g,' ')}</span>
+                                  <span style={{ fontWeight:600, color:P.text }}>{n.mg1[k]} mm</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {n.mg2 && (
+                          <div style={{ padding:'14px 16px', background:P.bg, borderRadius:12, border:`1px solid ${P.border}` }}>
+                            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:10 }}>
+                              <span style={{ fontSize:12, fontWeight:600, color:P.text }}>MG2 — 7 plis</span>
+                              {n.mg2.resultat && <span style={{ fontSize:20, fontWeight:700, color:P.red, fontFamily:"'DM Serif Display',serif" }}>{n.mg2.resultat}%</span>}
+                            </div>
+                            <div style={{ display:'grid', gap:4 }}>
+                              {['sous_scapulaire','tricipital','supra_iliaque','ombilical','bicipital','sural','quadricipital'].filter(k=>n.mg2[k]).map(k=>(
+                                <div key={k} style={{ display:'flex', justifyContent:'space-between', fontSize:12 }}>
+                                  <span style={{ color:P.sub, textTransform:'capitalize' }}>{k.replace(/_/g,' ')}</span>
+                                  <span style={{ fontWeight:600, color:P.text }}>{n.mg2[k]} mm</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Silhouette dernière mesure */}
+                  {n.silhouette && Object.values(n.silhouette).some(v=>v) && (
+                    <div>
+                      <div style={{ fontSize:11, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub, marginBottom:10 }}>Mesure silhouette — dernière mesure (cm)</div>
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(100px,1fr))', gap:8 }}>
+                        {[['epaule','Épaule'],['poitrine','Poitrine'],['hanche','Hanche'],['taille','Taille'],['cuisse','Cuisse'],['genoux','Genoux']].filter(([k])=>n.silhouette[k]).map(([k,l])=>(
+                          <div key={k} style={{ padding:'10px 12px', background:P.bg, borderRadius:10, border:`1px solid ${P.border}`, textAlign:'center' }}>
+                            <div style={{ fontSize:10, color:P.sub, marginBottom:4 }}>{l}</div>
+                            <div style={{ fontSize:16, fontWeight:700, color:P.text, fontFamily:"'DM Serif Display',serif" }}>{n.silhouette[k]}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         </Section>
 
