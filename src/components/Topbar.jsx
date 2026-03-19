@@ -67,8 +67,8 @@ if (showPrepPhysique) {
   return (
     <header style={{
       height: 64,
-      borderBottom: '1px solid #e8e4dc',
-      background: '#ffffff',
+      borderBottom: `1px solid ${T.border}`,
+      background: T.bgAlt,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -81,27 +81,27 @@ if (showPrepPhysique) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {isMobile && (
           <button type="button" onClick={onMenuClick}
-            style={{ width: 36, height: 36, borderRadius: 8, border: '1px solid #e8e4dc', background: 'transparent', color: '#1a1a1a', fontSize: 18, cursor: 'pointer' }}>
+            style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${T.border}`, background: 'transparent', color: T.text, fontSize: 18, cursor: 'pointer' }}>
             ☰
           </button>
         )}
         <div>
-          <div style={{ fontFamily: "'DM Serif Display', serif", fontWeight: 400, fontSize: 17, color: '#1a1a1a', lineHeight: 1 }}>
+          <div style={{ fontFamily: "'DM Serif Display', serif", fontWeight: 400, fontSize: 17, color: T.text, lineHeight: 1 }}>
             {pageTitle}
           </div>
-          <div style={{ fontSize: 10, color: '#9e9e9e', marginTop: 3, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 600 }}>
+          <div style={{ fontSize: 10, color: T.textDim, marginTop: 3, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 600 }}>
             {isCoach ? 'ProSportConcept · Préparateur physique' : 'ProSportConcept · Athlète'}
           </div>
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         {!isMobile && (
-          <div style={{ padding: '7px 14px', borderRadius: 20, border: '1px solid #e8e4dc', background: '#f5f3ef', color: '#6b6b6b', fontSize: 12, fontWeight: 600 }}>
+          <div style={{ padding: '7px 14px', borderRadius: 20, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textMid, fontSize: 12, fontWeight: 600 }}>
             {displayName}
           </div>
         )}
         <button type="button" onClick={handleLogout} disabled={loggingOut}
-          style={{ height: 36, borderRadius: 8, border: '1px solid #e8e4dc', background: '#f5f3ef', color: '#1a1a1a', padding: '0 14px', cursor: 'pointer', fontWeight: 600, fontSize: 12, opacity: loggingOut ? 0.7 : 1 }}>
+          style={{ height: 36, borderRadius: 8, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.text, padding: '0 14px', cursor: 'pointer', fontWeight: 600, fontSize: 12, opacity: loggingOut ? 0.7 : 1 }}>
           {loggingOut ? '...' : 'Déconnexion'}
         </button>
       </div>
