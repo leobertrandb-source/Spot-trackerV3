@@ -107,6 +107,7 @@ function PrivateAppShell() {
       )}
 
       <Layout
+        showPrepPhysique={showPrepPhysique}
         sidebar={!isMobile ? <Sidebar /> : null}
         topbar={
           <Topbar
