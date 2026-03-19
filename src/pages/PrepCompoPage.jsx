@@ -74,9 +74,10 @@ function SectionTitle({ children }) {
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
-export default function PrepCompoPage() {
+export default function PrepCompoPage({ athleteId = null }) {
   const { user, profile, isCoach } = useAuth()
   const today = new Date().toISOString().split('T')[0]
+  const targetId = athleteId || user.id  // coach saisit pour un athlète, sinon soi-même
 
   const [tab, setTab] = useState('saisie')
   const [history, setHistory] = useState([])
@@ -106,10 +107,10 @@ export default function PrepCompoPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const { data } = await supabase.from('body_composition_logs').select('*').eq('user_id', user.id).order('date', { ascending: false }).limit(30)
+    const { data } = await supabase.from('body_composition_logs').select('*').eq('user_id', targetId).order('date', { ascending: false }).limit(30)
     setHistory(data || [])
     setLoading(false)
-  }, [user.id])
+  }, [targetId])
 
   useEffect(() => { load() }, [load])
 
@@ -125,7 +126,7 @@ export default function PrepCompoPage() {
       silhouette: { ...silhouette },
     })
     const { error } = await supabase.from('body_composition_logs').insert({
-      user_id: user.id, date: today,
+      user_id: targetId, date: today,
       weight_kg:       parseFloat(mesures.weight_kg || pesee.weight_kg) || null,
       body_fat_pct:    parseFloat(mesures.body_fat_pct) || null,
       muscle_mass_kg:  parseFloat(mesures.muscle_mass_kg) || null,
@@ -185,13 +186,14 @@ export default function PrepCompoPage() {
     }
   }, [history])
 
+  const last = history[0]
+  const prev = history[1]
+
   const lastNotes = useMemo(() => {
     if (!last?.notes) return null
     try { return JSON.parse(last.notes) } catch { return null }
   }, [last])
 
-  const last = history[0]
-  const prev = history[1]
   function diffVal(key) {
     if (!last?.[key] || !prev?.[key]) return null
     const d = parseFloat(last[key]) - parseFloat(prev[key])
