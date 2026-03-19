@@ -623,6 +623,13 @@ export default function PrepAnalysePage() {
   }
   const lastC = data.compo[data.compo.length-1]
   const prevC = data.compo.length > 1 ? data.compo[data.compo.length-2] : null
+  const [selectedBilanIdx, setSelectedBilanIdx] = useState(null)
+  // Auto-sélectionner le dernier bilan quand les données arrivent
+  useEffect(() => {
+    if (data.compo.length > 0) setSelectedBilanIdx(data.compo.length - 1)
+  }, [data.compo.length])
+  const selectedC = selectedBilanIdx != null ? data.compo[selectedBilanIdx] : lastC
+  const prevSelectedC = selectedBilanIdx != null && selectedBilanIdx > 0 ? data.compo[selectedBilanIdx - 1] : null
 
   const plioData = useMemo(() => {
     const mg1=[], mg2=[]
@@ -733,8 +740,8 @@ export default function PrepAnalysePage() {
           {lastScore !== null && (
             <StatPill label="HOOPER" value={lastScore} unit="/40" color={scoreColor(lastScore)} delta={prevScore !== null ? lastScore-prevScore : null} deltaUnit="" />
           )}
-          {lastC?.weight_kg && <StatPill label="Poids" value={lastC.weight_kg} unit="kg" color={P.accent} delta={prevC?.weight_kg ? parseFloat(lastC.weight_kg)-parseFloat(prevC.weight_kg) : null} deltaUnit="kg" />}
-          {lastC?.body_fat_pct && <StatPill label="Masse grasse" value={lastC.body_fat_pct} unit="%" color={P.red} delta={prevC?.body_fat_pct ? parseFloat(lastC.body_fat_pct)-parseFloat(prevC.body_fat_pct) : null} deltaUnit="%" />}
+          {selectedC?.weight_kg && <StatPill label="Poids" value={selectedC.weight_kg} unit="kg" color={P.accent} delta={prevSelectedC?.weight_kg ? parseFloat(selectedC.weight_kg)-parseFloat(prevSelectedC.weight_kg) : null} deltaUnit="kg" />}
+          {selectedC?.body_fat_pct && <StatPill label="Masse grasse" value={selectedC.body_fat_pct} unit="%" color={P.red} delta={prevSelectedC?.body_fat_pct ? parseFloat(selectedC.body_fat_pct)-parseFloat(prevSelectedC.body_fat_pct) : null} deltaUnit="%" />}
           {acwr !== null && <StatPill label="ACWR" value={acwr} unit="" color={acwrColor} />}
           {selectedEx && prs[selectedEx] && <StatPill label="1RM" value={`~${prs[selectedEx]}`} unit="kg" color={P.teal} />}
         </div>
@@ -806,7 +813,7 @@ export default function PrepAnalysePage() {
 
         {/* ── COMPOSITION ── */}
         <Section title="Composition corporelle" icon="⚖️" color={P.blue}
-          badge={lastC ? `${lastC.weight_kg||'—'}kg · MG ${lastC.body_fat_pct||'—'}% · MM ${lastC.muscle_mass_kg||'—'}kg` : 'Aucune mesure'}>
+          badge={selectedC ? `${selectedC.weight_kg||'—'}kg · MG ${selectedC.body_fat_pct||'—'}% · MM ${selectedC.muscle_mass_kg||'—'}kg` : 'Aucune mesure'}>
           <div style={{ paddingTop:20, display:'grid', gap:24 }}>
 
             {/* Graphiques courbes */}
@@ -818,14 +825,41 @@ export default function PrepAnalysePage() {
               ].filter(g=>g.data.length>=2).map(({data,color,title,unit,key})=>(
                 <ClickableChart key={title} data={data} color={color} unit={unit} title={title}>
                   <D3Chart data={data} color={color} h={110} title={title} unit={unit}
-                    lastValue={lastC?.[key]} delta={prevC?.[key]?parseFloat(lastC[key])-parseFloat(prevC[key]):null} />
+                    lastValue={selectedC?.[key]} delta={prevSelectedC?.[key]?parseFloat(selectedC[key])-parseFloat(prevSelectedC[key]):null} />
                 </ClickableChart>
               ))}
             </div>
 
-            {/* Dernière mesure détaillée */}
-            {lastC && (() => {
-              let n = null; try { n = lastC.notes ? JSON.parse(lastC.notes) : null } catch {}
+            {/* Navigateur de bilans */}
+            {data.compo.length > 0 && (
+              <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', background:P.bg, borderRadius:12, border:`1px solid ${P.border}` }}>
+                <button
+                  onClick={() => setSelectedBilanIdx(i => Math.max(0, (i ?? data.compo.length-1) - 1))}
+                  disabled={selectedBilanIdx === 0}
+                  style={{ width:30, height:30, borderRadius:'50%', border:`1px solid ${P.border}`, background:P.card, color:selectedBilanIdx===0?P.dim:P.text, fontSize:16, cursor:selectedBilanIdx===0?'default':'pointer', display:'grid', placeItems:'center' }}>
+                  ‹
+                </button>
+                <div style={{ flex:1, textAlign:'center' }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:P.text }}>
+                    {selectedC ? new Date(selectedC.date+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}) : '—'}
+                  </div>
+                  <div style={{ fontSize:11, color:P.sub, marginTop:2 }}>
+                    Bilan {(selectedBilanIdx??data.compo.length-1)+1} / {data.compo.length}
+                    {selectedBilanIdx === data.compo.length-1 && <span style={{ marginLeft:6, color:P.green, fontWeight:600 }}>· Dernier</span>}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedBilanIdx(i => Math.min(data.compo.length-1, (i ?? data.compo.length-1) + 1))}
+                  disabled={selectedBilanIdx === data.compo.length-1}
+                  style={{ width:30, height:30, borderRadius:'50%', border:`1px solid ${P.border}`, background:P.card, color:selectedBilanIdx===data.compo.length-1?P.dim:P.text, fontSize:16, cursor:selectedBilanIdx===data.compo.length-1?'default':'pointer', display:'grid', placeItems:'center' }}>
+                  ›
+                </button>
+              </div>
+            )}
+
+            {/* Bilan sélectionné — détail */}
+            {selectedC && (() => {
+              let n = null; try { n = selectedC.notes ? JSON.parse(selectedC.notes) : null } catch {}
               if (!n) return null
               return (
                 <div style={{ display:'grid', gap:16, paddingTop:16, borderTop:`1px solid ${P.border}` }}>
