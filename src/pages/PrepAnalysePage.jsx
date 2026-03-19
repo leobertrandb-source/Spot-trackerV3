@@ -576,8 +576,7 @@ function scoreColor(s) {
   if (s <= 20) return P.yellow; return P.red
 }
 
-
-function extractChargeNotesData(notes) {
+function extractKmData(notes) {
   if (!notes) return null
 
   try {
@@ -587,16 +586,12 @@ function extractChargeNotesData(notes) {
 
   try {
     const match = notes.match(/km:(\{.*\})/)
-    if (match?.[1]) {
-      const parsed = JSON.parse(match[1])
-      if (parsed && typeof parsed === 'object') {
-        return { text: notes.split(' | km:')[0] || '', ...parsed }
-      }
-    }
+    if (match) return JSON.parse(match[1])
   } catch {}
 
-  return { text: notes }
+  return null
 }
+
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function PrepAnalysePage() {
@@ -1232,110 +1227,63 @@ export default function PrepAnalysePage() {
                 <span>0</span><span>0.8</span><span>1.3</span><span>1.5</span><span>2</span>
               </div>
             </div>
-            {chargeSeriesData.length>=2 && <ClickableChart data={chargeSeriesData} color={CHART_COLORS.charge} unit=" UA" title="Charge hebdomadaire (UA)"><D3Chart data={chargeSeriesData} color={CHART_COLORS.charge} h={120} title="Charge hebdomadaire (UA)" lastValue={Math.round(acute)} unit=" UA" /></ClickableChart>}            {/* Kilométrage + bandes de vitesse */}
+            {chargeSeriesData.length>=2 && <ClickableChart data={chargeSeriesData} color={CHART_COLORS.charge} unit=" UA" title="Charge hebdomadaire (UA)"><D3Chart data={chargeSeriesData} color={CHART_COLORS.charge} h={120} title="Charge hebdomadaire (UA)" lastValue={Math.round(acute)} unit=" UA" /></ClickableChart>}
+
+            {/* Kilométrage + bandes de vitesse */}
             {(() => {
               const SPEED_COLORS = { lent: '#3ecf8e', modere: '#fbbf24', rapide: '#ff7043', sprint: '#ff4566' }
               const SPEED_LABELS = { lent: 'Lent <8', modere: 'Modéré 8–12', rapide: 'Rapide 12–18', sprint: 'Sprint >18' }
-
               const seancesKm = data.charge
-                .map(c => {
-                  const meta = extractChargeNotesData(c.notes)
-                  const hasKm = meta?.km_total != null && meta?.km_total !== ''
-                  const hasBands = meta?.speed_bands && Object.values(meta.speed_bands).some(v => parseFloat(v) > 0)
-                  if (!hasKm && !hasBands) return null
-                  return { ...c, km: meta }
-                })
-                .filter(Boolean)
+                .map(c => ({ ...c, km: extractKmData(c.notes) }))
+                .filter(c => c.km && (c.km.km_total || c.km.speed_bands))
 
               if (!seancesKm.length) return null
 
-              const kmSeries = seancesKm
-                .filter(s => s.km?.km_total != null && s.km?.km_total !== '')
-                .map(s => ({ value: parseFloat(s.km.km_total), date: s.date }))
-                .filter(s => !Number.isNaN(s.value))
-                .sort((a, b) => a.date.localeCompare(b.date))
-
+              const kmSeries = seancesKm.filter(s => s.km.km_total).map(s => ({ value: parseFloat(s.km.km_total), date: s.date })).sort((a,b) => a.date.localeCompare(b.date))
               const totalKm = kmSeries.reduce((s, d) => s + d.value, 0)
 
               return (
                 <div style={{ display:'grid', gap:12 }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', flexWrap:'wrap', gap:8 }}>
-                    <div style={{ fontSize:11, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub }}>Kilométrage & bandes de vitesse</div>
-                    <div style={{ display:'flex', gap:14, alignItems:'baseline', flexWrap:'wrap' }}>
-                      {kmSeries.length > 0 && (
-                        <div style={{ fontSize:18, fontWeight:700, color:P.blue, fontFamily:"'DM Serif Display',serif" }}>
-                          {Math.round(totalKm * 10) / 10} km total
-                        </div>
-                      )}
-                      <div style={{ fontSize:11, color:P.sub }}>{seancesKm.length} séance{seancesKm.length > 1 ? 's' : ''} avec données GPS</div>
-                    </div>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
+                    <div style={{ fontSize:11, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub }}>Kilométrage</div>
+                    <div style={{ fontSize:18, fontWeight:700, color:P.blue, fontFamily:"'DM Serif Display',serif" }}>{Math.round(totalKm*10)/10} km total</div>
                   </div>
 
                   {kmSeries.length >= 2 && (
                     <ClickableChart data={kmSeries} color={P.blue} unit=" km" title="Kilométrage par séance">
-                      <D3Chart
-                        data={kmSeries}
-                        color={P.blue}
-                        h={90}
-                        title="Kilométrage (km)"
-                        unit=" km"
-                        lastValue={kmSeries[kmSeries.length-1]?.value}
-                        delta={kmSeries.length > 1 ? kmSeries[kmSeries.length-1].value - kmSeries[kmSeries.length-2].value : null}
-                      />
+                      <D3Chart data={kmSeries} color={P.blue} h={90} title="Kilométrage (km)" unit=" km" lastValue={kmSeries[kmSeries.length-1]?.value} delta={kmSeries.length>1?kmSeries[kmSeries.length-1].value-kmSeries[kmSeries.length-2].value:null} />
                     </ClickableChart>
                   )}
 
+                  {/* Dernières séances avec bandes */}
                   <div style={{ display:'grid', gap:8 }}>
                     {seancesKm.slice(-5).reverse().map(s => {
-                      const bands = s.km?.speed_bands || null
-                      const bandEntries = bands
-                        ? Object.entries(bands).map(([key, val]) => [key, parseFloat(val) || 0]).filter(([, val]) => val > 0)
-                        : []
-                      const bandTotal = bandEntries.reduce((a, [, b]) => a + b, 0)
-
+                      const bands = s.km.speed_bands
+                      const bandTotal = bands ? Object.values(bands).reduce((a,b) => a+(parseFloat(b)||0), 0) : 0
                       return (
                         <div key={s.id} style={{ padding:'10px 14px', background:P.bg, borderRadius:10, border:`1px solid ${P.border}` }}>
-                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: bandTotal > 0 ? 8 : 0, gap:10, flexWrap:'wrap' }}>
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: bands && bandTotal > 0 ? 8 : 0 }}>
                             <div style={{ fontSize:12, fontWeight:600, color:P.text }}>
                               {new Date(s.date+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}
                             </div>
-                            <div style={{ display:'flex', gap:12, alignItems:'baseline', flexWrap:'wrap' }}>
-                              {s.km?.km_total != null && s.km?.km_total !== '' && (
-                                <span style={{ fontSize:14, fontWeight:700, color:P.blue, fontFamily:"'DM Serif Display',serif" }}>
-                                  {s.km.km_total} km
-                                </span>
-                              )}
-                              {s.km?.vitesse_moy != null && s.km?.vitesse_moy !== '' && (
-                                <span style={{ fontSize:11, color:P.sub }}>{s.km.vitesse_moy} km/h moy.</span>
-                              )}
+                            <div style={{ display:'flex', gap:12, alignItems:'baseline' }}>
+                              {s.km.km_total && <span style={{ fontSize:14, fontWeight:700, color:P.blue, fontFamily:"'DM Serif Display',serif" }}>{s.km.km_total} km</span>}
+                              {s.km.vitesse_moy && <span style={{ fontSize:11, color:P.sub }}>{s.km.vitesse_moy} km/h moy.</span>}
                             </div>
                           </div>
-
-                          {bandTotal > 0 && (
+                          {bands && bandTotal > 0 && (
                             <>
                               <div style={{ height:8, borderRadius:4, overflow:'hidden', display:'flex', marginBottom:6 }}>
-                                {bandEntries.map(([key, val]) => (
-                                  <div
-                                    key={key}
-                                    style={{ width:`${(val / bandTotal) * 100}%`, background:SPEED_COLORS[key] }}
-                                    title={`${SPEED_LABELS[key]}: ${val}km`}
-                                  />
+                                {Object.entries(bands).filter(([,v]) => parseFloat(v)>0).map(([key, val]) => (
+                                  <div key={key} style={{ width:`${(parseFloat(val)/bandTotal)*100}%`, background:SPEED_COLORS[key] }} title={`${SPEED_LABELS[key]}: ${val}km`} />
                                 ))}
                               </div>
                               <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-                                {bandEntries.map(([key, val]) => (
-                                  <span key={key} style={{ fontSize:10, color:SPEED_COLORS[key], fontWeight:600 }}>
-                                    {SPEED_LABELS[key].split(' ')[0]} {val}km
-                                  </span>
+                                {Object.entries(bands).filter(([,v]) => parseFloat(v)>0).map(([key, val]) => (
+                                  <span key={key} style={{ fontSize:10, color:SPEED_COLORS[key], fontWeight:600 }}>{SPEED_LABELS[key].split(' ')[0]} {val}km</span>
                                 ))}
                               </div>
                             </>
-                          )}
-
-                          {s.km?.text && (
-                            <div style={{ marginTop: bandTotal > 0 ? 8 : 0, fontSize:11, color:P.sub }}>
-                              {s.km.text}
-                            </div>
                           )}
                         </div>
                       )
