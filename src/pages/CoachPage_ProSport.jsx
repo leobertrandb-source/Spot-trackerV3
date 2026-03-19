@@ -43,6 +43,10 @@ export default function CoachPageProSport() {
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [showInvite, setShowInvite] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteMsg, setInviteMsg] = useState('')
+  const [inviting, setInviting] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -91,6 +95,21 @@ export default function CoachPageProSport() {
     : filter === 'missing' ? missing
     : clients
 
+  async function handleInvite() {
+    if (!inviteEmail.trim()) return
+    setInviting(true); setInviteMsg('')
+    try {
+      const token = Math.random().toString(36).slice(2) + Date.now().toString(36)
+      await supabase.from('coach_invites').insert({ coach_id: user.id, email: inviteEmail.trim(), invite_token: token })
+      const link = `${window.location.origin}/invite/${token}`
+      await navigator.clipboard.writeText(link)
+      setInviteMsg('✓ Lien copié dans le presse-papier')
+      setInviteEmail('')
+      setTimeout(() => setInviteMsg(''), 4000)
+    } catch { setInviteMsg('Erreur lors de la génération') }
+    setInviting(false)
+  }
+
   const dateLabel = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
@@ -114,6 +133,32 @@ export default function CoachPageProSport() {
           </h1>
           <div style={{ fontSize: 13, color: P.sub, marginTop: 6, textTransform: 'capitalize' }}>{dateLabel}</div>
         </div>
+        <button onClick={() => setShowInvite(s => !s)}
+          style={{ padding: '10px 20px', borderRadius: 20, border: `1px solid ${P.accent}`, background: showInvite ? P.accent : 'transparent', color: showInvite ? '#fff' : P.accent, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 }}>
+          + Inviter un athlète
+        </button>
+      </div>
+
+      {/* Panel invitation */}
+      {showInvite && (
+        <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 14, padding: '18px 20px', marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: P.text, marginBottom: 10 }}>Générer un lien d'invitation</div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleInvite()}
+              placeholder="email@athlete.com"
+              style={{ flex: 1, minWidth: 200, background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, padding: '10px 14px', color: P.text, fontSize: 14, outline: 'none' }} />
+            <button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}
+              style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: P.accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: inviting || !inviteEmail.trim() ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+              {inviting ? 'Génération...' : 'Générer & copier'}
+            </button>
+          </div>
+          {inviteMsg && (
+            <div style={{ marginTop: 8, fontSize: 12, color: P.green, fontWeight: 600 }}>{inviteMsg}</div>
+          )}
+          <div style={{ marginTop: 8, fontSize: 11, color: P.sub }}>Le lien est automatiquement copié dans le presse-papier. Envoyez-le à votre athlète par email ou SMS.</div>
+        </div>
+      )}
 
         {/* KPIs */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px,1fr))', gap: 12, marginBottom: 28 }}>
