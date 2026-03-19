@@ -6,12 +6,12 @@ import { T } from '../lib/data'
 
 // ─── Tokens ProSportConcept ───────────────────────────────────────────────────
 const PS = {
-  bg:     '#f5f3ef',
-  card:   '#ffffff',
-  border: '#e8e4dc',
-  text:   '#1a1a1a',
-  sub:    '#6b6b6b',
-  dim:    '#9e9e9e',
+  bg:     T.bg,
+  card:   T.bgAlt,
+  border: T.border,
+  text:   T.text,
+  sub:    T.textMid,
+  dim:    T.textDim,
   accent: '#1a3a2a',
   active: '#1a3a2a',
 }
@@ -121,7 +121,7 @@ function NavItemPS({ to, label, active, onClick, index = 0 }) {
   }
   return (
     <Link to={to} style={style} onClick={onClick}
-      onMouseEnter={e => { if (!active) { e.currentTarget.style.background = '#f0ede8'; e.currentTarget.style.color = PS.text } }}
+      onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = PS.text } }}
       onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = PS.sub } }}>
       <span style={{ flex: 1, fontFamily: "'DM Sans', sans-serif" }}>{label}</span>
       {active && <div style={{ width: 5, height: 5, borderRadius: '50%', background: PS.active, flexShrink: 0 }} />}
