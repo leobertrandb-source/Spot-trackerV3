@@ -94,6 +94,7 @@ export function ChargeExterneForm({ sessionId = null, onSaved = null, compact = 
     if (!duree) return
     setSaving(true)
     const kmData = {
+      text: notes || '',
       km_total: parseFloat(km) || null,
       vitesse_moy: parseFloat(vitesseMoy) || null,
       speed_bands: Object.values(speedBands).some(v => v) ? speedBands : null,
@@ -103,7 +104,7 @@ export function ChargeExterneForm({ sessionId = null, onSaved = null, compact = 
       rpe, duree_min: parseInt(duree),
       type_seance: type,
       session_id: sessionId || null,
-      notes: notes ? `${notes} | km:${JSON.stringify(kmData)}` : JSON.stringify(kmData),
+      notes: JSON.stringify(kmData),
     })
     if (!error) { setSaved(true); if (onSaved) onSaved() }
     setSaving(false)
