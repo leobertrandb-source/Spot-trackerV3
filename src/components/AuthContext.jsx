@@ -107,6 +107,7 @@ export function AuthProvider({ children }) {
       user,
       profile,
       gym,
+      isCoach:          profile?.role === 'coach',
       showMethodeSpot:  gym?.show_methode_spot === true,
       showPrepPhysique: gym?.show_prep_physique === true,
       loading,
