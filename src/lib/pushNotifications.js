@@ -1,101 +1,231 @@
 // src/lib/pushNotifications.js
 import { supabase } from './supabase'
 
-// ── Clé publique VAPID ────────────────────────────────────────────────────────
-// Génère ta paire VAPID : npx web-push generate-vapid-keys
-// Mets la clé publique ici et la privée dans les env vars Supabase
 const VAPID_PUBLIC_KEY = process.env.REACT_APP_VAPID_PUBLIC_KEY || ''
 
 function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4)
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
   const rawData = window.atob(base64)
-  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)))
+  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)))
 }
 
-// ── Enregistrement du service worker ─────────────────────────────────────────
+function isPushSupported() {
+  return (
+    typeof window !== 'undefined' &&
+    'serviceWorker' in navigator &&
+    'PushManager' in window &&
+    'Notification' in window
+  )
+}
+
+function isSecurePushContext() {
+  return window.isSecureContext || window.location.hostname === 'localhost'
+}
+
 export async function registerServiceWorker() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    return { supported: false }
+  if (!isPushSupported()) {
+    return {
+      supported: false,
+      error: 'Notifications push non supportées par ce navigateur',
+    }
   }
+
+  if (!isSecurePushContext()) {
+    return {
+      supported: false,
+      error: 'Les notifications push nécessitent HTTPS ou localhost',
+    }
+  }
+
   try {
-    const reg = await navigator.serviceWorker.register('/sw.js')
+    const registration = await navigator.serviceWorker.register('/sw.js')
     await navigator.serviceWorker.ready
-    return { supported: true, registration: reg }
+
+    return {
+      supported: true,
+      registration,
+    }
   } catch (err) {
     console.error('SW registration failed:', err)
-    return { supported: false, error: err }
+    return {
+      supported: false,
+      error: err?.message || 'Impossible d’enregistrer le service worker',
+    }
   }
 }
 
-// ── Vérifier si l'user est déjà abonné ───────────────────────────────────────
 export async function getSubscriptionStatus(userId) {
-  const { supported, registration } = await registerServiceWorker()
-  if (!supported) return { subscribed: false, supported: false }
+  const sw = await registerServiceWorker()
 
-  const existing = await registration.pushManager.getSubscription()
-  if (!existing) return { subscribed: false, supported: true }
-
-  // Vérifier en base
-  const { data } = await supabase
-    .from('push_subscriptions')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('endpoint', existing.endpoint)
-    .maybeSingle()
-
-  return { subscribed: !!data, supported: true, subscription: existing }
-}
-
-// ── S'abonner aux notifications ───────────────────────────────────────────────
-export async function subscribeToPush(userId) {
-  const { supported, registration } = await registerServiceWorker()
-  if (!supported) return { success: false, error: 'Non supporté par ce navigateur' }
-
-  const permission = await Notification.requestPermission()
-  if (permission !== 'granted') return { success: false, error: 'Permission refusée' }
+  if (!sw.supported) {
+    return {
+      subscribed: false,
+      supported: false,
+      error: sw.error,
+    }
+  }
 
   try {
-    // Désabonner l'ancienne si elle existe
-    const existing = await registration.pushManager.getSubscription()
-    if (existing) await existing.unsubscribe()
+    const existing = await sw.registration.pushManager.getSubscription()
 
-    const subscription = await registration.pushManager.subscribe({
+    if (!existing) {
+      return {
+        subscribed: false,
+        supported: true,
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('push_subscriptions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('endpoint', existing.endpoint)
+      .maybeSingle()
+
+    if (error) {
+      console.error('Subscription status DB error:', error)
+      return {
+        subscribed: true,
+        supported: true,
+        subscription: existing,
+      }
+    }
+
+    return {
+      subscribed: !!data,
+      supported: true,
+      subscription: existing,
+    }
+  } catch (err) {
+    console.error('getSubscriptionStatus error:', err)
+    return {
+      subscribed: false,
+      supported: true,
+      error: err?.message || 'Erreur lors de la vérification',
+    }
+  }
+}
+
+export async function subscribeToPush(userId) {
+  const sw = await registerServiceWorker()
+
+  if (!sw.supported) {
+    return {
+      success: false,
+      error: sw.error || 'Notifications non supportées',
+    }
+  }
+
+  if (!VAPID_PUBLIC_KEY) {
+    return {
+      success: false,
+      error: 'Clé VAPID publique manquante (REACT_APP_VAPID_PUBLIC_KEY)',
+    }
+  }
+
+  try {
+    const permission = await Notification.requestPermission()
+
+    if (permission !== 'granted') {
+      return {
+        success: false,
+        error: 'Permission refusée',
+      }
+    }
+
+    const existing = await sw.registration.pushManager.getSubscription()
+
+    if (existing) {
+      try {
+        await supabase
+          .from('push_subscriptions')
+          .delete()
+          .eq('user_id', userId)
+          .eq('endpoint', existing.endpoint)
+
+        await existing.unsubscribe()
+      } catch (cleanupErr) {
+        console.warn('Cleanup old subscription warning:', cleanupErr)
+      }
+    }
+
+    const subscription = await sw.registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
     })
 
-    const { endpoint, keys } = subscription.toJSON()
+    const subscriptionJson = subscription.toJSON()
+    const endpoint = subscriptionJson?.endpoint
+    const keys = subscriptionJson?.keys || {}
 
-    const { error } = await supabase.from('push_subscriptions').upsert({
-      user_id: userId,
-      endpoint,
-      p256dh: keys.p256dh,
-      auth: keys.auth,
-    }, { onConflict: 'user_id,endpoint' })
+    if (!endpoint || !keys.p256dh || !keys.auth) {
+      throw new Error('Abonnement push invalide')
+    }
 
-    if (error) throw error
-    return { success: true, subscription }
+    const { error } = await supabase.from('push_subscriptions').upsert(
+      {
+        user_id: userId,
+        endpoint,
+        p256dh: keys.p256dh,
+        auth: keys.auth,
+      },
+      { onConflict: 'user_id,endpoint' }
+    )
+
+    if (error) {
+      throw error
+    }
+
+    return {
+      success: true,
+      subscription,
+    }
   } catch (err) {
     console.error('Subscribe error:', err)
-    return { success: false, error: err.message }
+    return {
+      success: false,
+      error: err?.message || 'Erreur inconnue pendant l’abonnement push',
+    }
   }
 }
 
-// ── Se désabonner ─────────────────────────────────────────────────────────────
 export async function unsubscribeFromPush(userId) {
-  try {
-    const reg = await navigator.serviceWorker.ready
-    const subscription = await reg.pushManager.getSubscription()
-    if (subscription) {
-      await supabase.from('push_subscriptions')
-        .delete()
-        .eq('user_id', userId)
-        .eq('endpoint', subscription.endpoint)
-      await subscription.unsubscribe()
+  if (!isPushSupported()) {
+    return {
+      success: false,
+      error: 'Notifications non supportées par ce navigateur',
     }
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready
+    const subscription = await registration.pushManager.getSubscription()
+
+    if (!subscription) {
+      return { success: true }
+    }
+
+    const endpoint = subscription.endpoint
+
+    const { error } = await supabase
+      .from('push_subscriptions')
+      .delete()
+      .eq('user_id', userId)
+      .eq('endpoint', endpoint)
+
+    if (error) {
+      throw error
+    }
+
+    await subscription.unsubscribe()
+
     return { success: true }
   } catch (err) {
-    return { success: false, error: err.message }
+    console.error('Unsubscribe error:', err)
+    return {
+      success: false,
+      error: err?.message || 'Erreur lors de la désactivation',
+    }
   }
 }
