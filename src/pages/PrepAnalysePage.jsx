@@ -138,106 +138,273 @@ function useD3Chart(containerRef, data, options = {}) {
 }
 
 // ─── Modal historique ─────────────────────────────────────────────────────────
+// ─── Périodes disponibles ────────────────────────────────────────────────────
+const PERIODS = [
+  { key: '2w',  label: '2 sem.',  days: 14  },
+  { key: '4w',  label: '4 sem.',  days: 28  },
+  { key: '2m',  label: '2 mois',  days: 60  },
+  { key: '6m',  label: '6 mois',  days: 180 },
+  { key: '1y',  label: '1 an',    days: 365 },
+  { key: 'all', label: 'Tout',    days: null },
+]
+
+// ─── Modal historique — graphe interactif ─────────────────────────────────────
 function ChartModal({ open, onClose, title, data, color, unit = '', series = null }) {
+  const chartRef = useRef(null)
+  const [period, setPeriod] = useState('all')
+  const [hovered, setHovered] = useState(null) // { x, y, value, date, seriesValues? }
+
   useEffect(() => {
     if (!open) return
-    const handler = (e) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
+    const h = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
   }, [open, onClose])
+
+  // Filtrer par période
+  const filterByPeriod = (pts) => {
+    if (!pts?.length) return pts || []
+    const sel = PERIODS.find(p => p.key === period)
+    if (!sel?.days) return pts
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - sel.days)
+    return pts.filter(d => new Date(d.date+'T00:00:00') >= cutoff)
+  }
+
+  const filteredData   = filterByPeriod([...( data || [])].sort((a,b) => a.date.localeCompare(b.date)))
+  const filteredSeries = series?.map(s => ({ ...s, data: filterByPeriod([...s.data].sort((a,b) => a.date.localeCompare(b.date))) }))
+
+  // Dessin SVG inline (pas de useEffect — on calcule directement en render)
+  const renderChart = () => {
+    const W = 520, H = 180
+    const pad = { t: 20, r: 20, b: 36, l: 44 }
+    const iW = W - pad.l - pad.r, iH = H - pad.t - pad.b
+
+    // Rassembler tous les points
+    const allPts = series
+      ? filteredSeries.flatMap(s => s.data)
+      : filteredData
+
+    if (allPts.length < 2) return (
+      <div style={{ height: H, display: 'grid', placeItems: 'center', color: P.dim, fontSize: 13, border: `1px dashed ${P.border}`, borderRadius: 10 }}>
+        Pas assez de données sur cette période
+      </div>
+    )
+
+    const allVals = allPts.map(d => d.value)
+    const vMin = Math.min(...allVals), vMax = Math.max(...allVals)
+    const vRange = vMax - vMin || 1
+    const yMin = vMin - vRange * 0.12, yMax = vMax + vRange * 0.12
+
+    const allDates = [...new Set(allPts.map(d => d.date))].sort()
+    const d0 = new Date(allDates[0]+'T00:00:00').getTime()
+    const d1 = new Date(allDates[allDates.length-1]+'T00:00:00').getTime()
+    const dRange = d1 - d0 || 1
+
+    const xOf = (date) => pad.l + ((new Date(date+'T00:00:00').getTime() - d0) / dRange) * iW
+    const yOf = (val)  => pad.t + iH - ((val - yMin) / (yMax - yMin)) * iH
+
+    // Ticks Y
+    const yTicks = 4
+    const tickVals = Array.from({ length: yTicks + 1 }, (_, i) => yMin + (yMax - yMin) * (i / yTicks))
+
+    // X labels (3 max)
+    const xLabelIdxs = allDates.length <= 6
+      ? allDates.map((_, i) => i)
+      : [0, Math.floor(allDates.length / 2), allDates.length - 1]
+    const xLabels = [...new Set(xLabelIdxs)].map(i => allDates[i])
+
+    // Smooth path helper
+    const smoothPath = (pts) => {
+      if (pts.length < 2) return ''
+      let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = pts[Math.max(0, i-1)], p1 = pts[i], p2 = pts[i+1], p3 = pts[Math.min(pts.length-1, i+2)]
+        const cp1x = p1[0] + (p2[0]-p0[0])/6, cp1y = p1[1] + (p2[1]-p0[1])/6
+        const cp2x = p2[0] - (p3[0]-p1[0])/6, cp2y = p2[1] - (p3[1]-p1[1])/6
+        d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`
+      }
+      return d
+    }
+
+    // Séries à dessiner
+    const seriesArr = series
+      ? filteredSeries
+      : [{ label: title, color, data: filteredData }]
+
+    // Hover handler
+    const handleMouseMove = (e) => {
+      const svg = e.currentTarget.getBoundingClientRect()
+      const mx = e.clientX - svg.left
+      // Trouver la date la plus proche
+      let closest = null, minDist = Infinity
+      allDates.forEach(date => {
+        const px = xOf(date)
+        const dist = Math.abs(px - mx)
+        if (dist < minDist) { minDist = dist; closest = date }
+      })
+      if (!closest || minDist > 40) { setHovered(null); return }
+      const cx = xOf(closest)
+      // Valeurs pour ce point
+      const vals = seriesArr.map(s => {
+        const pt = s.data.find(d => d.date === closest)
+        return { label: s.label, color: s.color, value: pt?.value ?? null }
+      })
+      const mainVal = vals[0]?.value
+      const cy = mainVal != null ? yOf(mainVal) : H / 2
+      setHovered({ date: closest, cx, cy: Math.max(pad.t, Math.min(pad.t+iH, cy)), vals })
+    }
+
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block', overflow: 'visible', cursor: 'crosshair' }}
+        onMouseMove={handleMouseMove} onMouseLeave={() => setHovered(null)}>
+        <defs>
+          {seriesArr.map((s, i) => (
+            <linearGradient key={i} id={`mg-${i}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={s.color} stopOpacity="0.15" />
+              <stop offset="100%" stopColor={s.color} stopOpacity="0.01" />
+            </linearGradient>
+          ))}
+        </defs>
+
+        {/* Grid */}
+        {tickVals.map((v, i) => (
+          <g key={i}>
+            <line x1={pad.l} y1={yOf(v).toFixed(1)} x2={W-pad.r} y2={yOf(v).toFixed(1)} stroke={P.border} strokeWidth="1" />
+            <text x={pad.l-6} y={(yOf(v)+4).toFixed(1)} textAnchor="end" fontSize="9" fill={P.dim} fontFamily="DM Sans, sans-serif">
+              {Math.round(v*10)/10}
+            </text>
+          </g>
+        ))}
+
+        {/* X labels */}
+        {xLabels.map((date, i) => (
+          <text key={i} x={xOf(date).toFixed(1)} y={H-6} textAnchor={i===0?'start':i===xLabels.length-1?'end':'middle'}
+            fontSize="9" fill={P.sub} fontFamily="DM Sans, sans-serif">
+            {new Date(date+'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+          </text>
+        ))}
+
+        {/* Area + Line par série */}
+        {seriesArr.map((s, si) => {
+          const pts = s.data.map(d => [xOf(d.date), yOf(d.value)])
+          if (pts.length < 2) return null
+          const pathD = smoothPath(pts)
+          const areaD = `${pathD} L ${pts[pts.length-1][0].toFixed(1)} ${(pad.t+iH).toFixed(1)} L ${pts[0][0].toFixed(1)} ${(pad.t+iH).toFixed(1)} Z`
+          return (
+            <g key={si}>
+              <path d={areaD} fill={`url(#mg-${si})`} />
+              <path d={pathD} fill="none" stroke={s.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              {s.data.map((d, i) => (
+                <circle key={i} cx={xOf(d.date).toFixed(1)} cy={yOf(d.value).toFixed(1)} r="3" fill={P.card} stroke={s.color} strokeWidth="2" />
+              ))}
+            </g>
+          )
+        })}
+
+        {/* Hover line + tooltip */}
+        {hovered && (
+          <g>
+            <line x1={hovered.cx} y1={pad.t} x2={hovered.cx} y2={pad.t+iH} stroke={P.sub} strokeWidth="1" strokeDasharray="4 3" />
+            {hovered.vals.filter(v => v.value != null).map((v, i) => {
+              const cy = yOf(v.value)
+              return <circle key={i} cx={hovered.cx.toFixed(1)} cy={cy.toFixed(1)} r="5" fill={v.color} stroke={P.card} strokeWidth="2" />
+            })}
+          </g>
+        )}
+      </svg>
+    )
+  }
+
+  // Tooltip box (outside SVG pour éviter les clipping issues)
+  const renderTooltip = () => {
+    if (!hovered) return null
+    const last = hovered.vals.filter(v => v.value != null)
+    if (!last.length) return null
+    return (
+      <div style={{ marginTop: 12, padding: '10px 14px', background: P.bg, borderRadius: 10, border: `1px solid ${P.border}`, display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ fontSize: 11, color: P.sub, fontWeight: 600 }}>
+          {new Date(hovered.date+'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+        </div>
+        {last.map((v, i) => (
+          <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
+            {series && <div style={{ width: 8, height: 8, borderRadius: '50%', background: v.color, flexShrink: 0 }} />}
+            {series && <span style={{ fontSize: 11, color: P.sub }}>{v.label}</span>}
+            <span style={{ fontSize: 18, fontWeight: 700, color: v.color, fontFamily: "'DM Serif Display', serif", lineHeight: 1 }}>
+              {v.value}{unit}
+            </span>
+          </div>
+        ))}
+        {series && last.length === hovered.vals.length && (
+          <div style={{ marginLeft: 'auto', fontSize: 16, fontWeight: 700, color: P.text, fontFamily: "'DM Serif Display', serif" }}>
+            Σ {last.reduce((a, v) => a + v.value, 0)}{unit}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   if (!open) return null
 
-  const sorted = series
-    ? null
-    : [...data].sort((a, b) => b.date.localeCompare(a.date))
+  const allCount = series ? series[0]?.data?.length : data?.length
 
   return (
     <div onClick={onClose} style={{
       position: 'fixed', inset: 0, zIndex: 1000,
-      background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)',
+      background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(6px)',
       display: 'grid', placeItems: 'center', padding: '20px',
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: P.card, borderRadius: 20, width: '100%', maxWidth: 560,
-        maxHeight: '85vh', overflow: 'hidden', display: 'flex', flexDirection: 'column',
-        boxShadow: '0 24px 60px rgba(0,0,0,0.18)',
+        background: P.card, borderRadius: 20, width: '100%', maxWidth: 620,
+        boxShadow: '0 32px 80px rgba(0,0,0,0.22)',
+        display: 'flex', flexDirection: 'column',
       }}>
         {/* Header */}
         <div style={{ padding: '20px 24px 16px', borderBottom: `1px solid ${P.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 700, color: P.text }}>{title}</div>
-            <div style={{ fontSize: 12, color: P.sub, marginTop: 2 }}>
-              {series ? series.reduce((acc, s) => acc + s.data.length, 0) : data.length} entrée{(series ? series[0].data.length : data.length) > 1 ? 's' : ''}
-            </div>
+            <div style={{ fontSize: 12, color: P.sub, marginTop: 2 }}>{allCount} mesure{allCount > 1 ? 's' : ''} au total</div>
           </div>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', border: `1px solid ${P.border}`, background: P.bg, color: P.sub, fontSize: 16, cursor: 'pointer', display: 'grid', placeItems: 'center' }}>×</button>
+          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', border: `1px solid ${P.border}`, background: P.bg, color: P.sub, fontSize: 18, cursor: 'pointer', display: 'grid', placeItems: 'center', lineHeight: 1 }}>×</button>
         </div>
 
-        {/* Contenu scrollable */}
-        <div style={{ overflowY: 'auto', padding: '20px 24px' }}>
+        {/* Sélecteur de période */}
+        <div style={{ padding: '14px 24px 0', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {PERIODS.map(p => (
+            <button key={p.key} onClick={() => setPeriod(p.key)} style={{
+              padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              border: `1px solid ${period === p.key ? color+'60' : P.border}`,
+              background: period === p.key ? color+'15' : 'transparent',
+              color: period === p.key ? color : P.sub,
+              transition: 'all 0.15s',
+            }}>{p.label}</button>
+          ))}
+        </div>
 
-          {/* Tableau multi-séries (HOOPER détail) */}
-          {series && (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: `2px solid ${P.border}` }}>
-                  <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: P.sub }}>Date</th>
-                  {series.map(s => (
-                    <th key={s.label} style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: s.color }}>{s.label}</th>
-                  ))}
-                  <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: P.sub }}>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(() => {
-                  const dates = [...new Set(series.flatMap(s => s.data.map(d => d.date)))].sort((a,b) => b.localeCompare(a))
-                  return dates.map(date => {
-                    const vals = series.map(s => s.data.find(d => d.date === date)?.value ?? null)
-                    const total = vals.every(v => v !== null) ? vals.reduce((a,b) => a+b, 0) : null
-                    return (
-                      <tr key={date} style={{ borderBottom: `1px solid ${P.border}` }}>
-                        <td style={{ padding: '9px 10px', color: P.text, fontWeight: 500 }}>{new Date(date+'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}</td>
-                        {vals.map((v, i) => (
-                          <td key={i} style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 600, color: v !== null ? series[i].color : P.dim }}>{v !== null ? v : '—'}</td>
-                        ))}
-                        <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 700, color: total !== null ? P.text : P.dim, fontFamily: "'DM Serif Display', serif", fontSize: 15 }}>{total !== null ? total : '—'}</td>
-                      </tr>
-                    )
-                  })
-                })()}
-              </tbody>
-            </table>
-          )}
+        {/* Graphe */}
+        <div style={{ padding: '16px 24px 0' }}>
+          {renderChart()}
+          {renderTooltip()}
+        </div>
 
-          {/* Tableau série simple */}
-          {!series && (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: `2px solid ${P.border}` }}>
-                  <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: P.sub }}>Date</th>
-                  <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: P.sub }}>Valeur</th>
-                  <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: P.sub }}>Évolution</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((d, i) => {
-                  const next = sorted[i + 1]
-                  const delta = next ? d.value - next.value : null
-                  return (
-                    <tr key={d.date + i} style={{ borderBottom: `1px solid ${P.border}` }}>
-                      <td style={{ padding: '9px 10px', color: P.text, fontWeight: 500 }}>
-                        {new Date(d.date+'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: '2-digit' })}
-                      </td>
-                      <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 700, color, fontFamily: "'DM Serif Display', serif", fontSize: 16 }}>
-                        {d.value}{unit}
-                      </td>
-                      <td style={{ padding: '9px 10px', textAlign: 'right', fontSize: 12, fontWeight: 600, color: delta === null ? P.dim : delta > 0 ? P.green : delta < 0 ? P.red : P.sub }}>
-                        {delta === null ? '—' : `${delta > 0 ? '+' : ''}${Math.round(delta*10)/10}${unit}`}
-                      </td>
-                    </tr>
-                  )
-                })}
+        {/* Légende multi-séries */}
+        {series && (
+          <div style={{ padding: '12px 24px', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            {series.map(s => (
+              <div key={s.label} style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 11, color: P.sub }}>
+                <div style={{ width: 14, height: 3, borderRadius: 2, background: s.color }} />
+                {s.label}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ height: 20 }} />
+      </div>
+    </div>
+  )
+}
+
+
               </tbody>
             </table>
           )}
