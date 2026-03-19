@@ -75,9 +75,8 @@ function SectionTitle({ children }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function PrepCompoPage() {
-  const { user, profile } = useAuth()
+  const { user, profile, isCoach } = useAuth()
   const today = new Date().toISOString().split('T')[0]
-  const isCoach = profile?.role === 'coach'
 
   const [tab, setTab] = useState('saisie')
   const [history, setHistory] = useState([])
