@@ -18,13 +18,13 @@ zIndex: 0,
 )
 }
 
-export function Layout({ sidebar, topbar, children }) {
+export function Layout({ sidebar, topbar, children, showPrepPhysique = false }) {
 return (
 <div
 style={{
 minHeight: '100vh',
-background: T.bg,
-color: T.text,
+background: showPrepPhysique ? '#f5f3ef' : T.bg,
+color: showPrepPhysique ? '#1a1a1a' : T.text,
 display: 'flex',
 position: 'relative',
 zIndex: 1,
