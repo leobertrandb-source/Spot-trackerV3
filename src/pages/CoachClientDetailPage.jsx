@@ -1037,61 +1037,95 @@ function PrepDataView({ prepData }) {
         ) : <div style={{ color: T.textDim, fontSize: 13 }}>Aucun questionnaire rempli</div>}
       </Card>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+      <div style={{ display: 'grid', gap: 12 }}>
         <Card style={{ padding: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: T.text, marginBottom: 10 }}>Composition corporelle</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: T.text, marginBottom: 12 }}>Bilan morphologique</div>
           {lastC ? (() => {
             let n = null; try { n = lastC.notes ? JSON.parse(lastC.notes) : null } catch {}
             return (
-              <div style={{ display: 'grid', gap: 8 }}>
+              <div style={{ display: 'grid', gap: 14 }}>
+
                 {/* Impédancemétrie */}
-                {[['Poids', lastC.weight_kg, 'kg', '#3ecf8e'], ['Masse grasse', lastC.body_fat_pct, '%', '#ff7043'], ['Masse maigre', lastC.muscle_mass_kg, 'kg', '#4d9fff']].filter(([, v]) => v).map(([l, v, u, c]) => (
-                  <div key={l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: T.textDim }}>{l}</span>
-                    <span style={{ fontSize: 16, fontWeight: 900, color: c, fontFamily: T.fontDisplay }}>{v}<span style={{ fontSize: 10, marginLeft: 2 }}>{u}</span></span>
+                <div>
+                  <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>Impédancemétrie</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px,1fr))', gap: 8 }}>
+                    {[['Poids', lastC.weight_kg, 'kg', '#3ecf8e'], ['Masse grasse', lastC.body_fat_pct, '%', '#ff7043'], ['Masse maigre', lastC.muscle_mass_kg, 'kg', '#4d9fff']].filter(([, v]) => v).map(([l, v, u, c]) => (
+                      <div key={l} style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: `1px solid ${T.border}`, textAlign: 'center' }}>
+                        <div style={{ fontSize: 10, color: T.textDim, marginBottom: 4 }}>{l}</div>
+                        <div style={{ fontSize: 18, fontWeight: 900, color: c, fontFamily: T.fontDisplay }}>{v}<span style={{ fontSize: 10, marginLeft: 2 }}>{u}</span></div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                  {n?.impedance && (
+                    <div style={{ marginTop: 8, fontSize: 11, color: T.textDim, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {n.heure && <span>🕐 {n.heure}</span>}
+                      {n.modele_balance && <span>⚖️ {n.modele_balance}</span>}
+                      {n.tenue && <span>👕 {n.tenue}</span>}
+                      {n.impedance.eau_litres && <span>💧 {n.impedance.eau_litres}L</span>}
+                      {n.impedance.heure_repas && <span>🍽️ Repas {n.impedance.heure_repas}</span>}
+                      {n.impedance.alcool_veille && <span style={{ color: '#ff7043' }}>🍷 Alcool H-24</span>}
+                      {n.impedance.cafeine_veille && <span style={{ color: '#fbbf24' }}>☕ Caféïne</span>}
+                      {n.impedance.cycle_phase && n.impedance.cycle_phase !== 'na' && <span>🔄 {n.impedance.cycle_phase}</span>}
+                      {n.impedance.pacemaker && <span style={{ color: '#ff4566' }}>⚠️ Pacemaker</span>}
+                      {n.impedance.enceinte && <span style={{ color: '#ff4566' }}>⚠️ Enceinte</span>}
+                    </div>
+                  )}
+                </div>
+
                 {/* Pliométrie */}
-                {n?.mg1?.resultat && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: T.textDim }}>MG1 (4 plis)</span>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#fbbf24' }}>{n.mg1.resultat}%</span>
+                {(n?.mg1 || n?.mg2) && (
+                  <div style={{ paddingTop: 10, borderTop: `1px solid ${T.border}` }}>
+                    <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>Pliométrie cutanée</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      {n?.mg1 && (
+                        <div style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: `1px solid ${T.border}` }}>
+                          <div style={{ fontSize: 11, color: '#fbbf24', fontWeight: 700, marginBottom: 6 }}>MG1 — 4 plis</div>
+                          {n.mg1.resultat && <div style={{ fontSize: 18, fontWeight: 900, color: '#fbbf24', fontFamily: T.fontDisplay, marginBottom: 6 }}>{n.mg1.resultat}%</div>}
+                          {['sous_scapulaire','tricipital','supra_iliaque','ombilical'].filter(k => n.mg1[k]).map(k => (
+                            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginBottom: 2 }}>
+                              <span style={{ color: T.textDim }}>{k.replace('_',' ')}</span>
+                              <span style={{ color: T.text, fontWeight: 600 }}>{n.mg1[k]} mm</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {n?.mg2 && (
+                        <div style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: `1px solid ${T.border}` }}>
+                          <div style={{ fontSize: 11, color: '#ff7043', fontWeight: 700, marginBottom: 6 }}>MG2 — 7 plis</div>
+                          {n.mg2.resultat && <div style={{ fontSize: 18, fontWeight: 900, color: '#ff7043', fontFamily: T.fontDisplay, marginBottom: 6 }}>{n.mg2.resultat}%</div>}
+                          {['sous_scapulaire','tricipital','supra_iliaque','ombilical','bicipital','sural','quadricipital'].filter(k => n.mg2[k]).map(k => (
+                            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginBottom: 2 }}>
+                              <span style={{ color: T.textDim }}>{k.replace('_',' ')}</span>
+                              <span style={{ color: T.text, fontWeight: 600 }}>{n.mg2[k]} mm</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
-                {n?.mg2?.resultat && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: T.textDim }}>MG2 (7 plis)</span>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#ff7043' }}>{n.mg2.resultat}%</span>
-                  </div>
-                )}
+
                 {/* Silhouette */}
                 {n?.silhouette && Object.values(n.silhouette).some(v => v) && (
-                  <div style={{ marginTop: 4, paddingTop: 8, borderTop: `1px solid ${T.border}` }}>
-                    <div style={{ fontSize: 11, color: T.textDim, marginBottom: 6, fontWeight: 700 }}>Silhouette (cm)</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                  <div style={{ paddingTop: 10, borderTop: `1px solid ${T.border}` }}>
+                    <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>Mesure silhouette (cm)</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
                       {[['epaule','Épaule'],['poitrine','Poitrine'],['hanche','Hanche'],['taille','Taille'],['cuisse','Cuisse'],['genoux','Genoux']].filter(([k]) => n.silhouette[k]).map(([k,l]) => (
-                        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                          <span style={{ color: T.textDim }}>{l}</span>
-                          <span style={{ color: T.text, fontWeight: 700 }}>{n.silhouette[k]}cm</span>
+                        <div key={k} style={{ padding: '6px 8px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, textAlign: 'center', border: `1px solid ${T.border}` }}>
+                          <div style={{ fontSize: 10, color: T.textDim }}>{l}</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{n.silhouette[k]}</div>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
-                {/* Conditions */}
-                {n?.impedance && (
-                  <div style={{ fontSize: 10, color: T.textDim, marginTop: 4, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {n.heure && <span>🕐 {n.heure}</span>}
-                    {n.impedance.eau_litres && <span>💧{n.impedance.eau_litres}L</span>}
-                    {n.impedance.alcool_veille && <span>🍷Alcool</span>}
-                    {n.impedance.cafeine_veille && <span>☕Caféïne</span>}
-                    {n.impedance.cycle_phase && n.impedance.cycle_phase !== 'na' && <span>🔄{n.impedance.cycle_phase}</span>}
-                  </div>
-                )}
-                <div style={{ fontSize: 10, color: T.textDim }}>{new Date(lastC.date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+
+                <div style={{ fontSize: 10, color: T.textDim }}>
+                  Mesure du {new Date(lastC.date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </div>
               </div>
             )
-          })() : <div style={{ color: T.textDim, fontSize: 12 }}>Aucune mesure</div>}
+          })() : <div style={{ color: T.textDim, fontSize: 12 }}>Aucune mesure enregistrée</div>}
         </Card>
 
         <Card style={{ padding: 16 }}>
