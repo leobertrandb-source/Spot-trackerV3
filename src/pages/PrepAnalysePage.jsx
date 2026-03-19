@@ -405,15 +405,6 @@ function ChartModal({ open, onClose, title, data, color, unit = '', series = nul
 }
 
 
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ─── Chart component ──────────────────────────────────────────────────────────
 function D3Chart({ data, color, h = 120, title, lastValue, unit = '', delta = null }) {
   const ref = useRef(null)
