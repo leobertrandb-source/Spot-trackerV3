@@ -102,7 +102,7 @@ function Sparkline({ points, color = '#3ecf8e', h = 80, showDots = true, showGri
 
 // ─── Saisie d'un TOPSET ───────────────────────────────────────────────────────
 function TopsetForm({ exercises, onSaved }) {
-  const { user, profile } = useAuth()
+  const { user, profile, isCoach } = useAuth()
   const today = new Date().toISOString().split('T')[0]
   const [exerciseName, setExerciseName] = useState('')
   const [showExList, setShowExList] = useState(false)
@@ -279,7 +279,7 @@ function TopsetForm({ exercises, onSaved }) {
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function PrepTopsetPage() {
-  const { user, profile } = useAuth()
+  const { user, profile, isCoach } = useAuth()
   const [logs, setLogs] = useState([])
   const [exercises, setExercises] = useState([])
   const [loading, setLoading] = useState(true)
@@ -349,7 +349,6 @@ export default function PrepTopsetPage() {
     return Object.entries(weeks).sort((a, b) => a[0].localeCompare(b[0]))
   }, [selectedLogs])
 
-  const isCoach = profile?.role === 'coach'
 
   const TABS = [
     { key: 'saisie',   label: 'Saisir' },
