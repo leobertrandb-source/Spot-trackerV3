@@ -33,7 +33,7 @@ headers: { ...corsHeaders, 'Content-Type': 'application/json' },
 )
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey)
 
 const { coachId, provider, sessions } = await req.json()
 
@@ -47,7 +47,7 @@ headers: { ...corsHeaders, 'Content-Type': 'application/json' },
 )
 }
 
-const { data: links, error: linksError } = await supabase
+const { data: links, error: linksError } = await supabaseAdmin
 .from('coach_clients')
 .select('client_id')
 .eq('coach_id', coachId)
@@ -68,12 +68,13 @@ headers: { ...corsHeaders, 'Content-Type': 'application/json' },
 
 const [{ data: externalIds, error: externalIdsError }, { data: profiles, error: profilesError }] =
 await Promise.all([
-supabase
+supabaseAdmin
 .from('athlete_external_ids')
 .select('athlete_id, provider, external_id')
 .in('athlete_id', athleteIds)
 .eq('provider', provider),
-supabase
+
+supabaseAdmin
 .from('profiles')
 .select('id, full_name')
 .in('id', athleteIds),
@@ -130,16 +131,13 @@ skipped += 1
 continue
 }
 
-const dureeMin = Number(sessionRow?.duree_min ?? 0)
-const kmTotal = Number(sessionRow?.km_total ?? 0)
-const rpe = Number(sessionRow?.rpe ?? 0)
+const durationMin = Number(sessionRow?.duree_min ?? 0)
+const distanceKm = Number(sessionRow?.km_total ?? 0)
+const topSpeed = Number(sessionRow?.vitesse_max ?? 0)
 const energy = sessionRow?.energy == null ? null : Number(sessionRow.energy)
+const impacts = sessionRow?.impacts == null ? null : Number(sessionRow.impacts)
 
-const chargeUa =
-energy ??
-(dureeMin > 0 && kmTotal > 0 ? Math.round(dureeMin * kmTotal) : 0)
-
-const notesPayload = {
+const rawPayload = {
 source: provider,
 player_name: playerName,
 external_id: externalId || null,
@@ -150,16 +148,21 @@ impacts: sessionRow?.impacts ?? null,
 speed_bands: sessionRow?.speed_bands ?? null,
 }
 
-const { error: insertError } = await supabase
-.from('charge_externe_logs')
+const { error: insertError } = await supabaseAdmin
+.from('gps_sessions')
 .insert({
-user_id: athleteId,
-date,
-charge_ua: Number.isFinite(chargeUa) ? chargeUa : 0,
-rpe: Number.isFinite(rpe) ? rpe : 0,
-duree_min: Number.isFinite(dureeMin) ? dureeMin : 0,
-type: 'cardio',
-notes: JSON.stringify(notesPayload),
+athlete_id: athleteId,
+coach_id: coachId,
+provider,
+session_date: date,
+player_name: playerName,
+external_id: externalId || null,
+duration_min: Number.isFinite(durationMin) ? durationMin : null,
+distance_km: Number.isFinite(distanceKm) ? distanceKm : null,
+top_speed: Number.isFinite(topSpeed) ? topSpeed : null,
+energy: energy !== null && Number.isFinite(energy) ? energy : null,
+impacts: impacts !== null && Number.isFinite(impacts) ? Math.round(impacts) : null,
+raw_payload: rawPayload,
 })
 
 if (insertError) throw insertError
@@ -170,7 +173,12 @@ imported += 1
 return new Response(
 JSON.stringify({
 success: true,
-stats: { imported, matched_by_external_id, matched_by_name, skipped },
+stats: {
+imported,
+matched_by_external_id,
+matched_by_name,
+skipped,
+},
 }),
 {
 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
