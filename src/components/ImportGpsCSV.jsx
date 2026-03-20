@@ -245,9 +245,7 @@ if (!session?.access_token) {
 throw new Error('Session introuvable.')
 }
 
-const supabaseUrl =
-import.meta?.env?.VITE_SUPABASE_URL ||
-process.env.REACT_APP_SUPABASE_URL
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
 
 if (!supabaseUrl) {
 throw new Error('URL Supabase introuvable.')
