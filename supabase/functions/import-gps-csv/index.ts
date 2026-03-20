@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
           user_id: athleteId,
           date,
           charge_ua: chargeUa,
-          rpe: sessionRow.rpe ?? 0,
+          rpe: Number(sessionRow.rpe ?? 0),
           duree_min: sessionRow.duree_min ?? 0,
           type: 'cardio',
           notes: JSON.stringify(notesPayload),
