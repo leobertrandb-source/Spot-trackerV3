@@ -172,7 +172,7 @@ function PrivateAppShell() {
           <Route path="/prep/charge" element={showPrepPhysique ? <PrepChargePage /> : <Navigate to={athleteHome} replace />} />
           <Route path="/prep/compo"  element={showPrepPhysique ? <PrepCompoPage /> : <Navigate to={athleteHome} replace />} />
           <Route path="/prep/topset" element={showPrepPhysique ? <PrepTopsetPage /> : <Navigate to={athleteHome} replace />} />
-          <Route path="/prep/charge-externe" element={showPrepPhysique && isCoach ? <PrepChargeExternePage /> : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/charge-externe" element={showPrepPhysique ? <PrepChargeExternePage /> : <Navigate to={athleteHome} replace />} />
           <Route path="/prep/dashboard" element={showPrepPhysique && isCoach ? <PrepDashboardPage /> : <Navigate to={athleteHome} replace />} />
           <Route path="/prep/analyse/:id" element={showPrepPhysique && isCoach ? <PrepAnalysePage /> : <Navigate to={athleteHome} replace />} />
 
