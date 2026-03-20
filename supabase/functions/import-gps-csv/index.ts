@@ -21,46 +21,33 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
-    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
       return new Response(
         JSON.stringify({ error: 'Variables Supabase manquantes.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
       )
     }
 
-    const authHeader = req.headers.get('Authorization') || ''
-
-    const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    })
-
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey)
-
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseUser.auth.getUser()
-
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Non autorisé.' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey)
 
     const { coachId, provider, sessions } = await req.json()
 
     if (!coachId || !provider || !Array.isArray(sessions)) {
       return new Response(
         JSON.stringify({ error: 'Payload invalide.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
       )
     }
 
-    const { data: links, error: linksError } = await supabaseAdmin
+    const { data: links, error: linksError } = await supabase
       .from('coach_clients')
       .select('client_id')
       .eq('coach_id', coachId)
@@ -72,21 +59,25 @@ Deno.serve(async (req) => {
     if (!athleteIds.length) {
       return new Response(
         JSON.stringify({ error: 'Aucun athlète lié à ce coach.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
       )
     }
 
-    const [{ data: externalIds, error: externalIdsError }, { data: profiles, error: profilesError }] = await Promise.all([
-      supabaseAdmin
-        .from('athlete_external_ids')
-        .select('athlete_id, provider, external_id')
-        .in('athlete_id', athleteIds)
-        .eq('provider', provider),
-      supabaseAdmin
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', athleteIds),
-    ])
+    const [{ data: externalIds, error: externalIdsError }, { data: profiles, error: profilesError }] =
+      await Promise.all([
+        supabase
+          .from('athlete_external_ids')
+          .select('athlete_id, provider, external_id')
+          .in('athlete_id', athleteIds)
+          .eq('provider', provider),
+        supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', athleteIds),
+      ])
 
     if (externalIdsError) throw externalIdsError
     if (profilesError) throw profilesError
@@ -94,13 +85,17 @@ Deno.serve(async (req) => {
     const externalMap = new Map<string, string>()
     for (const row of externalIds || []) {
       const key = `${row.provider}::${String(row.external_id || '').trim().toLowerCase()}`
-      if (row.external_id && row.athlete_id) externalMap.set(key, row.athlete_id)
+      if (row.external_id && row.athlete_id) {
+        externalMap.set(key, row.athlete_id)
+      }
     }
 
     const nameMap = new Map<string, string>()
     for (const row of profiles || []) {
       const key = normalizeName(row.full_name)
-      if (key && row.id) nameMap.set(key, row.id)
+      if (key && row.id) {
+        nameMap.set(key, row.id)
+      }
     }
 
     let imported = 0
@@ -146,7 +141,7 @@ Deno.serve(async (req) => {
         speed_bands: sessionRow.speed_bands ?? null,
       }
 
-      const { error: insertError } = await supabaseAdmin
+      const { error: insertError } = await supabase
         .from('charge_externe_logs')
         .insert({
           user_id: athleteId,
@@ -167,13 +162,18 @@ Deno.serve(async (req) => {
         success: true,
         stats: { imported, matched_by_external_id, matched_by_name, skipped },
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
     )
   } catch (error) {
     console.error(error)
     return new Response(
       JSON.stringify({ error: error?.message || 'Erreur serveur.' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
     )
   }
 })
