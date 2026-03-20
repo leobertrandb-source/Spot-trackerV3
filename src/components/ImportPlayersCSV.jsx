@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import Papa from 'papaparse'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 import { T } from '../lib/data'
@@ -7,9 +6,31 @@ import { T } from '../lib/data'
 function normalizeRow(row) {
   return {
     email: String(row.email || row.mail || row['e-mail'] || '').trim().toLowerCase(),
-    first_name: String(row.first_name || row.prenom || row.firstname || '').trim(),
-    last_name: String(row.last_name || row.nom || row.lastname || '').trim(),
+    first_name: String(row.first_name || row.prenom || '').trim(),
+    last_name: String(row.last_name || row.nom || '').trim(),
   }
+}
+
+function parseCsvText(text) {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  if (!lines.length) return []
+
+  const headers = lines[0].split(',').map((h) => h.trim())
+
+  return lines.slice(1).map((line) => {
+    const values = line.split(',').map((v) => v.trim())
+    const row = {}
+
+    headers.forEach((header, index) => {
+      row[header] = values[index] || ''
+    })
+
+    return row
+  })
 }
 
 export default function ImportPlayersCSV({ onClose, onSuccess }) {
@@ -32,27 +53,35 @@ export default function ImportPlayersCSV({ onClose, onSuccess }) {
 
   function handleFile(file) {
     if (!file) return
+
     setErrorMessage('')
     setSuccessMessage('')
     setImportStats(null)
     setFileName(file.name || '')
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (result) => {
-        const parsed = (result?.data || [])
+    const reader = new FileReader()
+
+    reader.onload = (event) => {
+      try {
+        const text = String(event?.target?.result || '')
+        const parsed = parseCsvText(text)
           .map(normalizeRow)
           .filter((row) => row.email || row.first_name || row.last_name)
 
         setRows(parsed)
-      },
-      error: (error) => {
+      } catch (error) {
         console.error(error)
         setRows([])
         setErrorMessage("Impossible de lire le fichier CSV.")
-      },
-    })
+      }
+    }
+
+    reader.onerror = () => {
+      setRows([])
+      setErrorMessage("Impossible de lire le fichier CSV.")
+    }
+
+    reader.readAsText(file)
   }
 
   async function handleImport() {
@@ -82,7 +111,7 @@ export default function ImportPlayersCSV({ onClose, onSuccess }) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token || process.env.REACT_APP_SUPABASE_ANON_KEY}`,
+            Authorization: `Bearer ${session?.access_token || ''}`,
           },
           body: JSON.stringify({
             coachId,
