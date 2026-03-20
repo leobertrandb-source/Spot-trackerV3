@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import { PageWrap, Card, Input, Badge } from '../components/UI'
+import ImportPlayersCSV from '../components/ImportPlayersCSV'
 import { T } from '../lib/data'
 
 function getInitials(name = '') {
@@ -23,6 +24,7 @@ export default function CoachClientsPage() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
+  const [showImportModal, setShowImportModal] = useState(false)
 
   const loadClients = useCallback(async () => {
     if (!coachId) {
@@ -197,25 +199,47 @@ export default function CoachClientsPage() {
             {stats.filtered} / {stats.total} client{stats.total > 1 ? 's' : ''}
           </div>
 
-          <button
-            type="button"
-            onClick={loadClients}
-            disabled={loading}
-            style={{
-              height: 48,
-              borderRadius: 14,
-              border: `1px solid ${T.border}`,
-              background: 'rgba(255,255,255,0.03)',
-              color: T.text,
-              padding: '0 16px',
-              cursor: loading ? 'default' : 'pointer',
-              fontWeight: 800,
-              fontSize: 13,
-              opacity: loading ? 0.7 : 1,
-            }}
-          >
-            {loading ? 'Chargement...' : 'Rafraîchir'}
-          </button>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setShowImportModal(true)}
+              style={{
+                height: 48,
+                borderRadius: 14,
+                border: `1px solid ${T.accent + '30'}`,
+                background: `${T.accent}14`,
+                color: T.accentLight,
+                padding: '0 16px',
+                cursor: 'pointer',
+                fontWeight: 900,
+                fontSize: 13,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Importer CSV
+            </button>
+
+            <button
+              type="button"
+              onClick={loadClients}
+              disabled={loading}
+              style={{
+                height: 48,
+                borderRadius: 14,
+                border: `1px solid ${T.border}`,
+                background: 'rgba(255,255,255,0.03)',
+                color: T.text,
+                padding: '0 16px',
+                cursor: loading ? 'default' : 'pointer',
+                fontWeight: 800,
+                fontSize: 13,
+                opacity: loading ? 0.7 : 1,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {loading ? 'Chargement...' : 'Rafraîchir'}
+            </button>
+          </div>
         </div>
 
         {errorMessage ? (
@@ -350,6 +374,36 @@ export default function CoachClientsPage() {
           )}
         </Card>
       </div>
+
+      {showImportModal ? (
+        <div
+          onClick={() => setShowImportModal(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.72)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 1000,
+            display: 'grid',
+            placeItems: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: 680,
+            }}
+          >
+            <ImportPlayersCSV
+              onClose={() => setShowImportModal(false)}
+              onSuccess={loadClients}
+            />
+          </div>
+        </div>
+      ) : null}
+
     </PageWrap>
   )
 }
