@@ -141,13 +141,20 @@ Deno.serve(async (req) => {
         speed_bands: sessionRow.speed_bands ?? null,
       }
 
+      const chargeUa =
+        sessionRow.energy ??
+        (sessionRow.duree_min && sessionRow.km_total
+          ? Math.round(Number(sessionRow.duree_min) * Number(sessionRow.km_total))
+          : 0)
+
       const { error: insertError } = await supabase
         .from('charge_externe_logs')
         .insert({
           user_id: athleteId,
           date,
-          rpe: null,
-          duree_min: sessionRow.duree_min ?? null,
+          charge_ua: chargeUa,
+          rpe: sessionRow.rpe ?? 0,
+          duree_min: sessionRow.duree_min ?? 0,
           type_seance: 'cardio',
           notes: JSON.stringify(notesPayload),
         })
