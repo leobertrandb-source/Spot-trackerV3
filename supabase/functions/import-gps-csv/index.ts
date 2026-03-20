@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
           charge_ua: chargeUa,
           rpe: sessionRow.rpe ?? 0,
           duree_min: sessionRow.duree_min ?? 0,
-          type_seance: 'cardio',
+          type: 'cardio',
           notes: JSON.stringify(notesPayload),
         })
 
