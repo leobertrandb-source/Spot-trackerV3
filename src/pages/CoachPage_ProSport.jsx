@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import NotificationManager from '../components/NotificationManager'
 import ImportPlayersCSV from '../components/ImportPlayersCSV'
+import ImportGpsCSV from '../components/ImportGpsCSV'
 
 const P = {
   bg: '#f5f3ef',
@@ -49,6 +50,7 @@ export default function CoachPageProSport() {
   const [inviting, setInviting] = useState(false)
   const [mainTab, setMainTab] = useState('dashboard') // 'dashboard' | 'notifications'
   const [showImport, setShowImport] = useState(false)
+  const [showGpsImport, setShowGpsImport] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -150,6 +152,12 @@ export default function CoachPageProSport() {
             >
               📥 Importer CSV
             </button>
+            <button
+              onClick={() => setShowGpsImport(true)}
+              style={{ padding: '10px 20px', borderRadius: 20, border: `1px solid ${P.border}`, background: '#fff', color: P.text, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 }}
+            >
+              📡 Import GPS
+            </button>
             <button onClick={() => setShowInvite(s => !s)}
               style={{ padding: '10px 20px', borderRadius: 20, border: `1px solid ${P.accent}`, background: showInvite ? P.accent : 'transparent', color: showInvite ? '#fff' : P.accent, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 }}>
               + Inviter un athlète
@@ -210,6 +218,35 @@ export default function CoachPageProSport() {
                 onClose={() => setShowImport(false)}
                 onSuccess={() => {
                   setShowImport(false)
+                  load()
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {showGpsImport && (
+          <div
+            onClick={() => setShowGpsImport(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+              padding: 16,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: 'min(900px, 94vw)' }}
+            >
+              <ImportGpsCSV
+                onClose={() => setShowGpsImport(false)}
+                onSuccess={() => {
+                  setShowGpsImport(false)
                   load()
                 }}
               />
