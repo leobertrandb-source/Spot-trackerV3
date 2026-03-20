@@ -53,6 +53,23 @@ function acwrLabel(r) {
   return 'Surcharge ⚠️'
 }
 
+
+function extractKmData(notes) {
+  if (!notes) return null
+
+  try {
+    const parsed = JSON.parse(notes)
+    if (parsed && typeof parsed === 'object') return parsed
+  } catch {}
+
+  try {
+    const match = notes.match(/km:(\{.*\})/)
+    if (match) return JSON.parse(match[1])
+  } catch {}
+
+  return null
+}
+
 // ─── Mini sparkline SVG ───────────────────────────────────────────────────────
 function Sparkline({ data, color = '#3ecf8e', h = 50 }) {
   if (data.length < 2) return null
@@ -91,7 +108,7 @@ export function ChargeExterneForm({ sessionId = null, onSaved = null, compact = 
   const charge = rpe && duree ? rpe * parseInt(duree) : null
 
   async function handleSave() {
-    if (!duree) return
+    if (!duree || !user?.id) return
     setSaving(true)
     const kmData = {
       text: notes || '',
@@ -242,6 +259,7 @@ export default function PrepChargeExternePage() {
   const [tab, setTab] = useState('saisie') // 'saisie' | 'analyse'
 
   const load = useCallback(async () => {
+    if (!user?.id) return
     setLoading(true)
     const since = new Date(); since.setDate(since.getDate() - 84) // 12 semaines
     const { data } = await supabase.from('charge_externe_logs')
@@ -250,9 +268,9 @@ export default function PrepChargeExternePage() {
       .order('date', { ascending: false })
     setLogs(data || [])
     setLoading(false)
-  }, [user.id])
+  }, [user?.id])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { if (user?.id) load() }, [load, user?.id])
 
   // ── Calculs hebdo ────────────────────────────────────────────────────────────
   const weeklyData = useMemo(() => {
@@ -290,6 +308,26 @@ export default function PrepChargeExternePage() {
   const chartData = weekKeys.slice(-8).map(wk => weeklyData[wk].charge)
   const seancesData = weekKeys.slice(-8).map(wk => weeklyData[wk].seances)
 
+  const kmLogs = useMemo(() => {
+    return [...logs]
+      .reverse()
+      .map(log => {
+        const kmData = extractKmData(log.notes)
+        if (!kmData) return null
+        return {
+          ...log,
+          km_total: kmData.km_total ? parseFloat(kmData.km_total) : null,
+          vitesse_moy: kmData.vitesse_moy ? parseFloat(kmData.vitesse_moy) : null,
+          speed_bands: kmData.speed_bands || null,
+          text: kmData.text || '',
+        }
+      })
+      .filter(Boolean)
+  }, [logs])
+
+  const kmSeries = kmLogs.filter(l => l.km_total).slice(-8).map(l => l.km_total)
+  const lastKmLog = [...kmLogs].reverse().find(l => l.speed_bands && Object.values(l.speed_bands || {}).some(v => parseFloat(v) > 0)) || kmLogs[kmLogs.length - 1] || null
+
   const today = new Date().toISOString().split('T')[0]
   const alreadyToday = logs.some(l => l.date === today)
 
@@ -324,14 +362,113 @@ export default function PrepChargeExternePage() {
 
         {/* ── Tab Saisie ── */}
         {tab === 'saisie' && (
-          <Card>
-            {alreadyToday && (
-              <div style={{ marginBottom: 14, padding: '8px 12px', background: `${T.accent}10`, borderRadius: 10, fontSize: 12, color: T.accentLight, fontWeight: 700 }}>
-                ✓ Une charge a déjà été saisie aujourd'hui — tu peux en ajouter une autre (double séance)
-              </div>
+          <>
+            <Card>
+              {alreadyToday && (
+                <div style={{ marginBottom: 14, padding: '8px 12px', background: `${T.accent}10`, borderRadius: 10, fontSize: 12, color: T.accentLight, fontWeight: 700 }}>
+                  ✓ Une charge a déjà été saisie aujourd'hui — tu peux en ajouter une autre (double séance)
+                </div>
+              )}
+              <ChargeExterneForm onSaved={load} />
+            </Card>
+
+            {kmLogs.length > 0 && (
+              <Card>
+                <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>
+                  Suivi course
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 14 }}>
+                  <div style={{ padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: 14, border: `1px solid ${T.border}` }}>
+                    <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Dernière distance</div>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: '#4d9fff', fontFamily: T.fontDisplay }}>
+                      {lastKmLog?.km_total ?? '—'} <span style={{ fontSize: 11, color: T.textDim }}>km</span>
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: 14, border: `1px solid ${T.border}` }}>
+                    <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Vitesse moyenne</div>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: '#fbbf24', fontFamily: T.fontDisplay }}>
+                      {lastKmLog?.vitesse_moy ?? '—'} <span style={{ fontSize: 11, color: T.textDim }}>km/h</span>
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: 14, border: `1px solid ${T.border}` }}>
+                    <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Kilométrage cumulé</div>
+                    <div style={{ fontSize: 22, fontWeight: 900, color: '#3ecf8e', fontFamily: T.fontDisplay }}>
+                      {Math.round(kmLogs.reduce((s, l) => s + (l.km_total || 0), 0) * 10) / 10} <span style={{ fontSize: 11, color: T.textDim }}>km</span>
+                    </div>
+                  </div>
+                </div>
+
+                {kmSeries.length >= 2 && (
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 11, color: T.textDim, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>
+                      Évolution du kilométrage
+                    </div>
+                    <Sparkline data={kmSeries} color="#4d9fff" h={70} />
+                  </div>
+                )}
+
+                {lastKmLog?.speed_bands && Object.values(lastKmLog.speed_bands || {}).some(v => parseFloat(v) > 0) && (
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 11, color: T.textDim, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>
+                      Répartition vitesse — dernière séance
+                    </div>
+
+                    <div style={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', marginBottom: 8 }}>
+                      {SPEED_BANDS.map(band => {
+                        const total = SPEED_BANDS.reduce((s, b) => s + (parseFloat(lastKmLog.speed_bands?.[b.key]) || 0), 0)
+                        const val = parseFloat(lastKmLog.speed_bands?.[band.key]) || 0
+                        const pct = total > 0 ? (val / total) * 100 : 0
+                        return pct > 0 ? (
+                          <div key={band.key} style={{ width: `${pct}%`, background: band.color }} />
+                        ) : null
+                      })}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                      {SPEED_BANDS.map(band => {
+                        const val = parseFloat(lastKmLog.speed_bands?.[band.key]) || 0
+                        return val > 0 ? (
+                          <span key={band.key} style={{ fontSize: 10, color: band.color, fontWeight: 700 }}>
+                            {band.label} {val} km
+                          </span>
+                        ) : null
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gap: 6 }}>
+                  {logs.slice(0, 6).map(log => {
+                    const typeInfo = SESSION_TYPES.find(t => t.key === log.type_seance) || SESSION_TYPES[4]
+                    const kmData = extractKmData(log.notes)
+                    return (
+                      <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: `1px solid ${T.border}` }}>
+                        <div>
+                          <div style={{ fontSize: 13, color: T.text, fontWeight: 600, display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <span>{typeInfo.emoji}</span>
+                            <span>{new Date(log.date + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                          </div>
+                          <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>
+                            RPE {log.rpe} × {log.duree_min} min
+                            {kmData?.vitesse_moy ? ` · ${kmData.vitesse_moy} km/h` : ''}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: 18, fontWeight: 900, color: '#4d9fff', fontFamily: T.fontDisplay }}>
+                            {kmData?.km_total ?? '—'}
+                          </div>
+                          <div style={{ fontSize: 10, color: T.textDim }}>km</div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </Card>
             )}
-            <ChargeExterneForm onSaved={load} />
-          </Card>
+          </>
         )}
 
         {/* ── Tab Analyse ── */}
