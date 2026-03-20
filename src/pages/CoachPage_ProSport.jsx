@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import NotificationManager from '../components/NotificationManager'
+import ImportPlayersCSV from '../components/ImportPlayersCSV'
 
 const P = {
   bg: '#f5f3ef',
@@ -47,6 +48,7 @@ export default function CoachPageProSport() {
   const [inviteMsg, setInviteMsg] = useState('')
   const [inviting, setInviting] = useState(false)
   const [mainTab, setMainTab] = useState('dashboard') // 'dashboard' | 'notifications'
+  const [showImport, setShowImport] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -142,6 +144,12 @@ export default function CoachPageProSport() {
                 {t.label}
               </button>
             ))}
+            <button
+              onClick={() => setShowImport(true)}
+              style={{ padding: '10px 20px', borderRadius: 20, border: `1px solid ${P.border}`, background: '#fff', color: P.text, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 }}
+            >
+              📥 Importer CSV
+            </button>
             <button onClick={() => setShowInvite(s => !s)}
               style={{ padding: '10px 20px', borderRadius: 20, border: `1px solid ${P.accent}`, background: showInvite ? P.accent : 'transparent', color: showInvite ? '#fff' : P.accent, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 }}>
               + Inviter un athlète
@@ -177,6 +185,35 @@ export default function CoachPageProSport() {
               <div style={{ marginTop: 8, fontSize: 12, color: P.green, fontWeight: 600 }}>{inviteMsg}</div>
             )}
             <div style={{ marginTop: 8, fontSize: 11, color: P.sub }}>Le lien est copié automatiquement. Envoyez-le par email ou SMS.</div>
+          </div>
+        )}
+
+        {showImport && (
+          <div
+            onClick={() => setShowImport(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+              padding: 16,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: 'min(680px, 90vw)' }}
+            >
+              <ImportPlayersCSV
+                onClose={() => setShowImport(false)}
+                onSuccess={() => {
+                  setShowImport(false)
+                  load()
+                }}
+              />
+            </div>
           </div>
         )}
 
