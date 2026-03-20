@@ -391,10 +391,7 @@ export default function CoachClientsPage() {
         >
           <div
             onClick={(event) => event.stopPropagation()}
-            style={{
-              width: '100%',
-              maxWidth: 680,
-            }}
+            style={{ width: '100%', maxWidth: 680 }}
           >
             <ImportPlayersCSV
               onClose={() => setShowImportModal(false)}
