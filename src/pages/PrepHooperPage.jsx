@@ -4,7 +4,7 @@ import { useAuth } from '../components/AuthContext'
 import { PageWrap, Card, Btn } from '../components/UI'
 import { T } from '../lib/data'
 import PushNotifToggle from '../components/PushNotifToggle'
-import DomsBodyMap from '../components/DomsBodyMap'
+import DomsBodyMapPro from '../components/DomsBodyMapPro'
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const HOOPER_FIELDS = [
@@ -421,7 +421,7 @@ export default function PrepHooperPage() {
     [history]
   )
 
-  const activeDoms = DOMS_ZONES.filter((zone) => (domsZones?.[zone.key]?.level || 0) > 0).map((zone) => [zone.key, domsZones[zone.key]])
+  const activeDoms = Object.entries(domsZones).filter(([, v]) => v.level > 0)
 
   const TABS = [
     { key: 'saisie', label: 'HOOPER' },
@@ -660,19 +660,17 @@ export default function PrepHooperPage() {
               Indique les zones douloureuses du jour. Pour chaque zone, précise l'intensité et ton niveau d'inquiétude.
             </div>
 
-            <Card>
-              <div style={{ fontSize: 13, fontWeight: 800, color: T.text, marginBottom: 12 }}>Carte corporelle</div>
-              <DomsBodyMap
+            <Card style={{ padding: 14 }}>
+              <DomsBodyMapPro
                 domsZones={domsZones}
-                labels={Object.fromEntries(DOMS_ZONES.map((z) => [z.key, z.label]))}
-                height={320}
-                bg="rgba(255,255,255,0.02)"
-                card="rgba(255,255,255,0.04)"
-                border={T.border}
-                text={T.text}
-                sub={T.textMid}
-                dim={T.textDim}
+                editable={true}
+                selectedZone={activeDoms[0]?.[0] || null}
+                title="Carte DOMS interactive"
+                onZoneClick={(key, level) => updateDoms(key, 'level', level > 0 ? 0 : 5)}
               />
+              <div style={{ fontSize: 11, color: T.textDim, marginTop: 10 }}>
+                Clique sur une zone pour l&apos;activer ou la retirer, puis ajuste l&apos;intensité juste en dessous.
+              </div>
             </Card>
 
             {DOMS_ZONES.map((zone) => (
@@ -755,7 +753,7 @@ export default function PrepHooperPage() {
                 {history.slice(0, 14).map((log) => {
                   const s = log.fatigue + log.sommeil + log.stress + log.courbatures
                   const si = scoreLabel(s)
-                  const domsCount = DOMS_ZONES.filter((zone) => (log.doms_zones?.[zone.key]?.level || 0) > 0).length
+                  const domsCount = DOMS_ZONES.filter((z) => (log.doms_zones?.[z.key]?.level || 0) > 0).length
 
                   return (
                     <div
