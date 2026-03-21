@@ -4,7 +4,7 @@ import { useAuth } from '../components/AuthContext'
 import { PageWrap, Card, Btn } from '../components/UI'
 import { T } from '../lib/data'
 import PushNotifToggle from '../components/PushNotifToggle'
-import DomsBodyMapPro from '../components/DomsBodyMapPro'
+import DomsPanelClickable from '../components/DomsPanelClickable'
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 const HOOPER_FIELDS = [
@@ -660,19 +660,6 @@ export default function PrepHooperPage() {
               Indique les zones douloureuses du jour. Pour chaque zone, précise l'intensité et ton niveau d'inquiétude.
             </div>
 
-            <Card style={{ padding: 14 }}>
-              <DomsBodyMapPro
-                domsZones={domsZones}
-                editable={true}
-                selectedZone={activeDoms[0]?.[0] || null}
-                title="Carte DOMS interactive"
-                onZoneClick={(key, level) => updateDoms(key, 'level', level > 0 ? 0 : 5)}
-              />
-              <div style={{ fontSize: 11, color: T.textDim, marginTop: 10 }}>
-                Clique sur une zone pour l&apos;activer ou la retirer, puis ajuste l&apos;intensité juste en dessous.
-              </div>
-            </Card>
-
             {DOMS_ZONES.map((zone) => (
               <DomsZoneRow key={zone.key} zone={zone} data={domsZones} onChange={updateDoms} />
             ))}
@@ -706,6 +693,8 @@ export default function PrepHooperPage() {
                 </div>
               </Card>
             )}
+
+            <DomsPanelClickable zones={DOMS_ZONES} doms={domsZones} compact title="Synthèse DOMS cliquable" />
 
             <Btn onClick={handleSave} disabled={saving}>
               {saving ? 'Enregistrement...' : 'Enregistrer'}
@@ -753,7 +742,7 @@ export default function PrepHooperPage() {
                 {history.slice(0, 14).map((log) => {
                   const s = log.fatigue + log.sommeil + log.stress + log.courbatures
                   const si = scoreLabel(s)
-                  const domsCount = DOMS_ZONES.filter((z) => (log.doms_zones?.[z.key]?.level || 0) > 0).length
+                  const domsCount = DOMS_ZONES.filter((zone) => (log.doms_zones?.[zone.key]?.level || 0) > 0).length
 
                   return (
                     <div
