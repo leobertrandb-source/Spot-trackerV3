@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import RtpGame from '../components/RtpGame'
-import DomsBodyMapPro from '../components/DomsBodyMapPro'
+import DomsPanelClickable from '../components/DomsPanelClickable'
 
 // ─── Design tokens — médical premium ─────────────────────────────────────────
 const P = {
@@ -1378,34 +1378,13 @@ export default function PrepAnalysePage() {
                 </div>
                 <button onClick={() => setSelectedDomsLog(null)} style={{ width: 30, height: 30, borderRadius: '50%', border: `1px solid ${P.border}`, background: P.bg, color: P.sub, fontSize: 18, cursor: 'pointer', display: 'grid', placeItems: 'center' }}>×</button>
               </div>
-              <div style={{ padding: '16px 20px', display: 'grid', gridTemplateColumns: '1fr 130px', gap: 16, alignItems: 'start' }}>
-                <div style={{ display: 'grid', gap: 8 }}>
-                  {activeZones.length === 0 ? (
-                    <div style={{ fontSize: 13, color: P.green }}>✓ Aucune douleur</div>
-                  ) : activeZones.map(zone => {
-                    const zd = dz[zone.key]
-                    const level = zd?.level || 0
-                    const inq = zd?.inquietude || 0
-                    const color = level <= 2 ? P.green : level <= 4 ? P.yellow : level <= 6 ? '#e07040' : P.red
-                    return (
-                      <div key={zone.key} style={{ padding: '10px 12px', borderRadius: 10, background: P.bg, border: `1px solid ${P.border}` }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 700, color }}>{zone.label}</div>
-                            {inq > 0 && <div style={{ fontSize: 11, color: P.sub }}>{INQUIETUDE_LABELS[inq]}</div>}
-                          </div>
-                          <div style={{ fontSize: 14, fontWeight: 800, color, fontFamily: "'DM Serif Display',serif" }}>{level}/10</div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 3 }}>
-                          {Array.from({ length: 10 }, (_, i) => (
-                            <div key={i} style={{ flex: 1, height: 8, borderRadius: 2, background: i < level ? color : `${color}20` }} />
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-                <DomsBodyMapPro domsZones={dz} compact={true} title="Carte corporelle" />
+              <div style={{ padding: '16px 20px' }}>
+                <DomsPanelClickable
+                  zones={DOMS_ZONES}
+                  doms={dz}
+                  title="Panel DOMS cliquable"
+                  emptyLabel="✓ Aucune douleur"
+                />
               </div>
             </div>
           </div>
