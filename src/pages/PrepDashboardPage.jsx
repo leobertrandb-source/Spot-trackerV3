@@ -1,3 +1,11 @@
+import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../components/AuthContext'
+import { PageWrap } from '../components/UI'
+import { T } from '../lib/data'
+import RtpGame from '../components/RtpGame'
+
 // ─── Config zones corporelles ─────────────────────────────────────────────────
 const ZONES = [
   { key: 'nuque',      label: 'Nuque / Cou',          emoji: '🔺', region: 'haut' },
@@ -627,7 +635,7 @@ export default function PrepDashboardPage() {
 
                       {/* DOMS — bouton cliquable */}
                       {nbDomsZones > 0 && (
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 }}>
                           <button
                             onClick={e => openDoms(e, athlete)}
                             style={{
@@ -643,19 +651,22 @@ export default function PrepDashboardPage() {
                               {RTP_STEPS[rtpStep - 1]?.icon} Étape {rtpStep}/5
                             </div>
                           )}
-                          <button
-                            onClick={e => openRtp(e, athlete)}
-                            style={{
-                              padding: '5px 12px', borderRadius: 20,
-                              border: `1px solid ${T.accent}40`,
-                              background: `${T.accent}10`, color: T.accentLight,
-                              fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                            }}
-                          >
-                            🎮 Protocole RTP
-                          </button>
                         </div>
                       )}
+
+                      {/* Protocole RTP — toujours visible */}
+                      <button
+                        onClick={e => openRtp(e, athlete)}
+                        style={{
+                          padding: '5px 12px', borderRadius: 20,
+                          border: `1px solid ${T.accent}40`,
+                          background: `${T.accent}10`, color: T.accentLight,
+                          fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                        }}
+                      >
+                        🎮 Protocole RTP
+                      </button>
                     </div>
 
                     {/* Métriques droite */}
