@@ -5,6 +5,7 @@ import { useAuth } from '../components/AuthContext'
 import NotificationManager from '../components/NotificationManager'
 import ImportPlayersCSV from '../components/ImportPlayersCSV'
 import ImportGpsCSV from '../components/ImportGpsCSV'
+import GpsDashboard from '../components/GpsDashboard'
 
 const P = {
   bg: '#f5f3ef',
@@ -48,7 +49,7 @@ export default function CoachPageProSport() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteMsg, setInviteMsg] = useState('')
   const [inviting, setInviting] = useState(false)
-  const [mainTab, setMainTab] = useState('dashboard') // 'dashboard' | 'notifications'
+  const [mainTab, setMainTab] = useState('dashboard') // 'dashboard' | 'notifications' | 'gps'
   const [showImport, setShowImport] = useState(false)
   const [showGpsImport, setShowGpsImport] = useState(false)
 
@@ -134,13 +135,13 @@ export default function CoachPageProSport() {
               ProSportConcept · Préparation physique
             </div>
             <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(26px,4vw,36px)', fontWeight: 400, color: P.text, margin: 0, lineHeight: 1.2 }}>
-              {mainTab === 'dashboard' ? 'Tableau de bord' : 'Notifications'}
+              {mainTab === 'dashboard' ? 'Tableau de bord' : mainTab === 'gps' ? 'GPS PlayerTek' : 'Notifications'}
             </h1>
             <div style={{ fontSize: 13, color: P.sub, marginTop: 6, textTransform: 'capitalize' }}>{dateLabel}</div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {/* Onglets principaux */}
-            {[{ key: 'dashboard', label: '📊 Dashboard' }, { key: 'notifications', label: '🔔 Notifications' }].map(t => (
+            {[{ key: 'dashboard', label: '📊 Dashboard' }, { key: 'gps', label: '📡 GPS' }, { key: 'notifications', label: '🔔 Notifications' }].map(t => (
               <button key={t.key} onClick={() => setMainTab(t.key)}
                 style={{ padding: '8px 16px', borderRadius: 20, border: `1px solid ${mainTab === t.key ? P.accent : P.border}`, background: mainTab === t.key ? P.accent : 'transparent', color: mainTab === t.key ? '#fff' : P.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}>
                 {t.label}
@@ -169,6 +170,19 @@ export default function CoachPageProSport() {
         {mainTab === 'notifications' && (
           <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 16, padding: '20px 24px' }}>
             <NotificationManager clients={clients.map(c => ({ id: c.id, full_name: c.full_name, email: c.email }))} />
+          </div>
+        )}
+
+        {/* Panel GPS */}
+        {mainTab === 'gps' && (
+          <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 16, padding: '20px 24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+              <button onClick={() => setShowGpsImport(true)}
+                style={{ padding: '8px 16px', borderRadius: 20, border: `1px solid ${P.accent}`, background: P.accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                + Importer un CSV GPS
+              </button>
+            </div>
+            <GpsDashboard coachId={user?.id} />
           </div>
         )}
 
