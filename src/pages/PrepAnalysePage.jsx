@@ -838,7 +838,9 @@ export default function PrepAnalysePage() {
                   <tbody>
                     {[...data.hooper].reverse().slice(0,14).map(h=>{
                       const s=h.fatigue+h.sommeil+h.stress+h.courbatures
-                      const domsN=Object.values(h.doms_zones||{}).filter(z=>z.level>0).length
+                      let dzRow = {}
+                      try { const r = h.doms_zones; dzRow = typeof r === 'string' ? JSON.parse(r) : (r || {}) } catch {}
+                      const domsN=Object.values(dzRow).filter(z=>z?.level>0).length
                       return (
                         <tr key={h.id} style={{ borderBottom:`1px solid ${P.border}` }}>
                           <td style={{ padding:'8px 10px', color:P.text }}>{new Date(h.date+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'})}</td>
@@ -850,7 +852,7 @@ export default function PrepAnalysePage() {
                           <td style={{ padding:'8px 10px', color:domsN>0?P.red:P.dim }}>
                             {domsN > 0 ? (
                               <button
-                                onClick={(e) => { e.stopPropagation(); setSelectedDomsLog(h) }}
+                                onClick={(e) => { e.stopPropagation(); setSelectedDomsLog({...h, doms_zones: dzRow}) }}
                                 style={{ background:'none', border:'none', padding:0, cursor:'pointer', color:P.red, fontWeight:700, fontSize:12, textDecoration:'underline' }}
                               >
                                 {domsN} zone{domsN>1?'s':''}
@@ -1346,7 +1348,11 @@ export default function PrepAnalysePage() {
       )}
 
       {selectedDomsLog && (() => {
-        const dz = selectedDomsLog.doms_zones || {}
+        let dz = {}
+        try {
+          const raw = selectedDomsLog.doms_zones
+          dz = typeof raw === 'string' ? JSON.parse(raw) : (raw || {})
+        } catch { dz = {} }
         const activeZones = DOMS_ZONES.filter(z => (dz[z.key]?.level || 0) > 0)
         const date = new Date(selectedDomsLog.date + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
         const INQUIETUDE_LABELS = ['', 'Pas inquiet', 'Peu inquiet', 'Très inquiet']
@@ -1400,24 +1406,54 @@ export default function PrepAnalysePage() {
                 </div>
                 <div>
                   <div style={{ fontSize: 10, fontWeight: 700, color: P.sub, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, textAlign: 'center' }}>Carte</div>
-                  <svg viewBox="0 0 100 100" style={{ width: '100%', height: 200, display: 'block' }}>
-                    <ellipse cx="50" cy="7" rx="7" ry="7" fill={P.bg} stroke={P.border} strokeWidth="0.8" />
-                    <rect x="46" y="13" width="8" height="5" rx="2" fill={P.bg} stroke={P.border} strokeWidth="0.5" />
-                    <path d="M32 20 L32 48 Q32 50 34 50 L66 50 Q68 50 68 48 L68 20 Q68 18 66 17 L34 17 Q32 18 32 20Z" fill={P.bg} stroke={P.border} strokeWidth="0.8" />
-                    <path d="M32 20 Q22 25 20 40 L18 52 Q17 54 18 55 L22 55 Q23 54 23 52 L25 40 Q27 30 34 26" fill={P.bg} stroke={P.border} strokeWidth="0.5" />
-                    <path d="M68 20 Q78 25 80 40 L82 52 Q83 54 82 55 L78 55 Q77 54 77 52 L75 40 Q73 30 66 26" fill={P.bg} stroke={P.border} strokeWidth="0.5" />
-                    <path d="M38 55 L36 72 L35 84 Q35 87 37 88 L41 88 Q43 87 43 84 L42 72 L42 55" fill={P.bg} stroke={P.border} strokeWidth="0.5" />
-                    <path d="M62 55 L64 72 L65 84 Q65 87 63 88 L59 88 Q57 87 57 84 L58 72 L58 55" fill={P.bg} stroke={P.border} strokeWidth="0.5" />
-                    <ellipse cx="38" cy="92" rx="5" ry="3" fill={P.bg} stroke={P.border} strokeWidth="0.5" />
-                    <ellipse cx="62" cy="92" rx="5" ry="3" fill={P.bg} stroke={P.border} strokeWidth="0.5" />
-                    {DOMS_ZONES.map(zone => {
+                  <svg viewBox="0 0 100 120" style={{ width: '100%', height: 220, display: 'block', background: P.bg, borderRadius: 12 }}>
+                    {/* Fond */}
+                    <rect x="0" y="0" width="100" height="120" fill={P.bg} rx="8"/>
+                    {/* Tête */}
+                    <ellipse cx="50" cy="9" rx="8" ry="9" fill={P.card} stroke={P.border} strokeWidth="1"/>
+                    {/* Cou */}
+                    <rect x="46" y="17" width="8" height="6" rx="2" fill={P.card} stroke={P.border} strokeWidth="0.6"/>
+                    {/* Épaules + torse */}
+                    <path d="M28 23 C24 23 20 26 20 30 L20 52 C20 54 22 55 24 55 L76 55 C78 55 80 54 80 52 L80 30 C80 26 76 23 72 23 Z" fill={P.card} stroke={P.border} strokeWidth="1"/>
+                    {/* Bras gauche */}
+                    <path d="M20 26 C15 28 12 34 11 42 L10 54 C10 56 11 57 13 57 L17 57 C19 57 20 56 20 54 L21 42 C21 35 22 29 28 26 Z" fill={P.card} stroke={P.border} strokeWidth="0.8"/>
+                    {/* Avant-bras gauche */}
+                    <path d="M10 54 C9 58 9 64 10 70 L11 74 C11 76 13 76 14 74 L15 70 C16 64 16 58 17 57 L13 57 Z" fill={P.card} stroke={P.border} strokeWidth="0.8"/>
+                    {/* Main gauche */}
+                    <ellipse cx="12" cy="77" rx="4" ry="5" fill={P.card} stroke={P.border} strokeWidth="0.8"/>
+                    {/* Bras droit */}
+                    <path d="M80 26 C85 28 88 34 89 42 L90 54 C90 56 89 57 87 57 L83 57 C81 57 80 56 80 54 L79 42 C79 35 78 29 72 26 Z" fill={P.card} stroke={P.border} strokeWidth="0.8"/>
+                    {/* Avant-bras droit */}
+                    <path d="M90 54 C91 58 91 64 90 70 L89 74 C89 76 87 76 86 74 L85 70 C84 64 84 58 83 57 L87 57 Z" fill={P.card} stroke={P.border} strokeWidth="0.8"/>
+                    {/* Main droite */}
+                    <ellipse cx="88" cy="77" rx="4" ry="5" fill={P.card} stroke={P.border} strokeWidth="0.8"/>
+                    {/* Bassin */}
+                    <path d="M24 55 C24 62 32 66 50 66 C68 66 76 62 76 55 Z" fill={P.card} stroke={P.border} strokeWidth="1"/>
+                    {/* Cuisse gauche */}
+                    <path d="M30 64 C27 68 26 76 27 86 L28 92 C28 94 30 95 32 94 L36 94 C38 93 38 91 38 89 L37 83 C36 75 35 68 38 64 Z" fill={P.card} stroke={P.border} strokeWidth="0.8"/>
+                    {/* Cuisse droite */}
+                    <path d="M70 64 C73 68 74 76 73 86 L72 92 C72 94 70 95 68 94 L64 94 C62 93 62 91 62 89 L63 83 C64 75 65 68 62 64 Z" fill={P.card} stroke={P.border} strokeWidth="0.8"/>
+                    {/* Genou gauche */}
+                    <ellipse cx="33" cy="94" rx="6" ry="5" fill={P.card} stroke={P.border} strokeWidth="0.8"/>
+                    {/* Genou droit */}
+                    <ellipse cx="67" cy="94" rx="6" ry="5" fill={P.card} stroke={P.border} strokeWidth="0.8"/>
+                    {/* Tibia gauche */}
+                    <path d="M29 97 C28 103 28 109 30 113 L31 116 C32 117 34 117 35 116 L36 113 C37 109 37 103 37 97 Z" fill={P.card} stroke={P.border} strokeWidth="0.8"/>
+                    {/* Tibia droit */}
+                    <path d="M63 97 C62 103 62 109 64 113 L65 116 C66 117 68 117 69 116 L70 113 C71 109 71 103 71 97 Z" fill={P.card} stroke={P.border} strokeWidth="0.8"/>
+                    {/* Pied gauche */}
+                    <ellipse cx="32" cy="117" rx="6" ry="3" fill={P.card} stroke={P.border} strokeWidth="0.8"/>
+                    {/* Pied droit */}
+                    <ellipse cx="68" cy="117" rx="6" ry="3" fill={P.card} stroke={P.border} strokeWidth="0.8"/>
+                    {/* Points DOMS */}
+                    {DOMS_ZONES.map(zone => {                    {DOMS_ZONES.map(zone => {
                       const POSITIONS = {
-                        nuque:[{x:50,y:12}], epaules:[{x:30,y:23},{x:70,y:23}],
-                        coudes:[{x:22,y:38},{x:78,y:38}], poignets:[{x:17,y:52},{x:83,y:52}],
-                        tronc:[{x:50,y:33}], lombaires:[{x:50,y:43}],
-                        hanches:[{x:38,y:53},{x:62,y:53}], cuisses:[{x:38,y:63},{x:62,y:63}],
-                        genoux:[{x:38,y:74},{x:62,y:74}], chevilles:[{x:38,y:84},{x:62,y:84}],
-                        pieds:[{x:38,y:92},{x:62,y:92}],
+                        nuque:[{x:50,y:15}], epaules:[{x:28,y:26},{x:72,y:26}],
+                        coudes:[{x:14,y:55},{x:86,y:55}], poignets:[{x:11,y:70},{x:89,y:70}],
+                        tronc:[{x:50,y:37}], lombaires:[{x:50,y:50}],
+                        hanches:[{x:35,y:61},{x:65,y:61}], cuisses:[{x:32,y:76},{x:68,y:76}],
+                        genoux:[{x:33,y:94},{x:67,y:94}], chevilles:[{x:32,y:108},{x:68,y:108}],
+                        pieds:[{x:32,y:117},{x:68,y:117}],
                       }
                       const level = dz[zone.key]?.level || 0
                       if (!level) return null
