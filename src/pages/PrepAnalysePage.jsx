@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../components/AuthContext'
+import RtpGame from '../components/RtpGame'
 
 // ─── Design tokens — médical premium ─────────────────────────────────────────
 const P = {
@@ -18,6 +20,20 @@ const P = {
   purple:  '#4a2d6b',
   teal:    '#1a5c52',
 }
+
+const DOMS_ZONES = [
+  { key: 'nuque',      label: 'Nuque / Cou' },
+  { key: 'epaules',   label: 'Épaules' },
+  { key: 'coudes',    label: 'Coudes' },
+  { key: 'poignets',  label: 'Poignets' },
+  { key: 'tronc',     label: 'Tronc / Abdominaux' },
+  { key: 'lombaires', label: 'Bas du dos / Lombaires' },
+  { key: 'hanches',   label: 'Hanches' },
+  { key: 'cuisses',   label: 'Cuisses' },
+  { key: 'genoux',    label: 'Genoux' },
+  { key: 'chevilles', label: 'Chevilles' },
+  { key: 'pieds',     label: 'Pieds' },
+]
 
 const CHART_COLORS = {
   hooper:     '#2d6a4f',
@@ -595,6 +611,8 @@ function extractKmData(notes) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function PrepAnalysePage() {
+  const { user, profile, isCoach } = useAuth()
+  const coachId = profile?.id || user?.id || null
   const { id } = useParams()
   const navigate = useNavigate()
   const [client, setClient] = useState(null)
@@ -643,6 +661,8 @@ export default function PrepAnalysePage() {
   const lastC = data.compo[data.compo.length-1]
   const prevC = data.compo.length > 1 ? data.compo[data.compo.length-2] : null
   const [selectedBilanIdx, setSelectedBilanIdx] = useState(null)
+  const [selectedDomsLog, setSelectedDomsLog] = useState(null)
+  const [rtpOpen, setRtpOpen] = useState(false)
   // Auto-sélectionner le dernier bilan quand les données arrivent
   useEffect(() => {
     if (data.compo.length > 0) setSelectedBilanIdx(data.compo.length - 1)
@@ -737,10 +757,18 @@ export default function PrepAnalysePage() {
             style={{ background:'none', border:'none', color:P.sub, cursor:'pointer', fontSize:13, fontWeight:500, padding:0, display:'flex', gap:6, alignItems:'center' }}>
             ← Retour
           </button>
-          <button onClick={load}
-            style={{ padding:'7px 14px', borderRadius:20, border:`1px solid ${P.border}`, background:'transparent', color:P.sub, fontSize:11, cursor:'pointer', fontWeight:600 }}>
-            ↻ Actualiser
-          </button>
+          <div style={{ display:'flex', gap:8 }}>
+            {isCoach && (
+              <button onClick={() => setRtpOpen(true)}
+                style={{ padding:'7px 16px', borderRadius:20, border:`1px solid ${P.accent}`, background:`${P.accent}10`, color:P.accent, fontSize:12, cursor:'pointer', fontWeight:700 }}>
+                🎮 Protocole RTP
+              </button>
+            )}
+            <button onClick={load}
+              style={{ padding:'7px 14px', borderRadius:20, border:`1px solid ${P.border}`, background:'transparent', color:P.sub, fontSize:11, cursor:'pointer', fontWeight:600 }}>
+              ↻ Actualiser
+            </button>
+          </div>
         </div>
 
         {/* Header athlète */}
@@ -819,7 +847,16 @@ export default function PrepAnalysePage() {
                           <td style={{ padding:'8px 10px', color:P.purple, fontWeight:600 }}>{h.sommeil}</td>
                           <td style={{ padding:'8px 10px', color:P.blue, fontWeight:600 }}>{h.stress}</td>
                           <td style={{ padding:'8px 10px', color:P.yellow, fontWeight:600 }}>{h.courbatures}</td>
-                          <td style={{ padding:'8px 10px', color:domsN>0?P.red:P.dim }}>{domsN>0?`${domsN} zone${domsN>1?'s':''}`:'-'}</td>
+                          <td style={{ padding:'8px 10px', color:domsN>0?P.red:P.dim }}>
+                            {domsN > 0 ? (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setSelectedDomsLog(h) }}
+                                style={{ background:'none', border:'none', padding:0, cursor:'pointer', color:P.red, fontWeight:700, fontSize:12, textDecoration:'underline' }}
+                              >
+                                {domsN} zone{domsN>1?'s':''}
+                              </button>
+                            ) : '–'}
+                          </td>
                         </tr>
                       )
                     })}
@@ -1296,6 +1333,111 @@ export default function PrepAnalysePage() {
         </Section>
 
       </div>
+
+      {/* ── Panel DOMS détail ── */}
+      {/* ── RTP Game ── */}
+      {rtpOpen && isCoach && (
+        <RtpGame
+          athleteId={id}
+          athleteName={client?.full_name || client?.email || ''}
+          coachId={coachId}
+          onClose={() => setRtpOpen(false)}
+        />
+      )}
+
+      {selectedDomsLog && (() => {
+        const dz = selectedDomsLog.doms_zones || {}
+        const activeZones = DOMS_ZONES.filter(z => (dz[z.key]?.level || 0) > 0)
+        const date = new Date(selectedDomsLog.date + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+        const INQUIETUDE_LABELS = ['', 'Pas inquiet', 'Peu inquiet', 'Très inquiet']
+        return (
+          <div onClick={() => setSelectedDomsLog(null)} style={{
+            position: 'fixed', inset: 0, zIndex: 2000,
+            background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(6px)',
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', padding: 16,
+          }}>
+            <div onClick={e => e.stopPropagation()} style={{
+              background: P.card, border: `1px solid ${P.border}`,
+              borderRadius: 20, width: '100%', maxWidth: 460,
+              maxHeight: '95vh', overflowY: 'auto',
+              boxShadow: '-8px 0 40px rgba(0,0,0,0.15)',
+            }}>
+              <div style={{ padding: '18px 20px', borderBottom: `1px solid ${P.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: P.text }}>🩹 DOMS — {date}</div>
+                  <div style={{ fontSize: 12, color: P.sub, marginTop: 3 }}>
+                    {activeZones.length} zone{activeZones.length > 1 ? 's' : ''} douloureuse{activeZones.length > 1 ? 's' : ''}
+                  </div>
+                </div>
+                <button onClick={() => setSelectedDomsLog(null)} style={{ width: 30, height: 30, borderRadius: '50%', border: `1px solid ${P.border}`, background: P.bg, color: P.sub, fontSize: 18, cursor: 'pointer', display: 'grid', placeItems: 'center' }}>×</button>
+              </div>
+              <div style={{ padding: '16px 20px', display: 'grid', gridTemplateColumns: '1fr 130px', gap: 16, alignItems: 'start' }}>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {activeZones.length === 0 ? (
+                    <div style={{ fontSize: 13, color: P.green }}>✓ Aucune douleur</div>
+                  ) : activeZones.map(zone => {
+                    const zd = dz[zone.key]
+                    const level = zd?.level || 0
+                    const inq = zd?.inquietude || 0
+                    const color = level <= 2 ? P.green : level <= 4 ? P.yellow : level <= 6 ? '#e07040' : P.red
+                    return (
+                      <div key={zone.key} style={{ padding: '10px 12px', borderRadius: 10, background: P.bg, border: `1px solid ${P.border}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color }}>{zone.label}</div>
+                            {inq > 0 && <div style={{ fontSize: 11, color: P.sub }}>{INQUIETUDE_LABELS[inq]}</div>}
+                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 800, color, fontFamily: "'DM Serif Display',serif" }}>{level}/10</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 3 }}>
+                          {Array.from({ length: 10 }, (_, i) => (
+                            <div key={i} style={{ flex: 1, height: 8, borderRadius: 2, background: i < level ? color : `${color}20` }} />
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: P.sub, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6, textAlign: 'center' }}>Carte</div>
+                  <svg viewBox="0 0 100 100" style={{ width: '100%', height: 200, display: 'block' }}>
+                    <ellipse cx="50" cy="7" rx="7" ry="7" fill={P.bg} stroke={P.border} strokeWidth="0.8" />
+                    <rect x="46" y="13" width="8" height="5" rx="2" fill={P.bg} stroke={P.border} strokeWidth="0.5" />
+                    <path d="M32 20 L32 48 Q32 50 34 50 L66 50 Q68 50 68 48 L68 20 Q68 18 66 17 L34 17 Q32 18 32 20Z" fill={P.bg} stroke={P.border} strokeWidth="0.8" />
+                    <path d="M32 20 Q22 25 20 40 L18 52 Q17 54 18 55 L22 55 Q23 54 23 52 L25 40 Q27 30 34 26" fill={P.bg} stroke={P.border} strokeWidth="0.5" />
+                    <path d="M68 20 Q78 25 80 40 L82 52 Q83 54 82 55 L78 55 Q77 54 77 52 L75 40 Q73 30 66 26" fill={P.bg} stroke={P.border} strokeWidth="0.5" />
+                    <path d="M38 55 L36 72 L35 84 Q35 87 37 88 L41 88 Q43 87 43 84 L42 72 L42 55" fill={P.bg} stroke={P.border} strokeWidth="0.5" />
+                    <path d="M62 55 L64 72 L65 84 Q65 87 63 88 L59 88 Q57 87 57 84 L58 72 L58 55" fill={P.bg} stroke={P.border} strokeWidth="0.5" />
+                    <ellipse cx="38" cy="92" rx="5" ry="3" fill={P.bg} stroke={P.border} strokeWidth="0.5" />
+                    <ellipse cx="62" cy="92" rx="5" ry="3" fill={P.bg} stroke={P.border} strokeWidth="0.5" />
+                    {DOMS_ZONES.map(zone => {
+                      const POSITIONS = {
+                        nuque:[{x:50,y:12}], epaules:[{x:30,y:23},{x:70,y:23}],
+                        coudes:[{x:22,y:38},{x:78,y:38}], poignets:[{x:17,y:52},{x:83,y:52}],
+                        tronc:[{x:50,y:33}], lombaires:[{x:50,y:43}],
+                        hanches:[{x:38,y:53},{x:62,y:53}], cuisses:[{x:38,y:63},{x:62,y:63}],
+                        genoux:[{x:38,y:74},{x:62,y:74}], chevilles:[{x:38,y:84},{x:62,y:84}],
+                        pieds:[{x:38,y:92},{x:62,y:92}],
+                      }
+                      const level = dz[zone.key]?.level || 0
+                      if (!level) return null
+                      const color = level <= 2 ? '#2d6a4f' : level <= 4 ? '#b5830a' : level <= 6 ? '#e07040' : '#c0392b'
+                      const positions = POSITIONS[zone.key] || []
+                      return positions.map((pos, i) => (
+                        <g key={`${zone.key}-${i}`}>
+                          <circle cx={pos.x} cy={pos.y} r={3.5 + level * 0.3} fill={color} opacity="0.2" />
+                          <circle cx={pos.x} cy={pos.y} r={2.5 + level * 0.2} fill={color} opacity="0.85" />
+                          <text x={pos.x} y={pos.y + 0.5} textAnchor="middle" dominantBaseline="middle" fontSize="2.5" fill="#fff" fontWeight="bold">{level}</text>
+                        </g>
+                      ))
+                    })}
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
