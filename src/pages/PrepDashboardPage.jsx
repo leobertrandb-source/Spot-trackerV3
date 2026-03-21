@@ -249,7 +249,7 @@ function DomsDetailPanel({ athlete, hooperHistory, onClose }) {
       padding: 16,
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: T.bgAlt, border: `1px solid ${T.border}`,
+        background: '#111a16', border: `1px solid ${T.border}`,
         borderRadius: 20, width: '100%', maxWidth: 480,
         maxHeight: '95vh', overflowY: 'auto',
         boxShadow: '-8px 0 40px rgba(0,0,0,0.3)',
@@ -703,6 +703,7 @@ export default function PrepDashboardPage() {
       {selectedAthlete && (
         <DomsDetailPanel
           athlete={selectedAthlete}
+          hooperHistory={selectedAthlete.allHoopers || []}
           onClose={() => setSelectedAthlete(null)}
         />
       )}
