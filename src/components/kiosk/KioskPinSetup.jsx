@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function KioskPinSetup({ clubId, clubName, onSave, supabase }) {
+export default function KioskPinSetup({ entityName, onSave, savePin }) {
   const [pin, setPin] = useState('')
   const [confirmPin, setConfirmPin] = useState('')
   const [loading, setLoading] = useState(false)
@@ -24,19 +24,14 @@ export default function KioskPinSetup({ clubId, clubName, onSave, supabase }) {
 
     setLoading(true)
 
-    const { error: updateError } = await supabase
-      .from('clubs')
-      .update({ kiosk_pin: pin })
-      .eq('id', clubId)
-
-    setLoading(false)
-
-    if (updateError) {
-      setError(updateError.message || "Impossible d'enregistrer le PIN.")
-      return
+    try {
+      await savePin(pin)
+      onSave(pin)
+    } catch (updateError) {
+      setError(updateError?.message || "Impossible d'enregistrer le PIN.")
     }
 
-    onSave(pin)
+    setLoading(false)
   }
 
   return (
@@ -96,7 +91,7 @@ export default function KioskPinSetup({ clubId, clubName, onSave, supabase }) {
           }}
         >
           Définissez un PIN à 4 chiffres pour quitter le mode borne
-          {clubName ? ` du club ${clubName}` : ''}.
+          {entityName ? ` de ${entityName}` : ''}.
         </p>
 
         <div style={{ display: 'grid', gap: 16 }}>
