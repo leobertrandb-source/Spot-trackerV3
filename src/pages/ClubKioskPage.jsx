@@ -35,6 +35,14 @@ export default function ClubKioskPage() {
   )
 
   useEffect(() => {
+  window.history.pushState(null, '', window.location.href)
+  const handlePopState = () => {
+    window.history.pushState(null, '', window.location.href)
+  }
+  window.addEventListener('popstate', handlePopState)
+  return () => window.removeEventListener('popstate', handlePopState)
+}, [])
+  useEffect(() => {
     const load = async () => {
       if (!coachId) {
         setLoading(false)
@@ -270,11 +278,11 @@ export default function ClubKioskPage() {
         )}
 
         <KioskPinModal
-          open={pinOpen}
-          onClose={() => setPinOpen(false)}
-          expectedPin={coach?.kiosk_pin || ''}
-          onSuccess={() => navigate(-1)}
-        />
+  open={pinOpen}
+  onClose={() => setPinOpen(false)}
+  expectedPin={coach?.kiosk_pin || ''}
+  onSuccess={() => navigate('/coach')}  // ← FIX
+/>
       </div>
     </div>
   )
