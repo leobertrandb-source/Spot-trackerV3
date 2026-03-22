@@ -76,21 +76,21 @@ export default function ClubKioskPage() {
 
       // 2) Profils joueurs
       const [{ data: profilesData, error: profilesError }, { data: hooperData, error: hooperError }] =
-        await Promise.all([
-          supabase
-            .from('profiles')
-            .select('id, full_name, avatar_url')
-            .in('id', ids),
+  await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', ids),
 
-          supabase
-            .from('hooper_logs')
-            .select('user_id, date')
-            .in('user_id', ids)
-            .eq('date', today),
-        ])
+    supabase
+      .from('hooper_logs')
+      .select('user_id, date')
+      .in('user_id', ids)
+      .eq('date', today),
+  ])
 
       if (profilesError) {
-        console.error('profiles error:', profilesError)
+        console.error('profiles error full:', JSON.stringify(profilesError, null, 2))
       }
 
       if (hooperError) {
