@@ -49,9 +49,18 @@ export default function CoachPageProSport() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteMsg, setInviteMsg] = useState('')
   const [inviting, setInviting] = useState(false)
-  const [mainTab, setMainTab] = useState('dashboard') // 'dashboard' | 'notifications' | 'gps'
+  const [mainTab, setMainTab] = useState('dashboard')
   const [showImport, setShowImport] = useState(false)
   const [showGpsImport, setShowGpsImport] = useState(false)
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
+
+  // Ferme le menu Plus si on clique ailleurs
+  useEffect(() => {
+    if (!showMoreMenu) return
+    const close = () => setShowMoreMenu(false)
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [showMoreMenu])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -124,6 +133,7 @@ export default function CoachPageProSport() {
         .client-row:hover { background: #faf8f4 !important; }
         .filter-btn { transition: all 0.15s; }
         .filter-btn:hover { opacity: 0.8; }
+        .more-menu-btn:hover { background: ${P.bg} !important; }
       `}</style>
 
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
@@ -139,7 +149,9 @@ export default function CoachPageProSport() {
             </h1>
             <div style={{ fontSize: 13, color: P.sub, marginTop: 6, textTransform: 'capitalize' }}>{dateLabel}</div>
           </div>
+
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
+            {/* Bouton Mode borne bien visible */}
             <button
               onClick={() => navigate('/coach-kiosk')}
               style={{
@@ -156,30 +168,90 @@ export default function CoachPageProSport() {
             >
               🖥️ Mode borne
             </button>
+
+            {/* Barre d'actions principale */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' }}>
-            {/* Onglets principaux */}
-            {[{ key: 'dashboard', label: '📊 Dashboard' }, { key: 'gps', label: '📡 GPS' }, { key: 'notifications', label: '🔔 Notifications' }].map(t => (
-              <button key={t.key} onClick={() => setMainTab(t.key)}
-                style={{ padding: '8px 16px', borderRadius: 20, border: `1px solid ${mainTab === t.key ? P.accent : P.border}`, background: mainTab === t.key ? P.accent : 'transparent', color: mainTab === t.key ? '#fff' : P.sub, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}>
-                {t.label}
+
+              {/* Onglets Dashboard / GPS / Notifications */}
+              {[
+                { key: 'dashboard',     label: '📊 Dashboard' },
+                { key: 'gps',           label: '📡 GPS' },
+                { key: 'notifications', label: '🔔 Notifications' },
+              ].map(t => (
+                <button key={t.key} onClick={() => setMainTab(t.key)}
+                  style={{
+                    padding: '8px 16px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    border: `1px solid ${mainTab === t.key ? P.accent : P.border}`,
+                    background: mainTab === t.key ? P.accent : 'transparent',
+                    color: mainTab === t.key ? '#fff' : P.sub,
+                    transition: 'all 0.15s',
+                  }}>
+                  {t.label}
+                </button>
+              ))}
+
+              {/* Inviter un athlète */}
+              <button
+                onClick={() => setShowInvite(s => !s)}
+                style={{
+                  padding: '10px 20px', borderRadius: 20,
+                  border: `1px solid ${P.accent}`,
+                  background: showInvite ? P.accent : 'transparent',
+                  color: showInvite ? '#fff' : P.accent,
+                  fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  transition: 'all 0.15s', flexShrink: 0,
+                }}>
+                + Inviter un athlète
               </button>
-            ))}
-            <button
-              onClick={() => setShowImport(true)}
-              style={{ padding: '10px 20px', borderRadius: 20, border: `1px solid ${P.border}`, background: '#fff', color: P.text, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 }}
-            >
-              📥 Importer CSV
-            </button>
-            <button
-              onClick={() => setShowGpsImport(true)}
-              style={{ padding: '10px 20px', borderRadius: 20, border: `1px solid ${P.border}`, background: '#fff', color: P.text, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 }}
-            >
-              📡 Import GPS
-            </button>
-            <button onClick={() => setShowInvite(s => !s)}
-              style={{ padding: '10px 20px', borderRadius: 20, border: `1px solid ${P.accent}`, background: showInvite ? P.accent : 'transparent', color: showInvite ? '#fff' : P.accent, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 }}>
-              + Inviter un athlète
-            </button>
+
+              {/* Menu Plus */}
+              <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+                <button
+                  onClick={() => setShowMoreMenu(s => !s)}
+                  style={{
+                    padding: '10px 16px', borderRadius: 20,
+                    border: `1px solid ${P.border}`,
+                    background: showMoreMenu ? P.accent : '#fff',
+                    color: showMoreMenu ? '#fff' : P.text,
+                    fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}>
+                  ··· Plus
+                </button>
+
+                {showMoreMenu && (
+                  <div style={{
+                    position: 'absolute', right: 0, top: '110%', zIndex: 100,
+                    background: '#fff', border: `1px solid ${P.border}`,
+                    borderRadius: 14, padding: '6px', minWidth: 190,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+                  }}>
+                    <button
+                      className="more-menu-btn"
+                      onClick={() => { setShowImport(true); setShowMoreMenu(false) }}
+                      style={{
+                        width: '100%', padding: '10px 14px', borderRadius: 10,
+                        border: 'none', background: 'transparent', color: P.text,
+                        fontSize: 13, fontWeight: 600, cursor: 'pointer', textAlign: 'left',
+                        transition: 'background 0.15s',
+                      }}>
+                      👤 Importer joueurs
+                    </button>
+                    <button
+                      className="more-menu-btn"
+                      onClick={() => { setShowGpsImport(true); setShowMoreMenu(false) }}
+                      style={{
+                        width: '100%', padding: '10px 14px', borderRadius: 10,
+                        border: 'none', background: 'transparent', color: P.text,
+                        fontSize: 13, fontWeight: 600, cursor: 'pointer', textAlign: 'left',
+                        transition: 'background 0.15s',
+                      }}>
+                      📡 Importer GPS
+                    </button>
+                  </div>
+                )}
+              </div>
+
             </div>
           </div>
         </div>
@@ -207,202 +279,161 @@ export default function CoachPageProSport() {
         {/* Contenu dashboard */}
         {mainTab === 'dashboard' && (<>
 
-        {/* Panel invitation */}
-        {showInvite && (
-          <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 14, padding: '18px 20px', marginBottom: 24 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: P.text, marginBottom: 10 }}>Générer un lien d'invitation</div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleInvite()}
-                placeholder="email@athlete.com"
-                style={{ flex: 1, minWidth: 200, background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, padding: '10px 14px', color: P.text, fontSize: 14, outline: 'none' }} />
-              <button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}
-                style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: P.accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: inviting || !inviteEmail.trim() ? 0.6 : 1, whiteSpace: 'nowrap' }}>
-                {inviting ? 'Génération...' : 'Générer & copier'}
-              </button>
+          {/* Panel invitation */}
+          {showInvite && (
+            <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 14, padding: '18px 20px', marginBottom: 24 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: P.text, marginBottom: 10 }}>Générer un lien d'invitation</div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleInvite()}
+                  placeholder="email@athlete.com"
+                  style={{ flex: 1, minWidth: 200, background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, padding: '10px 14px', color: P.text, fontSize: 14, outline: 'none' }} />
+                <button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}
+                  style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: P.accent, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: inviting || !inviteEmail.trim() ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+                  {inviting ? 'Génération...' : 'Générer & copier'}
+                </button>
+              </div>
+              {inviteMsg && (
+                <div style={{ marginTop: 8, fontSize: 12, color: P.green, fontWeight: 600 }}>{inviteMsg}</div>
+              )}
+              <div style={{ marginTop: 8, fontSize: 11, color: P.sub }}>Le lien est copié automatiquement. Envoyez-le par email ou SMS.</div>
             </div>
-          {inviteMsg && (
-              <div style={{ marginTop: 8, fontSize: 12, color: P.green, fontWeight: 600 }}>{inviteMsg}</div>
-            )}
-            <div style={{ marginTop: 8, fontSize: 11, color: P.sub }}>Le lien est copié automatiquement. Envoyez-le par email ou SMS.</div>
-          </div>
-        )}
+          )}
 
-        {showImport && (
-          <div
-            onClick={() => setShowImport(false)}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0,0,0,0.4)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1000,
-              padding: 16,
-            }}
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{ width: 'min(680px, 90vw)' }}
-            >
-              <ImportPlayersCSV
-                onClose={() => setShowImport(false)}
-                onSuccess={() => {
-                  setShowImport(false)
-                  load()
-                }}
-              />
+          {/* Modals import */}
+          {showImport && (
+            <div onClick={() => setShowImport(false)}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+              <div onClick={e => e.stopPropagation()} style={{ width: 'min(680px, 90vw)' }}>
+                <ImportPlayersCSV onClose={() => setShowImport(false)} onSuccess={() => { setShowImport(false); load() }} />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {showGpsImport && (
-          <div
-            onClick={() => setShowGpsImport(false)}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0,0,0,0.4)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1000,
-              padding: 16,
-            }}
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{ width: 'min(900px, 94vw)' }}
-            >
-              <ImportGpsCSV
-                onClose={() => setShowGpsImport(false)}
-                onSuccess={() => {
-                  setShowGpsImport(false)
-                  load()
-                }}
-              />
+          {showGpsImport && (
+            <div onClick={() => setShowGpsImport(false)}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+              <div onClick={e => e.stopPropagation()} style={{ width: 'min(900px, 94vw)' }}>
+                <ImportGpsCSV onClose={() => setShowGpsImport(false)} onSuccess={() => { setShowGpsImport(false); load() }} />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* KPIs */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px,1fr))', gap: 12, marginBottom: 28 }}>
-          {[
-            { label: 'Athlètes', value: clients.length, color: P.text, sub: 'total' },
-            { label: 'Rempli', value: clients.filter(c => c.filledToday).length, color: P.green, sub: "aujourd'hui" },
-            { label: 'Alertes', value: alerts.length, color: alerts.length > 0 ? P.red : P.sub, sub: 'fatigue ≥ 21' },
-            { label: 'Vigilance', value: vigil.length, color: vigil.length > 0 ? P.yellow : P.sub, sub: 'score 14–20' },
-          ].map(({ label, value, color, sub }) => (
-            <div key={label} style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 12, padding: '16px 18px' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', color: P.sub, marginBottom: 8 }}>{label}</div>
-              <div style={{ fontSize: 30, fontWeight: 700, color, lineHeight: 1, fontFamily: "'DM Serif Display', serif" }}>{value}</div>
-              <div style={{ fontSize: 11, color: P.sub, marginTop: 4 }}>{sub}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Filtres */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
-          {[
-            { key: 'all',     label: `Tous (${clients.length})` },
-            { key: 'alert',   label: `🔴 Alertes (${alerts.length})` },
-            { key: 'vigil',   label: `🟡 Vigilance (${vigil.length})` },
-            { key: 'ok',      label: `🟢 OK (${ok.length})` },
-            { key: 'missing', label: `⬜ Non rempli (${missing.length})` },
-          ].map(f => (
-            <button key={f.key} className="filter-btn" onClick={() => setFilter(f.key)}
-              style={{ padding: '7px 14px', borderRadius: 20, border: `1px solid ${filter === f.key ? P.accent : P.border}`, background: filter === f.key ? P.accent : P.card, color: filter === f.key ? '#fff' : P.text, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-              {f.label}
-            </button>
-          ))}
-          <button onClick={load} style={{ marginLeft: 'auto', padding: '7px 12px', borderRadius: 20, border: `1px solid ${P.border}`, background: 'transparent', color: P.sub, fontSize: 12, cursor: 'pointer' }}>↻</button>
-        </div>
-
-        {/* Liste clients */}
-        <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 16, overflow: 'hidden' }}>
-
-          {/* Header table */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 100px 80px 36px', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${P.border}`, background: '#faf8f4' }}>
-            {['Athlète', 'HOOPER', 'Charge sem.', 'Statut', ''].map(h => (
-              <div key={h} style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: P.sub }}>{h}</div>
+          {/* KPIs */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px,1fr))', gap: 12, marginBottom: 28 }}>
+            {[
+              { label: 'Athlètes',  value: clients.length,                            color: P.text,   sub: 'total' },
+              { label: 'Rempli',    value: clients.filter(c => c.filledToday).length,  color: P.green,  sub: "aujourd'hui" },
+              { label: 'Alertes',   value: alerts.length,  color: alerts.length > 0 ? P.red : P.sub,   sub: 'fatigue ≥ 21' },
+              { label: 'Vigilance', value: vigil.length,   color: vigil.length > 0 ? P.yellow : P.sub, sub: 'score 14–20' },
+            ].map(({ label, value, color, sub }) => (
+              <div key={label} style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 12, padding: '16px 18px' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', color: P.sub, marginBottom: 8 }}>{label}</div>
+                <div style={{ fontSize: 30, fontWeight: 700, color, lineHeight: 1, fontFamily: "'DM Serif Display', serif" }}>{value}</div>
+                <div style={{ fontSize: 11, color: P.sub, marginTop: 4 }}>{sub}</div>
+              </div>
             ))}
           </div>
 
-          {loading ? (
-            <div style={{ padding: 40, textAlign: 'center', color: P.sub }}>Chargement...</div>
-          ) : filtered.length === 0 ? (
-            <div style={{ padding: 40, textAlign: 'center', color: P.sub }}>Aucun athlète</div>
-          ) : filtered.map((client, i) => {
-            const status = statusFromScore(client.score)
-            const domsCount = client.hooper?.doms_zones ? Object.values(client.hooper.doms_zones).filter(z => z.level > 0).length : 0
-            const isLast = i === filtered.length - 1
+          {/* Filtres */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+            {[
+              { key: 'all',     label: `Tous (${clients.length})` },
+              { key: 'alert',   label: `🔴 Alertes (${alerts.length})` },
+              { key: 'vigil',   label: `🟡 Vigilance (${vigil.length})` },
+              { key: 'ok',      label: `🟢 OK (${ok.length})` },
+              { key: 'missing', label: `⬜ Non rempli (${missing.length})` },
+            ].map(f => (
+              <button key={f.key} className="filter-btn" onClick={() => setFilter(f.key)}
+                style={{ padding: '7px 14px', borderRadius: 20, border: `1px solid ${filter === f.key ? P.accent : P.border}`, background: filter === f.key ? P.accent : P.card, color: filter === f.key ? '#fff' : P.text, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                {f.label}
+              </button>
+            ))}
+            <button onClick={load} style={{ marginLeft: 'auto', padding: '7px 12px', borderRadius: 20, border: `1px solid ${P.border}`, background: 'transparent', color: P.sub, fontSize: 12, cursor: 'pointer' }}>↻</button>
+          </div>
 
-            return (
-              <div key={client.id} className="client-row"
-                onClick={() => navigate(`/prep/analyse/${client.id}`)}
-                style={{ display: 'grid', gridTemplateColumns: '1fr 140px 100px 80px 36px', gap: 12, padding: '14px 20px', borderBottom: isLast ? 'none' : `1px solid ${P.border}`, cursor: 'pointer', background: P.card, transition: 'background 0.15s', alignItems: 'center' }}>
+          {/* Liste clients */}
+          <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 16, overflow: 'hidden' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 100px 80px 36px', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${P.border}`, background: '#faf8f4' }}>
+              {['Athlète', 'HOOPER', 'Charge sem.', 'Statut', ''].map(h => (
+                <div key={h} style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: P.sub }}>{h}</div>
+              ))}
+            </div>
 
-                {/* Identité */}
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
-                  <Avatar name={client.full_name || client.email} />
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: P.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {client.full_name || client.email}
-                    </div>
-                    <div style={{ fontSize: 11, color: P.sub, marginTop: 2, display: 'flex', gap: 8 }}>
-                      {client.filledToday && <span style={{ color: P.green }}>✓ Rempli aujourd'hui</span>}
-                      {!client.filledToday && client.hooper && <span>Il y a {Math.floor((Date.now() - new Date(client.hooper.date+'T00:00:00').getTime())/86400000)}j</span>}
-                      {domsCount > 0 && <span style={{ color: P.red }}>🩹 {domsCount} DOMS</span>}
+            {loading ? (
+              <div style={{ padding: 40, textAlign: 'center', color: P.sub }}>Chargement...</div>
+            ) : filtered.length === 0 ? (
+              <div style={{ padding: 40, textAlign: 'center', color: P.sub }}>Aucun athlète</div>
+            ) : filtered.map((client, i) => {
+              const status = statusFromScore(client.score)
+              const domsCount = client.hooper?.doms_zones ? Object.values(client.hooper.doms_zones).filter(z => z.level > 0).length : 0
+              const isLast = i === filtered.length - 1
+
+              return (
+                <div key={client.id} className="client-row"
+                  onClick={() => navigate(`/prep/analyse/${client.id}`)}
+                  style={{ display: 'grid', gridTemplateColumns: '1fr 140px 100px 80px 36px', gap: 12, padding: '14px 20px', borderBottom: isLast ? 'none' : `1px solid ${P.border}`, cursor: 'pointer', background: P.card, transition: 'background 0.15s', alignItems: 'center' }}>
+
+                  {/* Identité */}
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
+                    <Avatar name={client.full_name || client.email} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: P.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {client.full_name || client.email}
+                      </div>
+                      <div style={{ fontSize: 11, color: P.sub, marginTop: 2, display: 'flex', gap: 8 }}>
+                        {client.filledToday && <span style={{ color: P.green }}>✓ Rempli aujourd'hui</span>}
+                        {!client.filledToday && client.hooper && <span>Il y a {Math.floor((Date.now() - new Date(client.hooper.date+'T00:00:00').getTime())/86400000)}j</span>}
+                        {domsCount > 0 && <span style={{ color: P.red }}>🩹 {domsCount} DOMS</span>}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* HOOPER détail */}
-                <div>
-                  {client.hooper ? (
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                      <div style={{ fontSize: 18, fontWeight: 700, color: status.color, fontFamily: "'DM Serif Display', serif", lineHeight: 1 }}>
-                        {client.score}
-                      </div>
-                      <div style={{ fontSize: 10, color: P.sub }}>/40</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ height: 4, borderRadius: 2, background: P.border, overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${(client.score/40)*100}%`, background: status.dot, borderRadius: 2, transition: 'width 0.4s' }} />
+                  {/* HOOPER */}
+                  <div>
+                    {client.hooper ? (
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: status.color, fontFamily: "'DM Serif Display', serif", lineHeight: 1 }}>
+                          {client.score}
                         </div>
-                        <div style={{ fontSize: 9, color: P.sub, marginTop: 2, display: 'flex', justifyContent: 'space-between' }}>
-                          <span>F{client.hooper.fatigue}</span><span>S{client.hooper.sommeil}</span>
-                          <span>St{client.hooper.stress}</span><span>C{client.hooper.courbatures}</span>
+                        <div style={{ fontSize: 10, color: P.sub }}>/40</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ height: 4, borderRadius: 2, background: P.border, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${(client.score/40)*100}%`, background: status.dot, borderRadius: 2, transition: 'width 0.4s' }} />
+                          </div>
+                          <div style={{ fontSize: 9, color: P.sub, marginTop: 2, display: 'flex', justifyContent: 'space-between' }}>
+                            <span>F{client.hooper.fatigue}</span><span>S{client.hooper.sommeil}</span>
+                            <span>St{client.hooper.stress}</span><span>C{client.hooper.courbatures}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ) : (
-                    <span style={{ fontSize: 12, color: P.sub, fontStyle: 'italic' }}>—</span>
-                  )}
+                    ) : (
+                      <span style={{ fontSize: 12, color: P.sub, fontStyle: 'italic' }}>—</span>
+                    )}
+                  </div>
+
+                  {/* Charge semaine */}
+                  <div style={{ fontSize: 14, fontWeight: 600, color: client.chargeWeek ? P.blue : P.sub }}>
+                    {client.chargeWeek ? `${Math.round(client.chargeWeek)} UA` : '—'}
+                  </div>
+
+                  {/* Badge statut */}
+                  <div style={{ padding: '4px 10px', borderRadius: 20, background: status.bg, fontSize: 10, fontWeight: 700, color: status.color, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                    {status.label}
+                  </div>
+
+                  {/* Chevron */}
+                  <div style={{ color: P.sub, fontSize: 14 }}>›</div>
                 </div>
+              )
+            })}
+          </div>
 
-                {/* Charge semaine */}
-                <div style={{ fontSize: 14, fontWeight: 600, color: client.chargeWeek ? P.blue : P.sub }}>
-                  {client.chargeWeek ? `${Math.round(client.chargeWeek)} UA` : '—'}
-                </div>
-
-                {/* Badge statut */}
-                <div style={{ padding: '4px 10px', borderRadius: 20, background: status.bg, fontSize: 10, fontWeight: 700, color: status.color, whiteSpace: 'nowrap', textAlign: 'center' }}>
-                  {status.label}
-                </div>
-
-                {/* Chevron */}
-                <div style={{ color: P.sub, fontSize: 14 }}>›</div>
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Footer */}
-        <div style={{ marginTop: 20, textAlign: 'center', fontSize: 11, color: P.sub }}>
-          Cliquez sur un athlète pour accéder à son analyse complète
-        </div>
-        </>)} {/* fin dashboard */}
+          {/* Footer */}
+          <div style={{ marginTop: 20, textAlign: 'center', fontSize: 11, color: P.sub }}>
+            Cliquez sur un athlète pour accéder à son analyse complète
+          </div>
+        </>)}
       </div>
     </div>
   )
