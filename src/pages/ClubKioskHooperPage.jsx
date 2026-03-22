@@ -105,12 +105,12 @@ export default function ClubKioskHooperPage() {
 
       if (profileError) {
         console.error(profileError)
-        setError('Impossible de charger le joueur.')
+        setError("Impossible de charger le joueur.")
       }
 
       if (logError) {
         console.error(logError)
-        setError('Impossible de vérifier le questionnaire du jour.')
+        setError("Impossible de vérifier le questionnaire du jour.")
       }
 
       setPlayer(profileData || null)
@@ -156,18 +156,18 @@ export default function ClubKioskHooperPage() {
       courbatures,
     }
 
-    const { error: insertError } = await supabase
+    const { error: upsertError } = await supabase
       .from('hooper_logs')
       .insert(payload)
 
     setSubmitting(false)
 
-    if (insertError) {
-      console.error(insertError)
+    if (upsertError) {
+      console.error(upsertError)
 
       if (
-        insertError.message?.toLowerCase().includes('duplicate') ||
-        insertError.code === '23505'
+        upsertError.message?.toLowerCase().includes('duplicate') ||
+        upsertError.code === '23505'
       ) {
         setAlreadyDone(true)
         setError("Ce joueur a déjà rempli son HOOPER aujourd'hui.")
