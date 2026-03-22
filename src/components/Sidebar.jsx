@@ -248,12 +248,14 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
         <div style={{ padding: '12px 10px 16px', borderBottom: `1px solid ${PS.border}`, marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 34, height: 34, borderRadius: 10, background: PS.accent, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L15 9H22L16.5 13.5L18.5 21L12 17L5.5 21L7.5 13.5L2 9H9L12 2Z" fill="white" opacity="0.9"/>
+              <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+                <path d="M6 26L16 6L26 26" stroke="#1a3a2a" strokeWidth="4" strokeLinejoin="round"/>
+                <line x1="9.5" y1="20" x2="22.5" y2="20" stroke="#1a3a2a" strokeWidth="3" strokeLinecap="round"/>
+                <circle cx="16" cy="6" r="3" fill="#3ecf8e"/>
               </svg>
             </div>
             <div>
-              <div style={{ fontFamily: "'DM Serif Display', serif", fontWeight: 400, fontSize: 15, color: PS.text, lineHeight: 1 }}>ProSportConcept</div>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 15, color: PS.text, lineHeight: 1 }}>atl<span style={{ color: '#3ecf8e' }}>yo</span></div>
               <div style={{ fontSize: 9, fontWeight: 600, color: PS.sub, textTransform: 'uppercase', letterSpacing: 1, marginTop: 2 }}>
                 {isCoach ? 'Préparateur physique' : 'Athlète'}
               </div>
@@ -335,15 +337,17 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
             width: 34, height: 34, borderRadius: 10,
             background: 'linear-gradient(135deg, #3ecf8e22, #3ecf8e08)',
             border: '1px solid #3ecf8e30',
-            display: 'grid', placeItems: 'center',
+            display: 'grid', placeItems: 'center', flexShrink: 0,
           }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L15 9H22L16.5 13.5L18.5 21L12 17L5.5 21L7.5 13.5L2 9H9L12 2Z" fill="#3ecf8e" opacity="0.9"/>
+            <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
+              <path d="M6 26L16 6L26 26" stroke="#1a3a2a" strokeWidth="4" strokeLinejoin="round"/>
+              <line x1="9.5" y1="20" x2="22.5" y2="20" stroke="#1a3a2a" strokeWidth="3" strokeLinecap="round"/>
+              <circle cx="16" cy="6" r="3" fill="#3ecf8e"/>
             </svg>
           </div>
           <div>
-            <div style={{ fontFamily: "'Syne', sans-serif", fontWeight: 900, fontSize: 16, color: '#edf2f7', letterSpacing: '-0.3px', lineHeight: 1 }}>
-              LE SPOT
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 16, color: '#edf2f7', letterSpacing: '-0.3px', lineHeight: 1 }}>
+              atl<span style={{ color: '#3ecf8e' }}>yo</span>
             </div>
             <div style={{ fontSize: 10, fontWeight: 700, color: '#3d4f61', textTransform: 'uppercase', letterSpacing: 1, marginTop: 2 }}>
               {isCoach ? 'Coach' : 'Athlète'}
