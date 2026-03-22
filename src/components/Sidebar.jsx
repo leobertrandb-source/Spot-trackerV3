@@ -1,21 +1,3 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { useAuth } from './AuthContext'
-import { T } from '../lib/data'
-
-
-// ─── Tokens ProSportConcept ───────────────────────────────────────────────────
-const PS = {
-  bg:     T.bg,
-  card:   T.bgAlt,
-  border: T.border,
-  text:   T.text,
-  sub:    T.textMid,
-  dim:    T.textDim,
-  accent: '#1a3a2a',
-  active: '#1a3a2a',
-}
-
 // ─── Images depuis Supabase Storage ──────────────────────────────────────────
 import { NAV_IMAGES } from '../lib/navImages'
 
@@ -247,7 +229,7 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
         {/* Logo ProSportConcept */}
         <div style={{ padding: '12px 10px 16px', borderBottom: `1px solid ${PS.border}`, marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: PS.accent, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: 'transparent', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
               <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
                 <path d="M6 26L16 6L26 26" stroke="#3ecf8e" strokeWidth="4" strokeLinejoin="round"/>
                 <line x1="9.5" y1="20" x2="22.5" y2="20" stroke="#3ecf8e" strokeWidth="3" strokeLinecap="round"/>
@@ -334,8 +316,7 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 34, height: 34, borderRadius: 10,
-            background: 'linear-gradient(135deg, #3ecf8e22, #3ecf8e08)',
-            border: '1px solid #3ecf8e30',
+            background: 'transparent',
             display: 'grid', placeItems: 'center', flexShrink: 0,
           }}>
             <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
