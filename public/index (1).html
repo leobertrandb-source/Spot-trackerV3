@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Atlyo</title>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json" />
+
+  <!-- Theme color (barre navigateur Android) -->
+  <meta name="theme-color" content="#3ecf8e" />
+
+  <!-- SEO -->
+  <meta name="description" content="Atlyo — Le suivi athlète réinventé. Programmes, nutrition, surcharge progressive." />
+
+  <!-- APPLE / iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Atlyo" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png" />
+  <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png" />
+  <link rel="apple-touch-icon" sizes="144x144" href="/icons/icon-144.png" />
+  <link rel="apple-touch-icon" sizes="120x120" href="/icons/icon-120.png" />
+
+  <!-- Splash screens iOS -->
+  <link rel="apple-touch-startup-image"
+    media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)"
+    href="/splashscreens/iphone14promax.png" />
+  <link rel="apple-touch-startup-image"
+    media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)"
+    href="/splashscreens/iphone14.png" />
+
+  <!-- ANDROID -->
+  <meta name="mobile-web-app-capable" content="yes" />
+
+  <!-- FAVICON -->
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-16.png" />
+  <link rel="shortcut icon" href="/favicon.ico" />
+
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: #050607;
+      color: #f5f7fa;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #080a0d; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 6px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(57,224,122,0.35); }
+    ::selection { background: rgba(57,224,122,0.18); color: #39e07a; }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button { opacity: 0.4; }
+    select option { background: rgba(18, 22, 28, 0.95); color: #f5f7fa; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('SW enregistré:', reg.scope))
+          .catch(err => console.error('SW erreur:', err))
+      })
+    }
+  </script>
+</body>
+</html>
