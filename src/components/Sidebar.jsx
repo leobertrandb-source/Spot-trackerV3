@@ -1,3 +1,21 @@
+import { useEffect, useRef, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { useAuth } from './AuthContext'
+import { T } from '../lib/data'
+
+
+// ─── Tokens ProSportConcept ───────────────────────────────────────────────────
+const PS = {
+  bg:     T.bg,
+  card:   T.bgAlt,
+  border: T.border,
+  text:   T.text,
+  sub:    T.textMid,
+  dim:    T.textDim,
+  accent: '#1a3a2a',
+  active: '#1a3a2a',
+}
+
 // ─── Images depuis Supabase Storage ──────────────────────────────────────────
 import { NAV_IMAGES } from '../lib/navImages'
 
