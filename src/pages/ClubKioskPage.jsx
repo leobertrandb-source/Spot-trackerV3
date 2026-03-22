@@ -172,11 +172,13 @@ export default function ClubKioskPage() {
     >
       <div style={{ maxWidth: 1280, margin: '0 auto' }}>
         <KioskHeader
-          clubName={coach?.name}
-          protocol="HOOPER"
-          dateLabel={dateLabel}
-          onExit={() => setPinOpen(true)}
-        />
+  clubName={coach?.name}
+  protocol="HOOPER"
+  dateLabel={dateLabel}
+  completedCount={doneCount}
+  totalCount={players.length}
+  onExit={() => setPinOpen(true)}
+/>
 
         <div
           style={{
