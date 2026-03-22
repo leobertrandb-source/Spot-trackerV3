@@ -177,8 +177,6 @@ function PrivateAppShell() {
           <Route path="/prep/charge-externe" element={showPrepPhysique ? <PrepChargeExternePage /> : <Navigate to={athleteHome} replace />} />
           <Route path="/prep/dashboard" element={showPrepPhysique && isCoach ? <PrepDashboardPage /> : <Navigate to={athleteHome} replace />} />
           <Route path="/prep/analyse/:id" element={showPrepPhysique && isCoach ? <PrepAnalysePage /> : <Navigate to={athleteHome} replace />} />
-          <Route path="/coach-kiosk" element={showPrepPhysique && isCoach ? <ClubKioskPage /> : <Navigate to={athleteHome} replace />} />
-          <Route path="/coach-kiosk/hooper/:playerId" element={showPrepPhysique && isCoach ? <ClubKioskHooperPage /> : <Navigate to={athleteHome} replace />} />
 
           <Route
             path="/coach"
@@ -243,8 +241,8 @@ function RootRouter() {
   return (
     <Routes>
       <Route path="/invite/:token" element={<InviteRoute />} />
-      <Route path="/club-kiosk/:clubId" element={<ClubKioskPage />} />
-      <Route path="/club-kiosk/:clubId/hooper/:playerId" element={<ClubKioskHooperPage />} />
+      <Route path="/coach-kiosk" element={<ClubKioskPage />} />
+      <Route path="/coach-kiosk/hooper/:playerId" element={<ClubKioskHooperPage />} />
       <Route path="*" element={<PrivateAppShell />} />
     </Routes>
   )
