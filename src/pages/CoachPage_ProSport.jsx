@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
@@ -52,6 +52,8 @@ export default function CoachPageProSport() {
   const [mainTab, setMainTab] = useState('dashboard') // 'dashboard' | 'notifications' | 'gps'
   const [showImport, setShowImport] = useState(false)
   const [showGpsImport, setShowGpsImport] = useState(false)
+
+  const coachKioskPath = '/coach-kiosk'
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -129,16 +131,37 @@ export default function CoachPageProSport() {
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
 
         {/* Header */}
-        <div style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: P.sub, marginBottom: 8 }}>
-              ProSportConcept · Préparation physique
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: P.sub, marginBottom: 8 }}>
+                ProSportConcept · Préparation physique
+              </div>
+              <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(26px,4vw,36px)', fontWeight: 400, color: P.text, margin: 0, lineHeight: 1.2 }}>
+                {mainTab === 'dashboard' ? 'Tableau de bord' : mainTab === 'gps' ? 'GPS PlayerTek' : 'Notifications'}
+              </h1>
+              <div style={{ fontSize: 13, color: P.sub, marginTop: 6, textTransform: 'capitalize' }}>{dateLabel}</div>
             </div>
-            <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(26px,4vw,36px)', fontWeight: 400, color: P.text, margin: 0, lineHeight: 1.2 }}>
-              {mainTab === 'dashboard' ? 'Tableau de bord' : mainTab === 'gps' ? 'GPS PlayerTek' : 'Notifications'}
-            </h1>
-            <div style={{ fontSize: 13, color: P.sub, marginTop: 6, textTransform: 'capitalize' }}>{dateLabel}</div>
+
+            <button
+              onClick={() => navigate(coachKioskPath)}
+              style={{
+                padding: '12px 18px',
+                borderRadius: 16,
+                border: `1px solid ${P.accent}`,
+                background: '#fff',
+                color: P.accent,
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 10px 24px rgba(16,24,40,0.05)',
+                flexShrink: 0,
+              }}
+            >
+              🖥️ Mode borne
+            </button>
           </div>
+
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {/* Onglets principaux */}
             {[{ key: 'dashboard', label: '📊 Dashboard' }, { key: 'gps', label: '📡 GPS' }, { key: 'notifications', label: '🔔 Notifications' }].map(t => (
