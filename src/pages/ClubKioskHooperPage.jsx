@@ -133,6 +133,7 @@ export default function ClubKioskHooperPage() {
   const [player, setPlayer] = useState(null)
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
 
   const [values, setValues] = useState({
     fatigue: 5,
@@ -145,11 +146,17 @@ export default function ClubKioskHooperPage() {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name')
         .eq('id', playerId)
         .single()
+
+      if (error) {
+        console.error('load profile error:', error)
+        setError("Impossible de charger l'athlète.")
+        return
+      }
 
       setPlayer(data || null)
     }
@@ -159,27 +166,44 @@ export default function ClubKioskHooperPage() {
 
   useEffect(() => {
     if (!submitted) return
-    const timer = setTimeout(() => navigate('/coach-kiosk'), 1500)
+
+    const timer = setTimeout(() => {
+      navigate('/coach-kiosk')
+    }, 1500)
+
     return () => clearTimeout(timer)
   }, [submitted, navigate])
 
   const handleSubmit = async () => {
     if (submitting) return
-    setSubmitting(true)
 
-    const { error } = await supabase.from('hooper_logs').upsert(
-      {
-        user_id: playerId,
-        date: today,
-        ...values,
-      },
-      { onConflict: 'user_id,date' }
-    )
+    setSubmitting(true)
+    setError('')
+
+    const payload = {
+      user_id: playerId,
+      date: today,
+      fatigue: values.fatigue,
+      sommeil: values.sommeil,
+      stress: values.stress,
+      courbatures: values.courbatures,
+    }
+
+    const { error } = await supabase
+      .from('hooper_logs')
+      .insert(payload)
 
     setSubmitting(false)
 
     if (error) {
-      console.error(error)
+      console.error('submit hooper error:', error)
+
+      if (error.code === '23505' || String(error.message || '').toLowerCase().includes('duplicate')) {
+        setError("Ce joueur a déjà rempli son HOOPER aujourd'hui.")
+        return
+      }
+
+      setError("Impossible d'enregistrer le HOOPER.")
       return
     }
 
@@ -233,6 +257,22 @@ export default function ClubKioskHooperPage() {
           </div>
         </div>
 
+        {error && (
+          <div
+            style={{
+              marginBottom: 16,
+              padding: '14px 16px',
+              borderRadius: 14,
+              background: '#fff1f0',
+              border: '1px solid #f3b7b2',
+              color: '#b42318',
+              fontWeight: 700,
+            }}
+          >
+            {error}
+          </div>
+        )}
+
         <div style={{ display: 'grid', gap: 18 }}>
           {HOOPER_FIELDS.map((field) => (
             <SliderField
@@ -249,25 +289,46 @@ export default function ClubKioskHooperPage() {
           ))}
         </div>
 
-        <button
-          onClick={handleSubmit}
-          disabled={submitting}
-          style={{
-            marginTop: 24,
-            width: '100%',
-            height: 72,
-            borderRadius: 999,
-            border: 'none',
-            background: 'linear-gradient(90deg, #0f5b3d 0%, #164a34 100%)',
-            color: '#ffffff',
-            fontWeight: 900,
-            fontSize: 22,
-            cursor: submitting ? 'not-allowed' : 'pointer',
-            boxShadow: '0 16px 32px rgba(15,91,61,0.35)',
-          }}
-        >
-          {submitting ? 'Enregistrement...' : 'Valider'}
-        </button>
+        <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+          <button
+            onClick={() => navigate('/coach-kiosk')}
+            type="button"
+            style={{
+              width: 180,
+              height: 72,
+              borderRadius: 999,
+              border: '1px solid rgba(255,255,255,0.18)',
+              background: 'rgba(255,255,255,0.06)',
+              color: '#ffffff',
+              fontWeight: 800,
+              fontSize: 18,
+              cursor: 'pointer',
+            }}
+          >
+            Retour
+          </button>
+
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            type="button"
+            style={{
+              flex: 1,
+              height: 72,
+              borderRadius: 999,
+              border: 'none',
+              background: 'linear-gradient(90deg, #0f5b3d 0%, #164a34 100%)',
+              color: '#ffffff',
+              fontWeight: 900,
+              fontSize: 22,
+              cursor: submitting ? 'not-allowed' : 'pointer',
+              boxShadow: '0 16px 32px rgba(15,91,61,0.35)',
+              opacity: submitting ? 0.7 : 1,
+            }}
+          >
+            {submitting ? 'Enregistrement...' : 'Valider'}
+          </button>
+        </div>
       </div>
     </div>
   )
