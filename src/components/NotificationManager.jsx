@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 
 const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || ''
-const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || ''
 
 const P = {
   bg: '#f5f3ef', card: '#ffffff', border: '#e8e4dc',
@@ -63,25 +62,28 @@ function SectionTitle({ children }) {
   return <div style={{ fontSize: 16, fontWeight: 700, color: P.text, marginBottom: 14, paddingBottom: 10, borderBottom: `1px solid ${P.border}` }}>{children}</div>
 }
 
+// Helper pour obtenir le token de session courant
+async function getAuthToken() {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token || ''
+}
+
 export default function NotificationManager({ clients = [] }) {
   const { user } = useAuth()
 
-  // ── Tab actif ──────────────────────────────────────────────────────
-  const [tab, setTab] = useState('campagne') // 'campagne' | 'parametres'
+  const [tab, setTab] = useState('campagne')
 
-  // ── Campagne ───────────────────────────────────────────────────────
-  const [campTargets, setCampTargets] = useState([])         // athlete ids sélectionnés
-  const [campType, setCampType] = useState(NOTIF_TYPES[0])   // type de notif
+  const [campTargets, setCampTargets] = useState([])
+  const [campType, setCampType] = useState(NOTIF_TYPES[0])
   const [campTitle, setCampTitle] = useState(NOTIF_TYPES[0].defaultTitle)
   const [campBody, setCampBody] = useState(NOTIF_TYPES[0].defaultBody)
   const [campUrl, setCampUrl] = useState(NOTIF_TYPES[0].url)
-  const [campMode, setCampMode] = useState('immediat')       // 'immediat' | 'programme'
+  const [campMode, setCampMode] = useState('immediat')
   const [campHeure, setCampHeure] = useState('08:00')
-  const [campJours, setCampJours] = useState([1, 2, 3, 4, 5]) // lun-ven par défaut
+  const [campJours, setCampJours] = useState([1, 2, 3, 4, 5])
   const [sending, setSending] = useState(false)
   const [sentMsg, setSentMsg] = useState('')
 
-  // ── Paramètres individuels ─────────────────────────────────────────
   const [settings, setSettings] = useState({})
   const [saving, setSaving] = useState({})
   const [expanded, setExpanded] = useState(null)
@@ -100,7 +102,6 @@ export default function NotificationManager({ clients = [] }) {
 
   useEffect(() => { load() }, [load])
 
-  // Quand le type change, mettre à jour titre/body/url par défaut
   function selectType(type) {
     setCampType(type)
     if (type.defaultTitle) setCampTitle(type.defaultTitle)
@@ -115,16 +116,44 @@ export default function NotificationManager({ clients = [] }) {
 
   async function sendCampagne() {
     if (!campTitle || !campTargets.length) return
-    setSending(true); setSentMsg('')
+    setSending(true)
+    setSentMsg('')
     try {
+      // FIX : utiliser le token de session auth au lieu de la clé anon
+      const token = await getAuthToken()
+      if (!token) {
+        setSentMsg('❌ Session expirée, reconnecte-toi')
+        setSending(false)
+        return
+      }
+
       const res = await fetch(`${SUPABASE_URL}/functions/v1/send-notifications/manual`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ athleteIds: campTargets, title: campTitle, message: campBody, url: campUrl }),
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          athleteIds: campTargets,
+          title: campTitle,
+          message: campBody,
+          url: campUrl,
+        }),
       })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        setSentMsg(`❌ Erreur ${res.status} : ${err.error || 'inconnue'}`)
+        setSending(false)
+        return
+      }
+
       const data = await res.json()
       setSentMsg(`✅ ${data.sent || 0} notification(s) envoyée(s)`)
-    } catch { setSentMsg('❌ Erreur d\'envoi') }
+    } catch (e) {
+      console.error('sendCampagne error:', e)
+      setSentMsg('❌ Erreur réseau')
+    }
     setSending(false)
   }
 
@@ -168,7 +197,7 @@ export default function NotificationManager({ clients = [] }) {
         ))}
       </div>
 
-      {/* ══ ONGLET CAMPAGNE ══════════════════════════════════════════════ */}
+      {/* ══ ONGLET CAMPAGNE ══ */}
       {tab === 'campagne' && (
         <div style={{ display: 'grid', gap: 20 }}>
 
@@ -206,7 +235,6 @@ export default function NotificationManager({ clients = [] }) {
               ))}
             </div>
 
-            {/* Contenu message */}
             <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
               <div>
                 <span style={lbl}>Titre</span>
@@ -224,13 +252,11 @@ export default function NotificationManager({ clients = [] }) {
           <div style={{ background: P.card, borderRadius: 14, border: `1px solid ${P.border}`, padding: '18px 20px' }}>
             <SectionTitle>③ Envoi</SectionTitle>
 
-            {/* Mode */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
               {pillBtn(campMode === 'immediat', () => setCampMode('immediat'), '⚡ Immédiat')}
               {pillBtn(campMode === 'programme', () => setCampMode('programme'), '🕐 Programmé (récurrent)')}
             </div>
 
-            {/* Options programmé */}
             {campMode === 'programme' && (
               <div style={{ display: 'grid', gap: 14, padding: '14px', background: P.bg, borderRadius: 10, border: `1px solid ${P.border}`, marginBottom: 16 }}>
                 <div>
@@ -250,7 +276,7 @@ export default function NotificationManager({ clients = [] }) {
                   </div>
                 </div>
                 <div style={{ padding: '10px 12px', background: '#fef3c7', borderRadius: 8, fontSize: 12, color: '#92400e' }}>
-                  ⚠️ La programmation récurrente nécessite que le cron Vercel soit actif (configuré dans vercel.json)
+                  ⚠️ La programmation récurrente nécessite que le cron Vercel soit actif et que CRON_SECRET soit configuré dans Vercel + Supabase.
                 </div>
               </div>
             )}
@@ -279,7 +305,7 @@ export default function NotificationManager({ clients = [] }) {
         </div>
       )}
 
-      {/* ══ ONGLET PARAMÈTRES INDIVIDUELS ═══════════════════════════════ */}
+      {/* ══ ONGLET PARAMÈTRES INDIVIDUELS ══ */}
       {tab === 'parametres' && (
         <div style={{ display: 'grid', gap: 8 }}>
           {clients.map(client => {
