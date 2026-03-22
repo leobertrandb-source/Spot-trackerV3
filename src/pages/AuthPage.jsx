@@ -195,7 +195,7 @@ export default function AuthPage() {
                 marginBottom: 18,
               }}
             >
-              Le Spot
+              Atlyo
             </div>
 
             <div
