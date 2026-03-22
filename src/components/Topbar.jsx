@@ -28,7 +28,7 @@ if (pathname.startsWith('/prep/compo')) return 'Composition corporelle'
 if (pathname.startsWith('/prep/topset')) return 'TOPSET'
 if (pathname.startsWith('/prep/analyse')) return 'Analyse athlète'
 
-return 'Le Spot'
+return 'Atlyo'
 }
 
 export default function Topbar({ isMobile = false, onMenuClick }) {
