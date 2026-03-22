@@ -247,8 +247,8 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
         {/* Logo ProSportConcept */}
         <div style={{ padding: '12px 10px 16px', borderBottom: `1px solid ${PS.border}`, marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-            <img src="/icons/icon-192.png" alt="Atlyo" style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: 8 }} />
+            <div style={{ width: 44, height: 44, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+            <img src="/icons/icon-192.png" alt="Atlyo" style={{ width: 44, height: 44, objectFit: 'contain', borderRadius: 10 }} />
           </div>
             <div>
               <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 15, color: PS.text, lineHeight: 1 }}>atl<span style={{ color: '#3ecf8e' }}>yo</span></div>
@@ -329,8 +329,8 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
         marginBottom: 8,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 36, height: 36, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-            <img src="/icons/icon-192.png" alt="Atlyo" style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: 8 }} />
+          <div style={{ width: 44, height: 44, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+            <img src="/icons/icon-192.png" alt="Atlyo" style={{ width: 44, height: 44, objectFit: 'contain', borderRadius: 10 }} />
           </div>
           <div>
             <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 16, color: '#edf2f7', letterSpacing: '-0.3px', lineHeight: 1 }}>
