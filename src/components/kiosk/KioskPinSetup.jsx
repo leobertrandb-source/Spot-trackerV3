@@ -75,7 +75,14 @@ export default function KioskPinSetup({ coachId, coachName, onSave, supabase }) 
           Première utilisation
         </div>
 
-        <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.1, color: '#1a1a1a' }}>
+        <h1
+          style={{
+            margin: 0,
+            fontSize: 30,
+            lineHeight: 1.1,
+            color: '#1a1a1a',
+          }}
+        >
           Configurer le PIN coach
         </h1>
 
