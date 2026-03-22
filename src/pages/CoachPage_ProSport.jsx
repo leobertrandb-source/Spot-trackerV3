@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
@@ -52,8 +52,6 @@ export default function CoachPageProSport() {
   const [mainTab, setMainTab] = useState('dashboard') // 'dashboard' | 'notifications' | 'gps'
   const [showImport, setShowImport] = useState(false)
   const [showGpsImport, setShowGpsImport] = useState(false)
-
-  const coachKioskPath = '/coach-kiosk'
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -131,38 +129,34 @@ export default function CoachPageProSport() {
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
 
         {/* Header */}
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: P.sub, marginBottom: 8 }}>
-                ProSportConcept · Préparation physique
-              </div>
-              <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(26px,4vw,36px)', fontWeight: 400, color: P.text, margin: 0, lineHeight: 1.2 }}>
-                {mainTab === 'dashboard' ? 'Tableau de bord' : mainTab === 'gps' ? 'GPS PlayerTek' : 'Notifications'}
-              </h1>
-              <div style={{ fontSize: 13, color: P.sub, marginTop: 6, textTransform: 'capitalize' }}>{dateLabel}</div>
+        <div style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: P.sub, marginBottom: 8 }}>
+              ProSportConcept · Préparation physique
             </div>
-
+            <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(26px,4vw,36px)', fontWeight: 400, color: P.text, margin: 0, lineHeight: 1.2 }}>
+              {mainTab === 'dashboard' ? 'Tableau de bord' : mainTab === 'gps' ? 'GPS PlayerTek' : 'Notifications'}
+            </h1>
+            <div style={{ fontSize: 13, color: P.sub, marginTop: 6, textTransform: 'capitalize' }}>{dateLabel}</div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
             <button
-              onClick={() => navigate(coachKioskPath)}
+              onClick={() => navigate('/coach-kiosk')}
               style={{
-                padding: '12px 18px',
-                borderRadius: 16,
+                padding: '10px 18px',
+                borderRadius: 999,
                 border: `1px solid ${P.accent}`,
                 background: '#fff',
                 color: P.accent,
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: 700,
                 cursor: 'pointer',
-                boxShadow: '0 10px 24px rgba(16,24,40,0.05)',
-                flexShrink: 0,
+                boxShadow: '0 8px 20px rgba(26,58,42,0.06)',
               }}
             >
               🖥️ Mode borne
             </button>
-          </div>
-
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' }}>
             {/* Onglets principaux */}
             {[{ key: 'dashboard', label: '📊 Dashboard' }, { key: 'gps', label: '📡 GPS' }, { key: 'notifications', label: '🔔 Notifications' }].map(t => (
               <button key={t.key} onClick={() => setMainTab(t.key)}
@@ -186,6 +180,7 @@ export default function CoachPageProSport() {
               style={{ padding: '10px 20px', borderRadius: 20, border: `1px solid ${P.accent}`, background: showInvite ? P.accent : 'transparent', color: showInvite ? '#fff' : P.accent, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 }}>
               + Inviter un athlète
             </button>
+            </div>
           </div>
         </div>
 
