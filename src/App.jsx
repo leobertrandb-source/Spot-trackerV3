@@ -92,7 +92,7 @@ function PrivateAppShell() {
   }, [location.pathname])
 
   if (loading) return <LoadingScreen />
-  if (!user) return <AuthPage />
+ if (!user) return <LoginPage />
 
   const isCoach = profile?.role === 'coach'
   const hasGoal = !!profile?.goal_type
