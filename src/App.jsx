@@ -40,6 +40,8 @@ import PrepChargeExternePage from './pages/PrepChargeExternePage'
 import PrepDashboardPage from './pages/PrepDashboardPage'
 import PrepAnalysePage from './pages/PrepAnalysePage'
 import CoachPageProSport from './pages/CoachPage_ProSport'
+import ClubKioskPage from './pages/ClubKioskPage'
+import ClubKioskHooperPage from './pages/ClubKioskHooperPage'
 import { T } from './lib/data'
 
 function LoadingScreen() {
@@ -239,6 +241,8 @@ function RootRouter() {
   return (
     <Routes>
       <Route path="/invite/:token" element={<InviteRoute />} />
+      <Route path="/club-kiosk/:clubId" element={<ClubKioskPage />} />
+      <Route path="/club-kiosk/:clubId/hooper/:playerId" element={<ClubKioskHooperPage />} />
       <Route path="*" element={<PrivateAppShell />} />
     </Routes>
   )
