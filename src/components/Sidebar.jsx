@@ -249,9 +249,8 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 34, height: 34, borderRadius: 10, background: PS.accent, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
               <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
-                <path d="M6 26L16 6L26 26" stroke="#1a3a2a" strokeWidth="4" strokeLinejoin="round"/>
-                <line x1="9.5" y1="20" x2="22.5" y2="20" stroke="#1a3a2a" strokeWidth="3" strokeLinecap="round"/>
-                <circle cx="16" cy="6" r="3" fill="#3ecf8e"/>
+                <path d="M6 26L16 6L26 26" stroke="#3ecf8e" strokeWidth="4" strokeLinejoin="round"/>
+                <line x1="9.5" y1="20" x2="22.5" y2="20" stroke="#3ecf8e" strokeWidth="3" strokeLinecap="round"/>
               </svg>
             </div>
             <div>
@@ -340,9 +339,8 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
             display: 'grid', placeItems: 'center', flexShrink: 0,
           }}>
             <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
-              <path d="M6 26L16 6L26 26" stroke="#1a3a2a" strokeWidth="4" strokeLinejoin="round"/>
-              <line x1="9.5" y1="20" x2="22.5" y2="20" stroke="#1a3a2a" strokeWidth="3" strokeLinecap="round"/>
-              <circle cx="16" cy="6" r="3" fill="#3ecf8e"/>
+              <path d="M6 26L16 6L26 26" stroke="#2d6a4f" strokeWidth="4" strokeLinejoin="round"/>
+              <line x1="9.5" y1="20" x2="22.5" y2="20" stroke="#2d6a4f" strokeWidth="3" strokeLinecap="round"/>
             </svg>
           </div>
           <div>
