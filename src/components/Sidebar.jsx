@@ -248,9 +248,9 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
         <div style={{ padding: '12px 10px 16px', borderBottom: `1px solid ${PS.border}`, marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 34, height: 34, borderRadius: 10, background: 'transparent', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-              <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
-                <path d="M6 26L16 6L26 26" stroke="#3ecf8e" strokeWidth="4" strokeLinejoin="round"/>
-                <line x1="9.5" y1="20" x2="22.5" y2="20" stroke="#3ecf8e" strokeWidth="3" strokeLinecap="round"/>
+              <svg width="28" height="28" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M30 4L56 52H4L30 4Z" fill="none" stroke="#edf2f7" strokeWidth="5" strokeLinejoin="round"/>
+                <rect x="14" y="38" width="32" height="5" rx="2.5" fill="#edf2f7"/>
               </svg>
             </div>
             <div>
@@ -337,10 +337,10 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
             background: 'transparent',
             display: 'grid', placeItems: 'center', flexShrink: 0,
           }}>
-            <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
-              <path d="M6 26L16 6L26 26" stroke="#2d6a4f" strokeWidth="4" strokeLinejoin="round"/>
-              <line x1="9.5" y1="20" x2="22.5" y2="20" stroke="#2d6a4f" strokeWidth="3" strokeLinecap="round"/>
-            </svg>
+            <svg width="28" height="28" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M30 4L56 52H4L30 4Z" fill="none" stroke="#1a1a1a" strokeWidth="5" strokeLinejoin="round"/>
+                <rect x="14" y="38" width="32" height="5" rx="2.5" fill="#1a1a1a"/>
+              </svg>
           </div>
           <div>
             <div style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, fontSize: 16, color: '#edf2f7', letterSpacing: '-0.3px', lineHeight: 1 }}>
