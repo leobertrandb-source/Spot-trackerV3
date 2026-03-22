@@ -15,11 +15,13 @@ export default function ClubKioskPage() {
   const navigate = useNavigate()
   const { user, profile } = useAuth()
 
+  const coachId = profile?.id || user?.id || null
+
   const [loading, setLoading] = useState(true)
-  const [club, setClub] = useState(null)
+  const [coach, setCoach] = useState(null)
   const [players, setPlayers] = useState([])
   const [doneMap, setDoneMap] = useState({})
-  const [statusFilter, setStatusFilter] = useState('remaining')
+  const [statusFilter, setStatusFilter] = useState('remaining') // remaining | all | done
   const [pinOpen, setPinOpen] = useState(false)
 
   const dateLabel = useMemo(
@@ -34,65 +36,92 @@ export default function ClubKioskPage() {
 
   useEffect(() => {
     const load = async () => {
-      if (!user?.id) return
-
-      setLoading(true)
-      const today = todayIso()
-
-      const { data: links, error: linksError } = await supabase
-        .from('coach_clients')
-        .select('client_id')
-        .eq('coach_id', user.id)
-
-      if (linksError) {
-        console.error(linksError)
+      if (!coachId) {
         setLoading(false)
         return
       }
 
-      const ids = (links || []).map((link) => link.client_id)
+      setLoading(true)
+      const today = todayIso()
 
-      if (!ids.length) {
-        setClub({
-          id: user.id,
-          name: profile?.full_name || user.user_metadata?.full_name || 'Mode borne équipe',
-          kiosk_pin: profile?.kiosk_pin || null,
-        })
+      // 1) Coach -> athlètes (même source que le dashboard)
+      const { data: links, error: linksError } = await supabase
+        .from('coach_clients')
+        .select('client_id')
+        .eq('coach_id', coachId)
+
+      if (linksError) {
+        console.error('coach_clients error:', linksError)
         setPlayers([])
         setDoneMap({})
         setLoading(false)
         return
       }
 
-      const [{ data: profiles, error: profilesError }, { data: hooperData, error: hooperError }] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, avatar_url').in('id', ids),
-        supabase.from('hooper_logs').select('user_id, date').in('user_id', ids).eq('date', today),
-      ])
+      const ids = (links || []).map((l) => l.client_id).filter(Boolean)
 
-      if (profilesError) console.error(profilesError)
-      if (hooperError) console.error(hooperError)
-
-      const cleanPlayers = (profiles || []).sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
-      const nextDoneMap = Object.fromEntries((hooperData || []).map((log) => [log.user_id, true]))
-
-      setClub({
-        id: user.id,
-        name: profile?.full_name || user.user_metadata?.full_name || 'Mode borne équipe',
+      // Profil coach local pour le PIN + nom affiché
+      setCoach({
+        id: coachId,
+        name: profile?.full_name || user?.user_metadata?.full_name || 'Mode borne équipe',
         kiosk_pin: profile?.kiosk_pin || null,
       })
+
+      if (!ids.length) {
+        setPlayers([])
+        setDoneMap({})
+        setLoading(false)
+        return
+      }
+
+      // 2) Profils joueurs
+      const [{ data: profilesData, error: profilesError }, { data: hooperData, error: hooperError }] =
+        await Promise.all([
+          supabase
+            .from('profiles')
+            .select('id, full_name, avatar_url')
+            .in('id', ids),
+
+          supabase
+            .from('hooper_logs')
+            .select('user_id, date')
+            .in('user_id', ids)
+            .eq('date', today),
+        ])
+
+      if (profilesError) {
+        console.error('profiles error:', profilesError)
+      }
+
+      if (hooperError) {
+        console.error('hooper_logs error:', hooperError)
+      }
+
+      const cleanPlayers = (profilesData || []).sort((a, b) =>
+        (a.full_name || '').localeCompare(b.full_name || '')
+      )
+
+      const nextDoneMap = Object.fromEntries(
+        (hooperData || []).map((log) => [log.user_id, true])
+      )
+
       setPlayers(cleanPlayers)
       setDoneMap(nextDoneMap)
       setLoading(false)
     }
 
     load()
-  }, [user?.id, profile?.full_name, profile?.kiosk_pin, user?.user_metadata?.full_name])
+  }, [coachId, profile?.full_name, profile?.kiosk_pin, user?.user_metadata?.full_name])
 
   const doneCount = Object.values(doneMap).filter(Boolean).length
 
   const filteredPlayers = useMemo(() => {
-    if (statusFilter === 'done') return players.filter((p) => !!doneMap[p.id])
-    if (statusFilter === 'remaining') return players.filter((p) => !doneMap[p.id])
+    if (statusFilter === 'done') {
+      return players.filter((p) => !!doneMap[p.id])
+    }
+    if (statusFilter === 'remaining') {
+      return players.filter((p) => !doneMap[p.id])
+    }
     return players
   }, [players, doneMap, statusFilter])
 
@@ -113,13 +142,13 @@ export default function ClubKioskPage() {
     )
   }
 
-  if (!loading && club && !club.kiosk_pin) {
+  if (!loading && coach && !coach.kiosk_pin) {
     return (
       <KioskPinSetup
-        coachId={club.id}
-        coachName={club.name}
+        coachId={coach.id}
+        coachName={coach.name}
         supabase={supabase}
-        onSave={(pin) => setClub((prev) => ({ ...prev, kiosk_pin: pin }))}
+        onSave={(pin) => setCoach((prev) => ({ ...prev, kiosk_pin: pin }))}
       />
     )
   }
@@ -135,11 +164,9 @@ export default function ClubKioskPage() {
     >
       <div style={{ maxWidth: 1280, margin: '0 auto' }}>
         <KioskHeader
-          clubName={club?.name}
+          clubName={coach?.name}
           protocol="HOOPER"
           dateLabel={dateLabel}
-          completedCount={doneCount}
-          totalCount={players.length}
           onExit={() => setPinOpen(true)}
         />
 
@@ -154,9 +181,11 @@ export default function ClubKioskPage() {
           }}
         >
           <div>
-            <div style={{ fontSize: 18, color: '#1a1a1a', fontWeight: 800 }}>Sélectionner un joueur</div>
+            <div style={{ fontSize: 18, color: '#1a1a1a', fontWeight: 800 }}>
+              Sélectionner un joueur
+            </div>
             <div style={{ fontSize: 13, color: '#6b6b6b', marginTop: 4 }}>
-              {doneCount} / {players.length} questionnaires complétés aujourd'hui
+              {doneCount} / {players.length} questionnaires complétés aujourd&apos;hui
             </div>
           </div>
 
@@ -211,7 +240,9 @@ export default function ClubKioskPage() {
               fontWeight: 600,
             }}
           >
-            Aucun joueur dans ce filtre.
+            {players.length === 0
+              ? 'Aucun athlète trouvé pour ce coach.'
+              : 'Aucun joueur dans ce filtre.'}
           </div>
         ) : (
           <div
@@ -241,8 +272,8 @@ export default function ClubKioskPage() {
         <KioskPinModal
           open={pinOpen}
           onClose={() => setPinOpen(false)}
-          expectedPin={club?.kiosk_pin || ''}
-          onSuccess={() => navigate('/coach')}
+          expectedPin={coach?.kiosk_pin || ''}
+          onSuccess={() => navigate(-1)}
         />
       </div>
     </div>
