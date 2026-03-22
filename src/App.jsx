@@ -10,6 +10,7 @@ import Topbar from './components/Topbar'
 
 import AuthPage from './pages/AuthPage'
 import InviteAcceptPage from './pages/InviteAcceptPage'
+import LoginPage from './pages/LoginPage'
 
 import GoalSelectionPage from './pages/GoalSelectionPage'
 import GoalHomePage from './pages/GoalHomePage'
