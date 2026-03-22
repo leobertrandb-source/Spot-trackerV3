@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export default function KioskPinSetup({ entityName, onSave, savePin }) {
+export default function KioskPinSetup({ coachId, coachName, onSave, supabase }) {
   const [pin, setPin] = useState('')
   const [confirmPin, setConfirmPin] = useState('')
   const [loading, setLoading] = useState(false)
@@ -24,14 +24,19 @@ export default function KioskPinSetup({ entityName, onSave, savePin }) {
 
     setLoading(true)
 
-    try {
-      await savePin(pin)
-      onSave(pin)
-    } catch (updateError) {
-      setError(updateError?.message || "Impossible d'enregistrer le PIN.")
-    }
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ kiosk_pin: pin })
+      .eq('id', coachId)
 
     setLoading(false)
+
+    if (updateError) {
+      setError(updateError.message || "Impossible d'enregistrer le PIN.")
+      return
+    }
+
+    onSave(pin)
   }
 
   return (
@@ -70,14 +75,7 @@ export default function KioskPinSetup({ entityName, onSave, savePin }) {
           Première utilisation
         </div>
 
-        <h1
-          style={{
-            margin: 0,
-            fontSize: 30,
-            lineHeight: 1.1,
-            color: '#1a1a1a',
-          }}
-        >
+        <h1 style={{ margin: 0, fontSize: 30, lineHeight: 1.1, color: '#1a1a1a' }}>
           Configurer le PIN coach
         </h1>
 
@@ -91,20 +89,12 @@ export default function KioskPinSetup({ entityName, onSave, savePin }) {
           }}
         >
           Définissez un PIN à 4 chiffres pour quitter le mode borne
-          {entityName ? ` de ${entityName}` : ''}.
+          {coachName ? ` de ${coachName}` : ''}.
         </p>
 
         <div style={{ display: 'grid', gap: 16 }}>
           <div>
-            <label
-              style={{
-                display: 'block',
-                fontSize: 13,
-                fontWeight: 700,
-                marginBottom: 8,
-                color: '#1a1a1a',
-              }}
-            >
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 8, color: '#1a1a1a' }}>
               Nouveau PIN
             </label>
             <input
@@ -130,15 +120,7 @@ export default function KioskPinSetup({ entityName, onSave, savePin }) {
           </div>
 
           <div>
-            <label
-              style={{
-                display: 'block',
-                fontSize: 13,
-                fontWeight: 700,
-                marginBottom: 8,
-                color: '#1a1a1a',
-              }}
-            >
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, marginBottom: 8, color: '#1a1a1a' }}>
               Confirmer le PIN
             </label>
             <input
