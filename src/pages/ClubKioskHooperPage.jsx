@@ -65,7 +65,7 @@ function ScoreRow({ label, value, onChange, hint }) {
 }
 
 export default function ClubKioskHooperPage() {
-  const { clubId, playerId } = useParams()
+  const { playerId } = useParams()
   const navigate = useNavigate()
 
   const [loading, setLoading] = useState(true)
@@ -105,12 +105,12 @@ export default function ClubKioskHooperPage() {
 
       if (profileError) {
         console.error(profileError)
-        setError("Impossible de charger le joueur.")
+        setError('Impossible de charger le joueur.')
       }
 
       if (logError) {
         console.error(logError)
-        setError("Impossible de vérifier le questionnaire du jour.")
+        setError('Impossible de vérifier le questionnaire du jour.')
       }
 
       setPlayer(profileData || null)
@@ -132,11 +132,11 @@ export default function ClubKioskHooperPage() {
   useEffect(() => {
     if (!submitted) return
     const timer = setTimeout(() => {
-      navigate(`/club-kiosk/${clubId}`)
+      navigate('/coach-kiosk')
     }, 1800)
 
     return () => clearTimeout(timer)
-  }, [submitted, navigate, clubId])
+  }, [submitted, navigate])
 
   const isValid = [fatigue, sommeil, stress, courbatures].every((v) => v >= 1 && v <= 10)
   const total = fatigue + sommeil + stress + courbatures
@@ -156,18 +156,18 @@ export default function ClubKioskHooperPage() {
       courbatures,
     }
 
-    const { error: upsertError } = await supabase
+    const { error: insertError } = await supabase
       .from('hooper_logs')
       .insert(payload)
 
     setSubmitting(false)
 
-    if (upsertError) {
-      console.error(upsertError)
+    if (insertError) {
+      console.error(insertError)
 
       if (
-        upsertError.message?.toLowerCase().includes('duplicate') ||
-        upsertError.code === '23505'
+        insertError.message?.toLowerCase().includes('duplicate') ||
+        insertError.code === '23505'
       ) {
         setAlreadyDone(true)
         setError("Ce joueur a déjà rempli son HOOPER aujourd'hui.")
@@ -307,7 +307,7 @@ export default function ClubKioskHooperPage() {
           )}
 
           <button
-            onClick={() => navigate(`/club-kiosk/${clubId}`)}
+            onClick={() => navigate('/coach-kiosk')}
             style={{
               marginTop: 22,
               height: 56,
@@ -387,7 +387,7 @@ export default function ClubKioskHooperPage() {
 
           <button
             type="button"
-            onClick={() => navigate(`/club-kiosk/${clubId}`)}
+            onClick={() => navigate('/coach-kiosk')}
             style={{
               height: 46,
               padding: '0 16px',
