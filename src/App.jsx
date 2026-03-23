@@ -41,6 +41,7 @@ import PrepDashboardPage from './pages/PrepDashboardPage'
 import PrepAnalysePage from './pages/PrepAnalysePage'
 import MedicalPage from './pages/MedicalPage'
 import MedicalDashboardPage from './pages/MedicalDashboardPage'
+import InfirmeriePage from './pages/InfirmeriePage'
 import TrainingAttendancePage from './pages/TrainingAttendancePage'
 import MyAttendancePage from './pages/MyAttendancePage'
 import CoachPageProSport from './pages/CoachPage_ProSport'
@@ -189,6 +190,7 @@ function PrivateAppShell() {
           <Route path="/prep/analyse/:id"    element={canPrepPhysique && isCoach ? <PrepAnalysePage />   : <Navigate to={athleteHome} replace />} />
           <Route path="/medical/:id"         element={canPrepPhysique && (isCoach || isStaffMedical) ? <MedicalPage />          : <Navigate to={athleteHome} replace />} />
           <Route path="/medical/dashboard"   element={canPrepPhysique && (isCoach || isStaffMedical) ? <MedicalDashboardPage /> : <Navigate to={athleteHome} replace />} />
+          <Route path="/infirmerie"          element={canPrepPhysique && (isCoach || isStaffMedical) ? <InfirmeriePage />        : <Navigate to={athleteHome} replace />} />
           <Route path="/presences"           element={canPrepPhysique && (isCoach || isStaffMedical) ? <TrainingAttendancePage /> : <Navigate to={athleteHome} replace />} />
           <Route path="/ma-presence"         element={!isCoach && !isStaffMedical ? <MyAttendancePage /> : <Navigate to={defaultRoute} replace />} />
 
