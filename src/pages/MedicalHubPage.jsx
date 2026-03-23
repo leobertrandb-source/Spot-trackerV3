@@ -99,8 +99,16 @@ export default function MedicalHubPage() {
   const [athletes, setAthletes]         = useState([])
   const [injuries, setInjuries]         = useState([])
   const [appointments, setAppointments] = useState([])
+  const [matches, setMatches]           = useState([])
   const [loading, setLoading]           = useState(true)
   const [tab, setTab]                   = useState('infirmerie')
+
+  // Match modal state
+  const [showMatchModal, setShowMatchModal] = useState(false)
+  const [selectedMatch, setSelectedMatch]   = useState(null)
+  const [matchForm, setMatchForm]           = useState({ label: '', match_date: new Date().toISOString().split('T')[0], opponent: '' })
+  const [matchInjuries, setMatchInjuries]   = useState([])
+  const [savingMatch, setSavingMatch]       = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -115,23 +123,57 @@ export default function MedicalHubPage() {
     if (!links?.length) { setLoading(false); return }
     const ids = links.map(l => l.client_id)
 
-    const [{ data: profiles }, { data: inj }, { data: appts }] = await Promise.all([
+    const [{ data: profiles }, { data: inj }, { data: appts }, { data: mtch }] = await Promise.all([
       supabase.from('profiles').select('id, full_name, email').in('id', ids),
       supabase.from('medical_injuries').select('*').in('athlete_id', ids).order('date_injury', { ascending: false }),
       supabase.from('medical_appointments').select('*').in('athlete_id', ids)
         .gte('date_appointment', new Date().toISOString())
         .order('date_appointment', { ascending: true }),
+      supabase.from('match_history').select('*, match_injuries(*)').eq('coach_id', coachId).order('match_date', { ascending: false }),
     ])
 
     setAthletes(profiles || [])
     setInjuries(inj || [])
     setAppointments(appts || [])
+    setMatches(mtch || [])
     setLoading(false)
   }, [user.id, profile?.role])
 
   useEffect(() => { load() }, [load])
 
-  // ── Données calculées ────────────────────────────────────────────────────
+  // ── Charger les blessures d'un match ────────────────────────────────────
+  async function loadMatchInjuries(matchId) {
+    const { data } = await supabase
+      .from('match_injuries')
+      .select('*, athlete:athlete_id(id, full_name, email)')
+      .eq('match_id', matchId)
+    setMatchInjuries(data || [])
+  }
+
+  // ── Créer un match ───────────────────────────────────────────────────────
+  async function saveMatch() {
+    setSavingMatch(true)
+    const { data, error } = await supabase.from('match_history').insert({
+      coach_id: user.id,
+      label: matchForm.label || `Match du ${matchForm.match_date}`,
+      match_date: matchForm.match_date,
+      opponent: matchForm.opponent,
+    }).select().single()
+    setSavingMatch(false)
+    if (!error && data) {
+      setShowMatchModal(false)
+      setMatchForm({ label: '', match_date: new Date().toISOString().split('T')[0], opponent: '' })
+      load()
+    }
+  }
+
+  // ── Supprimer un match ───────────────────────────────────────────────────
+  async function deleteMatch(matchId) {
+    if (!window.confirm('Supprimer ce match ?')) return
+    await supabase.from('match_history').delete().eq('id', matchId)
+    setSelectedMatch(null)
+    load()
+  }
   const active       = injuries.filter(i => i.status === 'active')
   const surveillance = injuries.filter(i => i.status === 'surveillance')
 
@@ -193,10 +235,11 @@ export default function MedicalHubPage() {
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-          <Tab label="🏥 Infirmerie"  active={tab === 'infirmerie'} onClick={() => setTab('infirmerie')} count={blesseActif.length} color={P.red} />
-          <Tab label="👥 Effectif"    active={tab === 'effectif'}   onClick={() => setTab('effectif')}   count={athletes.length} />
-          <Tab label="📅 RDV"         active={tab === 'rdv'}        onClick={() => setTab('rdv')}         count={appointments.length} color={P.blue} />
-          <Tab label="📊 Statistiques" active={tab === 'stats'}     onClick={() => setTab('stats')}       count={injuries.length} />
+          <Tab label="🏥 Infirmerie"   active={tab === 'infirmerie'} onClick={() => setTab('infirmerie')} count={blesseActif.length} color={P.red} />
+          <Tab label="👥 Effectif"     active={tab === 'effectif'}   onClick={() => setTab('effectif')}   count={athletes.length} />
+          <Tab label="📅 RDV"          active={tab === 'rdv'}        onClick={() => setTab('rdv')}         count={appointments.length} color={P.blue} />
+          <Tab label="🏉 Matchs"       active={tab === 'matchs'}     onClick={() => setTab('matchs')}      count={matches.length} />
+          <Tab label="📊 Statistiques" active={tab === 'stats'}      onClick={() => setTab('stats')}       count={injuries.length} />
           <button onClick={load} style={{ marginLeft: 'auto', padding: '7px 12px', borderRadius: 20, border: `1px solid ${P.border}`, background: 'transparent', color: P.sub, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
         </div>
 
@@ -354,6 +397,173 @@ export default function MedicalHubPage() {
                 </div>
               )
             })}
+          </div>
+        )}
+
+        {/* ── TAB MATCHS ── */}
+        {tab === 'matchs' && (
+          <div style={{ display: 'grid', gridTemplateColumns: selectedMatch ? '1fr 1fr' : '1fr', gap: 20, alignItems: 'start' }}>
+
+            {/* Liste matchs */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: P.sub }}>{matches.length} match{matches.length > 1 ? 's' : ''} enregistré{matches.length > 1 ? 's' : ''}</div>
+                <button onClick={() => setShowMatchModal(true)} style={{
+                  padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                  border: 'none', background: P.accent, color: '#fff',
+                }}>+ Nouveau match</button>
+              </div>
+
+              {loading ? (
+                <div style={{ padding: 40, textAlign: 'center', color: P.sub, background: P.card, borderRadius: 16, border: `1px solid ${P.border}` }}>Chargement...</div>
+              ) : matches.length === 0 ? (
+                <div style={{ padding: 40, textAlign: 'center', color: P.sub, background: P.card, borderRadius: 16, border: `1px solid ${P.border}` }}>
+                  Aucun match enregistré.<br/>
+                  <span style={{ fontSize: 12 }}>Ajoutez un match pour y associer des blessures.</span>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {matches.map(match => {
+                    const injCount = match.match_injuries?.length || 0
+                    const d = new Date(match.match_date + 'T00:00:00')
+                    const isSelected = selectedMatch?.id === match.id
+                    return (
+                      <div key={match.id}
+                        onClick={() => { setSelectedMatch(isSelected ? null : match); loadMatchInjuries(match.id) }}
+                        style={{
+                          background: isSelected ? '#f0ede8' : P.card,
+                          border: `1px solid ${isSelected ? P.accent : P.border}`,
+                          borderRadius: 14, padding: '14px 18px',
+                          cursor: 'pointer', transition: 'all 0.15s',
+                          display: 'flex', alignItems: 'center', gap: 14,
+                        }}
+                        onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#faf8f4' }}
+                        onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = P.card }}
+                      >
+                        {/* Date */}
+                        <div style={{ background: isSelected ? P.accent : P.bg, border: `1px solid ${P.border}`, borderRadius: 10, padding: '8px 12px', textAlign: 'center', flexShrink: 0, minWidth: 52, transition: 'all 0.15s' }}>
+                          <div style={{ fontSize: 18, fontWeight: 700, color: isSelected ? '#fff' : P.text, fontFamily: "'DM Serif Display', serif", lineHeight: 1 }}>{d.getDate()}</div>
+                          <div style={{ fontSize: 10, color: isSelected ? 'rgba(255,255,255,0.7)' : P.sub, fontWeight: 600, textTransform: 'uppercase' }}>{d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })}</div>
+                        </div>
+
+                        {/* Infos */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: P.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {match.label || `Match du ${d.toLocaleDateString('fr-FR')}`}
+                          </div>
+                          {match.opponent && (
+                            <div style={{ fontSize: 12, color: P.sub, marginTop: 2 }}>vs {match.opponent}</div>
+                          )}
+                        </div>
+
+                        {/* Badge blessés */}
+                        <div style={{
+                          padding: '4px 12px', borderRadius: 999, flexShrink: 0,
+                          background: injCount > 0 ? '#fdecea' : '#e8f5ee',
+                          color: injCount > 0 ? P.red : P.green,
+                          fontSize: 12, fontWeight: 700,
+                        }}>
+                          {injCount > 0 ? `🩹 ${injCount}` : '✓ 0'}
+                        </div>
+
+                        <div style={{ color: P.sub, fontSize: 14 }}>{isSelected ? '▼' : '›'}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Détail match sélectionné */}
+            {selectedMatch && (
+              <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 16, padding: '20px 22px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: P.text }}>{selectedMatch.label}</div>
+                    {selectedMatch.opponent && <div style={{ fontSize: 13, color: P.sub, marginTop: 2 }}>vs {selectedMatch.opponent}</div>}
+                    <div style={{ fontSize: 12, color: P.dim, marginTop: 2 }}>
+                      {new Date(selectedMatch.match_date + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                    </div>
+                  </div>
+                  <button onClick={() => deleteMatch(selectedMatch.id)} style={{
+                    padding: '5px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    border: `1px solid ${P.red}20`, background: '#fdecea', color: P.red,
+                  }}>Supprimer</button>
+                </div>
+
+                <div style={{ fontSize: 12, fontWeight: 700, color: P.sub, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
+                  Blessures survenues
+                </div>
+
+                {matchInjuries.length === 0 ? (
+                  <div style={{ padding: '20px 0', textAlign: 'center', color: P.sub, fontSize: 13 }}>
+                    Aucune blessure enregistrée pour ce match.<br/>
+                    <span style={{ fontSize: 12 }}>Liez une blessure à ce match depuis la fiche médicale d'un joueur.</span>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    {matchInjuries.map(mi => {
+                      const zc = ZONE_COLORS[mi.body_zone] || ZONE_COLORS.autre
+                      return (
+                        <div key={mi.id}
+                          onClick={() => navigate(`/medical/${mi.athlete?.id}`)}
+                          style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '10px 12px', borderRadius: 10, background: P.bg, cursor: 'pointer' }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#ede9e3'}
+                          onMouseLeave={e => e.currentTarget.style.background = P.bg}
+                        >
+                          <Avatar name={mi.athlete?.full_name || mi.athlete?.email} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: P.text }}>{mi.athlete?.full_name || mi.athlete?.email}</div>
+                            <div style={{ display: 'flex', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: zc.color, padding: '2px 8px', borderRadius: 999, background: zc.bg }}>
+                                {BODY_ZONES[mi.body_zone] || mi.body_zone}
+                              </span>
+                              {mi.description && <span style={{ fontSize: 11, color: P.sub }}>{mi.description}</span>}
+                            </div>
+                          </div>
+                          <div style={{ color: P.sub, fontSize: 13 }}>›</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Modal nouveau match */}
+        {showMatchModal && (
+          <div onClick={() => setShowMatchModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background: P.card, borderRadius: 16, padding: 24, width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div style={{ fontSize: 17, fontWeight: 700, color: P.text }}>Nouveau match</div>
+                <button onClick={() => setShowMatchModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: P.sub }}>×</button>
+              </div>
+
+              {[
+                { label: 'Date du match', type: 'date', key: 'match_date' },
+                { label: 'Adversaire', type: 'text', key: 'opponent', placeholder: 'ex: Stade Montois' },
+                { label: 'Libellé (optionnel)', type: 'text', key: 'label', placeholder: 'ex: UST vs Stade Montois' },
+              ].map(({ label, type, key, placeholder }) => (
+                <div key={key} style={{ marginBottom: 14 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: P.sub, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</label>
+                  <input type={type} value={matchForm[key]} placeholder={placeholder}
+                    onChange={e => setMatchForm(p => ({ ...p, [key]: e.target.value }))}
+                    style={{ width: '100%', padding: '10px 12px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, color: P.text, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                  />
+                </div>
+              ))}
+
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+                <button onClick={() => setShowMatchModal(false)} style={{ padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', border: `1px solid ${P.border}`, background: 'transparent', color: P.sub }}>Annuler</button>
+                <button onClick={saveMatch} disabled={savingMatch} style={{ padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', border: 'none', background: P.accent, color: '#fff', opacity: savingMatch ? 0.7 : 1 }}>
+                  {savingMatch ? 'Enregistrement...' : 'Créer le match'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
