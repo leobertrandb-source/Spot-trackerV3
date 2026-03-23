@@ -6,6 +6,7 @@ import NotificationManager from '../components/NotificationManager'
 import ImportPlayersCSV from '../components/ImportPlayersCSV'
 import ImportGpsCSV from '../components/ImportGpsCSV'
 import GpsDashboard from '../components/GpsDashboard'
+import TrainingAttendancePanel from '../components/TrainingAttendancePanel'
 
 const P = {
   bg: '#f5f3ef',
@@ -157,7 +158,7 @@ export default function CoachPageProSport() {
               ProSportConcept · Préparation physique
             </div>
             <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(26px,4vw,36px)', fontWeight: 400, color: P.text, margin: 0, lineHeight: 1.2 }}>
-              {mainTab === 'dashboard' ? 'Tableau de bord' : mainTab === 'gps' ? 'GPS PlayerTek' : 'Notifications'}
+              {mainTab === 'dashboard' ? 'Tableau de bord' : mainTab === 'gps' ? 'GPS PlayerTek' : mainTab === 'presences' ? 'Présences' : 'Notifications'}
             </h1>
             <div style={{ fontSize: 13, color: P.sub, marginTop: 6, textTransform: 'capitalize' }}>{dateLabel}</div>
           </div>
@@ -188,6 +189,7 @@ export default function CoachPageProSport() {
               {[
                 { key: 'dashboard',     label: '📊 Dashboard' },
                 { key: 'gps',           label: '📡 GPS' },
+                { key: 'presences',     label: '📋 Présences' },
                 { key: 'notifications', label: '🔔 Notifications' },
               ].map(t => (
                 <button key={t.key} onClick={() => setMainTab(t.key)}
@@ -284,6 +286,11 @@ export default function CoachPageProSport() {
           <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 16, padding: '20px 24px' }}>
             <NotificationManager clients={clients.map(c => ({ id: c.id, full_name: c.full_name, email: c.email }))} />
           </div>
+        )}
+
+        {/* Panel présences */}
+        {mainTab === 'presences' && (
+          <TrainingAttendancePanel coachId={user.id} clients={clients} />
         )}
 
         {/* Panel GPS */}
