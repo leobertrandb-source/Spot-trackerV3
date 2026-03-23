@@ -1,53 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { useEffect, useState } from 'react'
-
-import { AuthProvider, useAuth } from './components/AuthContext'
-import { DirtyProvider } from './components/DirtyContext'
-import { Grain, Layout } from './components/UI'
-
-import Sidebar from './components/Sidebar'
-import Topbar from './components/Topbar'
-
-import InviteAcceptPage from './pages/InviteAcceptPage'
-import PlayerJoinPage from './pages/PlayerJoinPage'
-import LoginPage from './pages/LoginPage'
-
-import GoalSelectionPage from './pages/GoalSelectionPage'
-import GoalHomePage from './pages/GoalHomePage'
-
-import AujourdhuiPage from './pages/AujourdhuiPage'
-import SaisiePage from './pages/SaisiePage'
-import ProgressionPage from './pages/ProgressionPage'
-
-import NutritionPage from './pages/NutritionPage'
-import RecipesPage from './pages/RecipesPage'
-import RecipeDetailPage from './pages/RecipeDetailPage'
-
-import CoachPage from './pages/CoachPage'
-import CoachClientsPage from './pages/CoachClientsPage'
-import CoachClientDetailPage from './pages/CoachClientDetailPage'
-import ProgramBuilderPage from './pages/ProgramBuilderPage'
-
-import ProgrammeBodybuildingPage from './pages/ProgrammeBodybuildingPage'
-import ProgrammePerteDePoidsPage from './pages/ProgrammePerteDePoidsPage'
-import ProgrammeAthletiquePage from './pages/ProgrammeAthletiquePage'
-
-import ExercisesPage from './pages/ExercisesPage'
-import PrepHooperPage from './pages/PrepHooperPage'
-import PrepChargePage from './pages/PrepChargePage'
-import PrepCompoPage from './pages/PrepCompoPage'
-import PrepTopsetPage from './pages/PrepTopsetPage'
-import PrepChargeExternePage from './pages/PrepChargeExternePage'
-import PrepDashboardPage from './pages/PrepDashboardPage'
-import PrepAnalysePage from './pages/PrepAnalysePage'
 import MedicalPage from './pages/MedicalPage'
-import MedicalDashboardPage from './pages/MedicalDashboardPage'
-import InfirmeriePage from './pages/InfirmeriePage'
+import MedicalHubPage from './pages/MedicalHubPage'
 import TrainingAttendancePage from './pages/TrainingAttendancePage'
 import MyAttendancePage from './pages/MyAttendancePage'
-import CoachPageProSport from './pages/CoachPage_ProSport'
-import ClubKioskPage from './pages/ClubKioskPage'
-import ClubKioskHooperPage from './pages/ClubKioskHooperPage'
+
 import { T } from './lib/data'
 
 function LoadingScreen() {
@@ -103,13 +58,11 @@ function PrivateAppShell() {
   const isStaffMedical = profile?.role === 'staff_medical'
   const hasGoal        = !!profile?.goal_type
   const athleteHome    = hasGoal ? '/mon-espace' : '/objectif'
-  const defaultRoute   = isCoach ? '/coach' : isStaffMedical ? '/medical/dashboard' : athleteHome
+  const defaultRoute   = isCoach ? '/coach' : isStaffMedical ? '/medical' : athleteHome
 
-  // ── Accès par monde ─────────────────────────────────────────────────────────
-  // Coaching perso  : nutrition, recettes, séances, exercices, progression
-  // Prépa physique  : HOOPER, charge, topset, GPS, mode borne, RTP
   const canCoachingPerso = showCoachingPerso
   const canPrepPhysique  = showPrepPhysique
+  const canMedical       = canPrepPhysique && (isCoach || isStaffMedical)
 
   return (
     <DirtyProvider>
@@ -135,95 +88,71 @@ function PrivateAppShell() {
           <Route path="/" element={<Navigate to={defaultRoute} replace />} />
 
           {/* ── COACHING PERSO ── */}
-          <Route
-            path="/objectif"
+          <Route path="/objectif"
             element={isCoach ? <Navigate to="/coach" replace /> : <GoalSelectionPage />}
           />
-
-          <Route
-            path="/mon-espace"
+          <Route path="/mon-espace"
             element={
               isCoach ? <Navigate to="/coach" replace />
               : hasGoal ? <GoalHomePage />
               : <Navigate to="/objectif" replace />
             }
           />
-
-          <Route
-            path="/entrainement/aujourdhui"
+          <Route path="/entrainement/aujourdhui"
             element={isCoach ? <Navigate to="/coach" replace /> : <AujourdhuiPage />}
           />
-
-          <Route
-            path="/entrainement/libre"
+          <Route path="/entrainement/libre"
             element={isCoach ? <Navigate to="/coach" replace /> : <SaisiePage />}
           />
-
-          <Route
-            path="/progression"
+          <Route path="/progression"
             element={isCoach ? <Navigate to="/coach" replace /> : <ProgressionPage />}
           />
-
-          {/* Nutrition — accessible uniquement en coaching perso */}
-          <Route
-            path="/nutrition/macros"
+          <Route path="/nutrition/macros"
             element={isCoach ? <Navigate to="/coach" replace /> : canCoachingPerso ? <NutritionPage /> : <Navigate to={athleteHome} replace />}
           />
-          <Route
-            path="/nutrition/recettes"
+          <Route path="/nutrition/recettes"
             element={isCoach ? <Navigate to="/coach" replace /> : canCoachingPerso ? <RecipesPage /> : <Navigate to={athleteHome} replace />}
           />
-          <Route
-            path="/nutrition/recette/:id"
+          <Route path="/nutrition/recette/:id"
             element={isCoach ? <Navigate to="/coach" replace /> : canCoachingPerso ? <RecipeDetailPage /> : <Navigate to={athleteHome} replace />}
           />
-
-          {/* Exercices — accessible aux deux mondes */}
           <Route path="/exercices" element={<ExercisesPage />} />
 
           {/* ── PRÉPA PHYSIQUE ── */}
-          <Route path="/prep/hooper"         element={canPrepPhysique ? <PrepHooperPage />        : <Navigate to={athleteHome} replace />} />
-          <Route path="/prep/charge"         element={canPrepPhysique ? <PrepChargePage />         : <Navigate to={athleteHome} replace />} />
-          <Route path="/prep/compo"          element={canPrepPhysique ? <PrepCompoPage />          : <Navigate to={athleteHome} replace />} />
-          <Route path="/prep/topset"         element={canPrepPhysique ? <PrepTopsetPage />         : <Navigate to={athleteHome} replace />} />
-          <Route path="/prep/charge-externe" element={canPrepPhysique ? <PrepChargeExternePage />  : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/hooper"         element={canPrepPhysique ? <PrepHooperPage />       : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/charge"         element={canPrepPhysique ? <PrepChargePage />        : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/compo"          element={canPrepPhysique ? <PrepCompoPage />         : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/topset"         element={canPrepPhysique ? <PrepTopsetPage />        : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/charge-externe" element={canPrepPhysique ? <PrepChargeExternePage /> : <Navigate to={athleteHome} replace />} />
           <Route path="/prep/dashboard"      element={canPrepPhysique && isCoach ? <PrepDashboardPage /> : <Navigate to={athleteHome} replace />} />
           <Route path="/prep/analyse/:id"    element={canPrepPhysique && isCoach ? <PrepAnalysePage />   : <Navigate to={athleteHome} replace />} />
-          <Route path="/medical/:id"         element={canPrepPhysique && (isCoach || isStaffMedical) ? <MedicalPage />          : <Navigate to={athleteHome} replace />} />
-          <Route path="/medical/dashboard"   element={canPrepPhysique && (isCoach || isStaffMedical) ? <MedicalDashboardPage /> : <Navigate to={athleteHome} replace />} />
-          <Route path="/infirmerie"          element={canPrepPhysique && (isCoach || isStaffMedical) ? <InfirmeriePage />        : <Navigate to={athleteHome} replace />} />
-          <Route path="/presences"           element={canPrepPhysique && (isCoach || isStaffMedical) ? <TrainingAttendancePage /> : <Navigate to={athleteHome} replace />} />
-          <Route path="/ma-presence"         element={!isCoach && !isStaffMedical ? <MyAttendancePage /> : <Navigate to={defaultRoute} replace />} />
+
+          {/* ── MODULE MÉDICAL ── */}
+          <Route path="/medical"     element={canMedical ? <MedicalHubPage /> : <Navigate to={athleteHome} replace />} />
+          <Route path="/medical/:id" element={canMedical ? <MedicalPage />    : <Navigate to={athleteHome} replace />} />
+          <Route path="/presences"   element={canMedical ? <TrainingAttendancePage /> : <Navigate to={athleteHome} replace />} />
+          <Route path="/ma-presence" element={!isCoach && !isStaffMedical ? <MyAttendancePage /> : <Navigate to={defaultRoute} replace />} />
 
           {/* ── COACH ── */}
-          <Route
-            path="/coach"
+          <Route path="/coach"
             element={isCoach ? (showPrepPhysique ? <CoachPageProSport /> : <CoachPage />) : <Navigate to={athleteHome} replace />}
           />
-          <Route
-            path="/coach/clients"
+          <Route path="/coach/clients"
             element={isCoach ? <CoachClientsPage /> : <Navigate to={athleteHome} replace />}
           />
-          <Route
-            path="/coach/client/:id"
+          <Route path="/coach/client/:id"
             element={isCoach ? <CoachClientDetailPage /> : <Navigate to={athleteHome} replace />}
           />
-          <Route
-            path="/programmes"
+          <Route path="/programmes"
             element={isCoach ? <ProgramBuilderPage /> : <Navigate to={athleteHome} replace />}
           />
-
-          {/* Programmes athlètes — coaching perso uniquement */}
-          <Route
-            path="/programme/bodybuilding"
+          <Route path="/programme/bodybuilding"
             element={isCoach ? <Navigate to="/coach" replace /> : canCoachingPerso ? <ProgrammeBodybuildingPage /> : <Navigate to={athleteHome} replace />}
           />
-          <Route
-            path="/programme/perte-de-poids"
+          <Route path="/programme/perte-de-poids"
             element={isCoach ? <Navigate to="/coach" replace /> : canCoachingPerso ? <ProgrammePerteDePoidsPage /> : <Navigate to={athleteHome} replace />}
           />
-          <Route
-            path="/programme/athletique"
+          <Route path="/programme/athletique"
             element={isCoach ? <Navigate to="/coach" replace /> : canCoachingPerso ? <ProgrammeAthletiquePage /> : <Navigate to={athleteHome} replace />}
           />
 
