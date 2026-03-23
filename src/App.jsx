@@ -1,3 +1,49 @@
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+
+import { AuthProvider, useAuth } from './components/AuthContext'
+import { DirtyProvider } from './components/DirtyContext'
+import { Grain, Layout } from './components/UI'
+
+import Sidebar from './components/Sidebar'
+import Topbar from './components/Topbar'
+
+import InviteAcceptPage from './pages/InviteAcceptPage'
+import PlayerJoinPage from './pages/PlayerJoinPage'
+import LoginPage from './pages/LoginPage'
+
+import GoalSelectionPage from './pages/GoalSelectionPage'
+import GoalHomePage from './pages/GoalHomePage'
+
+import AujourdhuiPage from './pages/AujourdhuiPage'
+import SaisiePage from './pages/SaisiePage'
+import ProgressionPage from './pages/ProgressionPage'
+
+import NutritionPage from './pages/NutritionPage'
+import RecipesPage from './pages/RecipesPage'
+import RecipeDetailPage from './pages/RecipeDetailPage'
+
+import CoachPage from './pages/CoachPage'
+import CoachClientsPage from './pages/CoachClientsPage'
+import CoachClientDetailPage from './pages/CoachClientDetailPage'
+import ProgramBuilderPage from './pages/ProgramBuilderPage'
+
+import ProgrammeBodybuildingPage from './pages/ProgrammeBodybuildingPage'
+import ProgrammePerteDePoidsPage from './pages/ProgrammePerteDePoidsPage'
+import ProgrammeAthletiquePage from './pages/ProgrammeAthletiquePage'
+
+import ExercisesPage from './pages/ExercisesPage'
+import PrepHooperPage from './pages/PrepHooperPage'
+import PrepChargePage from './pages/PrepChargePage'
+import PrepCompoPage from './pages/PrepCompoPage'
+import PrepTopsetPage from './pages/PrepTopsetPage'
+import PrepChargeExternePage from './pages/PrepChargeExternePage'
+import PrepDashboardPage from './pages/PrepDashboardPage'
+import PrepAnalysePage from './pages/PrepAnalysePage'
+import CoachPageProSport from './pages/CoachPage_ProSport'
+import ClubKioskPage from './pages/ClubKioskPage'
+import ClubKioskHooperPage from './pages/ClubKioskHooperPage'
+
 import MedicalPage from './pages/MedicalPage'
 import MedicalHubPage from './pages/MedicalHubPage'
 import TrainingAttendancePage from './pages/TrainingAttendancePage'
