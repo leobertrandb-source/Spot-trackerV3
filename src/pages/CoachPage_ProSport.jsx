@@ -354,8 +354,8 @@ export default function CoachPageProSport() {
 
           {/* Liste clients */}
           <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 16, overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 100px 80px 36px', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${P.border}`, background: '#faf8f4' }}>
-              {['Athlète', 'HOOPER', 'Charge sem.', 'Statut', ''].map(h => (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 100px 80px 80px 36px', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${P.border}`, background: '#faf8f4' }}>
+              {['Athlète', 'HOOPER', 'Charge sem.', 'Statut', 'Médical', ''].map(h => (
                 <div key={h} style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: P.sub }}>{h}</div>
               ))}
             </div>
@@ -372,7 +372,7 @@ export default function CoachPageProSport() {
               return (
                 <div key={client.id} className="client-row"
                   onClick={() => navigate(`/prep/analyse/${client.id}`)}
-                  style={{ display: 'grid', gridTemplateColumns: '1fr 140px 100px 80px 36px', gap: 12, padding: '14px 20px', borderBottom: isLast ? 'none' : `1px solid ${P.border}`, cursor: 'pointer', background: P.card, transition: 'background 0.15s', alignItems: 'center' }}>
+                  style={{ display: 'grid', gridTemplateColumns: '1fr 140px 100px 80px 80px 36px', gap: 12, padding: '14px 20px', borderBottom: isLast ? 'none' : `1px solid ${P.border}`, cursor: 'pointer', background: P.card, transition: 'background 0.15s', alignItems: 'center' }}>
 
                   {/* Identité */}
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
@@ -420,6 +420,12 @@ export default function CoachPageProSport() {
                   {/* Badge statut */}
                   <div style={{ padding: '4px 10px', borderRadius: 20, background: status.bg, fontSize: 10, fontWeight: 700, color: status.color, whiteSpace: 'nowrap', textAlign: 'center' }}>
                     {status.label}
+                  </div>
+
+                  {/* Bouton médical */}
+                  <div onClick={e => { e.stopPropagation(); navigate(`/medical/${client.id}`) }}
+                    style={{ padding: '5px 10px', borderRadius: 8, background: '#fdecea', border: '1px solid #f5c6c6', fontSize: 11, fontWeight: 700, color: P.red, cursor: 'pointer', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    🏥 Médical
                   </div>
 
                   {/* Chevron */}
