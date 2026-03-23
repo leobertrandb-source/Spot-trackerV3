@@ -164,35 +164,82 @@ export default function MedicalPage() {
 
   // ── Sauvegarder une blessure ──────────────────────────────────────────────
   async function saveInjury() {
-    setSaving(true)
+  setSaving(true)
+
+  try {
     const { match_id, ...restForm } = injuryForm
-    const payload = { ...restForm, athlete_id: athleteId, coach_id: user.id }
+    const payload = {
+      ...restForm,
+      athlete_id: athleteId,
+      coach_id: user.id,
+    }
 
     let injuryId = editingInjury?.id
+
     if (editingInjury) {
-      await supabase.from('medical_injuries').update(payload).eq('id', editingInjury.id)
+      const { error: updateError } = await supabase
+        .from('medical_injuries')
+        .update(payload)
+        .eq('id', editingInjury.id)
+
+      if (updateError) throw updateError
     } else {
-      const { data } = await supabase.from('medical_injuries').insert(payload).select().single()
+      const { data, error: insertError } = await supabase
+        .from('medical_injuries')
+        .insert(payload)
+        .select()
+        .single()
+
+      if (insertError) throw insertError
       injuryId = data?.id
     }
 
-    // Si un match est lié, créer l'entrée dans match_injuries
-    if (match_id && injuryId) {
-      await supabase.from('match_injuries').upsert({
-        match_id,
-        athlete_id: athleteId,
-        injury_id: injuryId,
-        body_zone: injuryForm.body_zone,
-        description: injuryForm.description,
-      }, { onConflict: 'match_id,athlete_id,injury_id' })
+    if (!injuryId) {
+      throw new Error("Impossible de récupérer l'id de la blessure")
     }
 
-    setSaving(false)
+    // Nettoyer les anciennes liaisons de cette blessure
+    const { error: deleteLinkError } = await supabase
+      .from('match_injuries')
+      .delete()
+      .eq('injury_id', injuryId)
+
+    if (deleteLinkError) throw deleteLinkError
+
+    // Recréer la liaison si un match a été choisi
+    if (match_id) {
+      const { error: linkError } = await supabase
+        .from('match_injuries')
+        .insert({
+          match_id,
+          athlete_id: athleteId,
+          injury_id: injuryId,
+          body_zone: injuryForm.body_zone,
+          description: injuryForm.description,
+        })
+
+      if (linkError) throw linkError
+    }
+
     setShowInjuryModal(false)
     setEditingInjury(null)
-    setInjuryForm({ body_zone: 'genou', description: '', date_injury: new Date().toISOString().split('T')[0], date_return: '', status: 'active', match_id: '' })
-    load()
+    setInjuryForm({
+      body_zone: 'genou',
+      description: '',
+      date_injury: new Date().toISOString().split('T')[0],
+      date_return: '',
+      status: 'active',
+      match_id: '',
+    })
+
+    await load()
+  } catch (error) {
+    console.error('saveInjury error:', error)
+    alert(`Erreur enregistrement blessure : ${error.message}`)
+  } finally {
+    setSaving(false)
   }
+}
 
   // ── Sauvegarder un RDV ───────────────────────────────────────────────────
   async function saveAppt() {
