@@ -121,6 +121,7 @@ export default function MedicalPage() {
   const [injuries, setInjuries]       = useState([])
   const [appointments, setAppointments] = useState([])
   const [notes, setNotes]             = useState([])
+  const [matches, setMatches]         = useState([])
   const [loading, setLoading]         = useState(true)
   const [activeTab, setActiveTab]     = useState('injuries')
 
@@ -131,7 +132,7 @@ export default function MedicalPage() {
   const [editingInjury, setEditingInjury]       = useState(null)
 
   // Forms
-  const [injuryForm, setInjuryForm] = useState({ body_zone: 'genou', description: '', date_injury: new Date().toISOString().split('T')[0], date_return: '', status: 'active' })
+  const [injuryForm, setInjuryForm] = useState({ body_zone: 'genou', description: '', date_injury: new Date().toISOString().split('T')[0], date_return: '', status: 'active', match_id: '' })
   const [apptForm, setApptForm]     = useState({ type: 'kine', date_appointment: '', location: '', notes: '', injury_id: '' })
   const [noteForm, setNoteForm]     = useState({ content: '', injury_id: '', is_pinned: false })
   const [saving, setSaving]         = useState(false)
@@ -143,34 +144,53 @@ export default function MedicalPage() {
       { data: inj },
       { data: appts },
       { data: nts },
+      { data: mtch },
     ] = await Promise.all([
       supabase.from('profiles').select('id, full_name, email').eq('id', athleteId).single(),
       supabase.from('medical_injuries').select('*').eq('athlete_id', athleteId).order('date_injury', { ascending: false }),
       supabase.from('medical_appointments').select('*').eq('athlete_id', athleteId).order('date_appointment', { ascending: true }),
       supabase.from('medical_notes').select('*').eq('athlete_id', athleteId).order('is_pinned', { ascending: false }).order('created_at', { ascending: false }),
+      supabase.from('match_history').select('id, label, match_date, opponent').eq('coach_id', user.id).order('match_date', { ascending: false }),
     ])
     setAthlete(profile)
     setInjuries(inj || [])
     setAppointments(appts || [])
     setNotes(nts || [])
+    setMatches(mtch || [])
     setLoading(false)
-  }, [athleteId])
+  }, [athleteId, user.id])
 
   useEffect(() => { load() }, [load])
 
   // ── Sauvegarder une blessure ──────────────────────────────────────────────
   async function saveInjury() {
     setSaving(true)
-    const payload = { ...injuryForm, athlete_id: athleteId, coach_id: user.id }
+    const { match_id, ...restForm } = injuryForm
+    const payload = { ...restForm, athlete_id: athleteId, coach_id: user.id }
+
+    let injuryId = editingInjury?.id
     if (editingInjury) {
       await supabase.from('medical_injuries').update(payload).eq('id', editingInjury.id)
     } else {
-      await supabase.from('medical_injuries').insert(payload)
+      const { data } = await supabase.from('medical_injuries').insert(payload).select().single()
+      injuryId = data?.id
     }
+
+    // Si un match est lié, créer l'entrée dans match_injuries
+    if (match_id && injuryId) {
+      await supabase.from('match_injuries').upsert({
+        match_id,
+        athlete_id: athleteId,
+        injury_id: injuryId,
+        body_zone: injuryForm.body_zone,
+        description: injuryForm.description,
+      }, { onConflict: 'match_id,athlete_id,injury_id' })
+    }
+
     setSaving(false)
     setShowInjuryModal(false)
     setEditingInjury(null)
-    setInjuryForm({ body_zone: 'genou', description: '', date_injury: new Date().toISOString().split('T')[0], date_return: '', status: 'active' })
+    setInjuryForm({ body_zone: 'genou', description: '', date_injury: new Date().toISOString().split('T')[0], date_return: '', status: 'active', match_id: '' })
     load()
   }
 
@@ -423,6 +443,19 @@ export default function MedicalPage() {
               <option value="archive">Archiver</option>
             </select>
           </Field>
+          {matches.length > 0 && (
+            <Field label="Survenue lors d'un match (optionnel)">
+              <select value={injuryForm.match_id} onChange={e => setInjuryForm(p => ({ ...p, match_id: e.target.value }))} style={inp}>
+                <option value="">Aucun match</option>
+                {matches.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.label || `Match du ${new Date(m.match_date + 'T00:00:00').toLocaleDateString('fr-FR')}`}
+                    {m.opponent ? ` vs ${m.opponent}` : ''}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
             <Btn variant="ghost" onClick={() => { setShowInjuryModal(false); setEditingInjury(null) }}>Annuler</Btn>
             <Btn onClick={saveInjury} disabled={saving}>{saving ? 'Enregistrement...' : 'Enregistrer'}</Btn>
