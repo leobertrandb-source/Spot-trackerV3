@@ -5,302 +5,189 @@ import { Card, Input, Btn, PageWrap } from '../components/UI'
 import { T } from '../lib/data'
 
 export default function InviteAcceptPage() {
-const { token } = useParams()
-const navigate = useNavigate()
+  const { token } = useParams()
+  const navigate = useNavigate()
 
-const [loadingInvite, setLoadingInvite] = useState(true)
-const [invite, setInvite] = useState(null)
-const [inviteError, setInviteError] = useState('')
+  const [loadingInvite, setLoadingInvite] = useState(true)
+  const [invite, setInvite] = useState(null)
+  const [inviteError, setInviteError] = useState('')
 
-const [fullName, setFullName] = useState('')
-const [email, setEmail] = useState('')
-const [password, setPassword] = useState('')
-const [confirmPassword, setConfirmPassword] = useState('')
-const [submitting, setSubmitting] = useState(false)
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
-useEffect(() => {
-loadInvite()
-}, [token])
+  useEffect(() => { loadInvite() }, [token])
 
-async function loadInvite() {
-if (!token) {
-setInviteError('Invitation invalide.')
-setLoadingInvite(false)
-return
-}
+  async function loadInvite() {
+    if (!token) {
+      setInviteError('Invitation invalide.')
+      setLoadingInvite(false)
+      return
+    }
 
-setLoadingInvite(true)
-setInviteError('')
+    setLoadingInvite(true)
+    setInviteError('')
 
-const { data, error } = await supabase
-.from('coach_invites')
-.select('*, coach:coach_id(gym_id)')
-.eq('invite_token', token)
-.eq('status', 'pending')
-.maybeSingle()
+    const { data, error } = await supabase
+      .from('coach_invites')
+      .select('*, coach:coach_id(gym_id)')
+      .eq('invite_token', token)
+      .eq('status', 'pending')
+      .maybeSingle()
 
-if (error) {
-console.error('Erreur chargement invitation:', error)
-setInviteError("Impossible de charger l'invitation.")
-setLoadingInvite(false)
-return
-}
+    if (error) {
+      setInviteError("Impossible de charger l'invitation.")
+      setLoadingInvite(false)
+      return
+    }
 
-if (!data) {
-setInviteError("Cette invitation est invalide, expirée ou déjà utilisée.")
-setLoadingInvite(false)
-return
-}
+    if (!data) {
+      setInviteError("Cette invitation est invalide, expirée ou déjà utilisée.")
+      setLoadingInvite(false)
+      return
+    }
 
-setInvite(data)
-setEmail(data.email || '')
-setLoadingInvite(false)
-}
+    setInvite(data)
+    setEmail(data.email || '')
+    setLoadingInvite(false)
+  }
 
-async function handleAcceptInvite() {
-if (!invite) return
+  async function handleAcceptInvite() {
+    if (!invite) return
 
-if (!fullName.trim()) {
-alert('Entre ton nom complet.')
-return
-}
+    if (!fullName.trim()) { alert('Entre ton nom complet.'); return }
+    if (!email.trim()) { alert('Entre ton email.'); return }
+    if (!password || password.length < 6) { alert('Le mot de passe doit contenir au moins 6 caractères.'); return }
+    if (password !== confirmPassword) { alert('Les mots de passe ne correspondent pas.'); return }
 
-if (!email.trim()) {
-alert('Entre ton email.')
-return
-}
+    setSubmitting(true)
 
-if (!password || password.length < 6) {
-alert('Le mot de passe doit contenir au moins 6 caractères.')
-return
-}
+    const normalizedEmail = email.trim().toLowerCase()
+    // Rôle selon l'invitation — athlete par défaut, staff_medical si spécifié
+    const invitedRole = invite.invited_role || 'athlete'
 
-if (password !== confirmPassword) {
-alert('Les mots de passe ne correspondent pas.')
-return
-}
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password,
+      options: { data: { full_name: fullName.trim(), role: invitedRole } },
+    })
 
-setSubmitting(true)
+    if (signUpError) {
+      alert(signUpError.message || "Impossible de créer le compte.")
+      setSubmitting(false)
+      return
+    }
 
-const normalizedEmail = email.trim().toLowerCase()
+    const createdUser = signUpData?.user
+    if (!createdUser?.id) {
+      alert("Le compte n'a pas pu être finalisé.")
+      setSubmitting(false)
+      return
+    }
 
-const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-email: normalizedEmail,
-password,
-options: {
-data: {
-full_name: fullName.trim(),
-},
-},
-})
+    const gymId = invite?.coach?.gym_id || null
 
-if (signUpError) {
-console.error('Erreur signUp:', signUpError)
-alert(signUpError.message || "Impossible de créer le compte.")
-setSubmitting(false)
-return
-}
+    // Créer le profil avec le bon rôle
+    const { error: profileError } = await supabase.from('profiles').upsert({
+      id: createdUser.id,
+      full_name: fullName.trim(),
+      email: normalizedEmail,
+      role: invitedRole,
+      gym_id: gymId,
+    })
 
-const createdUser = signUpData?.user
+    if (profileError) {
+      alert(profileError.message || 'Compte créé, mais profil incomplet.')
+      setSubmitting(false)
+      return
+    }
 
-if (!createdUser?.id) {
-alert("Le compte n'a pas pu être finalisé.")
-setSubmitting(false)
-return
-}
+    if (invitedRole === 'staff_medical') {
+      // Relier au staff du coach
+      await supabase.from('club_staff').insert({
+        coach_id: invite.coach_id,
+        staff_id: createdUser.id,
+        role: 'staff_medical',
+      })
+    } else {
+      // Relier comme athlète au coach
+      const { error: coachClientError } = await supabase.from('coach_clients').insert({
+        coach_id: invite.coach_id,
+        client_id: createdUser.id,
+      })
+      if (coachClientError) {
+        alert(coachClientError.message || "Impossible de relier le client au coach.")
+        setSubmitting(false)
+        return
+      }
+    }
 
-const gymId = invite?.coach?.gym_id || null
+    // Marquer l'invitation comme acceptée
+    await supabase.from('coach_invites')
+      .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+      .eq('id', invite.id)
 
-const { error: profileError } = await supabase.from('profiles').upsert({
-id: createdUser.id,
-full_name: fullName.trim(),
-email: normalizedEmail,
-role: 'athlete',
-gym_id: gymId,
-})
+    alert('Compte créé avec succès.')
+    setSubmitting(false)
+    navigate('/', { replace: true })
+  }
 
-if (profileError) {
-console.error('Erreur création profile:', profileError)
-alert(profileError.message || 'Compte créé, mais profil incomplet.')
-setSubmitting(false)
-return
-}
+  const isStaffMedical = invite?.invited_role === 'staff_medical'
 
-const { error: coachClientError } = await supabase.from('coach_clients').insert({
-coach_id: invite.coach_id,
-client_id: createdUser.id,
-})
+  if (loadingInvite) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.textDim, fontFamily: T.fontDisplay, fontSize: 12, letterSpacing: 2 }}>
+        Chargement...
+      </div>
+    )
+  }
 
-if (coachClientError) {
-console.error('Erreur création relation coach/client:', coachClientError)
-alert(coachClientError.message || "Impossible de relier le client au coach.")
-setSubmitting(false)
-return
-}
+  if (inviteError) {
+    return (
+      <PageWrap>
+        <Card style={{ maxWidth: 560, margin: '0 auto', textAlign: 'center', padding: '40px 28px' }}>
+          <div style={{ fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 22, color: T.text, marginBottom: 10 }}>INVITATION INDISPONIBLE</div>
+          <div style={{ color: T.textMid, fontSize: 14, lineHeight: 1.6 }}>{inviteError}</div>
+        </Card>
+      </PageWrap>
+    )
+  }
 
-const { error: inviteUpdateError } = await supabase
-.from('coach_invites')
-.update({
-status: 'accepted',
-accepted_at: new Date().toISOString(),
-})
-.eq('id', invite.id)
+  return (
+    <PageWrap>
+      <div style={{ maxWidth: 640, margin: '0 auto', display: 'grid', gap: 18 }}>
+        <Card style={{
+          padding: '24px 22px',
+          background: 'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.12), transparent 30%), linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
+        }}>
+          <div style={{ display: 'inline-flex', padding: '8px 12px', borderRadius: 999, border: `1px solid ${T.accent + '28'}`, background: 'rgba(45,255,155,0.10)', color: T.accentLight, fontWeight: 800, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>
+            {isStaffMedical ? 'Invitation staff médical' : 'Invitation coach'}
+          </div>
+          <div style={{ fontFamily: T.fontDisplay, fontWeight: 900, fontSize: 28, color: T.text, lineHeight: 1, marginBottom: 10 }}>
+            {isStaffMedical ? 'REJOINS LE STAFF MÉDICAL' : 'REJOINS TON COACH'}
+          </div>
+          <div style={{ color: T.textMid, fontSize: 14, lineHeight: 1.65 }}>
+            {isStaffMedical
+              ? 'Crée ton compte staff médical pour accéder aux fiches médicales, RDV et suivi des blessures des joueurs.'
+              : 'Crée ton compte athlète pour accéder à tes séances, ta nutrition et ton suivi.'
+            }
+          </div>
+        </Card>
 
-if (inviteUpdateError) {
-console.error('Erreur update invitation:', inviteUpdateError)
-}
-
-alert('Compte créé avec succès.')
-setSubmitting(false)
-navigate('/', { replace: true })
-}
-
-if (loadingInvite) {
-return (
-<div
-style={{
-minHeight: '100vh',
-display: 'flex',
-alignItems: 'center',
-justifyContent: 'center',
-color: T.textDim,
-fontFamily: T.fontDisplay,
-fontSize: 12,
-letterSpacing: 2,
-}}
->
-Chargement...
-</div>
-)
-}
-
-if (inviteError) {
-return (
-<PageWrap>
-      <style>{`
-        @media (max-width: 640px) {
-          .resp-hide-mobile { display: none !important; }
-          .resp-stack { flex-direction: column !important; }
-          .resp-full { width: 100% !important; min-width: 0 !important; }
-        }
-      `}</style>
-<Card style={{ maxWidth: 560, margin: '0 auto', textAlign: 'center', padding: '40px 28px' }}>
-<div
-style={{
-fontFamily: T.fontDisplay,
-fontWeight: 900,
-fontSize: 22,
-color: T.text,
-marginBottom: 10,
-}}
->
-INVITATION INDISPONIBLE
-</div>
-
-<div
-style={{
-color: T.textMid,
-fontSize: 14,
-lineHeight: 1.6,
-}}
->
-{inviteError}
-</div>
-</Card>
-</PageWrap>
-)
-}
-
-return (
-<PageWrap>
-<div style={{ maxWidth: 640, margin: '0 auto', display: 'grid', gap: 18 }}>
-<Card
-style={{
-padding: '24px 22px',
-background:
-'radial-gradient(circle at 18% 18%, rgba(45,255,155,0.12), transparent 30%), linear-gradient(135deg, rgba(20,24,22,0.96), rgba(10,14,12,0.98))',
-}}
->
-<div
-style={{
-display: 'inline-flex',
-padding: '8px 12px',
-borderRadius: 999,
-border: `1px solid ${T.accent + '28'}`,
-background: 'rgba(45,255,155,0.10)',
-color: T.accentLight,
-fontWeight: 800,
-fontSize: 12,
-letterSpacing: 1,
-textTransform: 'uppercase',
-marginBottom: 14,
-}}
->
-Invitation coach
-</div>
-
-<div
-style={{
-fontFamily: T.fontDisplay,
-fontWeight: 900,
-fontSize: 28,
-color: T.text,
-lineHeight: 1,
-marginBottom: 10,
-}}
->
-REJOINS TON COACH
-</div>
-
-<div
-style={{
-color: T.textMid,
-fontSize: 14,
-lineHeight: 1.65,
-}}
->
-Crée ton compte athlète pour accéder à tes séances, ta nutrition et ton suivi.
-</div>
-</Card>
-
-<Card style={{ padding: '22px 20px' }}>
-<div style={{ display: 'grid', gap: 14 }}>
-<Input
-label="Nom complet"
-value={fullName}
-onChange={setFullName}
-placeholder="Ex : Lucas Martin"
-/>
-
-<Input
-label="Email"
-value={email}
-onChange={setEmail}
-placeholder="ton@email.com"
-/>
-
-<Input
-label="Mot de passe"
-value={password}
-onChange={setPassword}
-type="password"
-placeholder="Minimum 6 caractères"
-/>
-
-<Input
-label="Confirmer le mot de passe"
-value={confirmPassword}
-onChange={setConfirmPassword}
-type="password"
-placeholder="Retape ton mot de passe"
-/>
-
-<Btn onClick={handleAcceptInvite} disabled={submitting}>
-{submitting ? 'Création du compte...' : 'Créer mon compte'}
-</Btn>
-</div>
-</Card>
-</div>
-</PageWrap>
-)
+        <Card style={{ padding: '22px 20px' }}>
+          <div style={{ display: 'grid', gap: 14 }}>
+            <Input label="Nom complet" value={fullName} onChange={setFullName} placeholder="Ex : Lucas Martin" />
+            <Input label="Email" value={email} onChange={setEmail} placeholder="ton@email.com" />
+            <Input label="Mot de passe" value={password} onChange={setPassword} type="password" placeholder="Minimum 6 caractères" />
+            <Input label="Confirmer le mot de passe" value={confirmPassword} onChange={setConfirmPassword} type="password" placeholder="Retape ton mot de passe" />
+            <Btn onClick={handleAcceptInvite} disabled={submitting}>
+              {submitting ? 'Création du compte...' : 'Créer mon compte'}
+            </Btn>
+          </div>
+        </Card>
+      </div>
+    </PageWrap>
+  )
 }
