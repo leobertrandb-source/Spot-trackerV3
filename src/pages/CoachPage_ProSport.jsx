@@ -122,6 +122,54 @@ export default function CoachPageProSport() {
     } catch { alert('Erreur lors de la génération') }
   }
 
+  async function handleGenerateQR() {
+    try {
+      const token = Math.random().toString(36).slice(2) + Date.now().toString(36)
+      await supabase.from('coach_invites').insert({
+        coach_id: user.id,
+        email: `qr-${token}@atlyo.app`,
+        invite_token: token,
+        invited_role: 'athlete',
+      })
+      const link = `${window.location.origin}/join/${token}`
+      // Ouvrir dans une nouvelle fenêtre avec le QR code
+      const win = window.open('', '_blank', 'width=400,height=500')
+      win.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>QR Code Atlyo</title>
+          <style>
+            body { margin: 0; background: #080808; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; font-family: -apple-system, sans-serif; color: #edf2f7; }
+            h2 { font-size: 18px; margin-bottom: 8px; }
+            p { font-size: 12px; color: #7a8fa6; margin-bottom: 20px; text-align: center; }
+            img { border-radius: 12px; }
+            .url { font-size: 11px; color: #3ecf8e; word-break: break-all; text-align: center; max-width: 300px; margin-top: 16px; }
+            button { margin-top: 20px; padding: 10px 24px; background: #3ecf8e; border: none; border-radius: 8px; color: #080808; font-weight: 700; cursor: pointer; font-size: 14px; }
+          </style>
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+        </head>
+        <body>
+          <h2>Inscription joueur — Atlyo</h2>
+          <p>Scanne ce QR code pour rejoindre l'équipe</p>
+          <div id="qr"></div>
+          <div class="url">${link}</div>
+          <button onclick="window.print()">🖨️ Imprimer</button>
+          <script>
+            new QRCode(document.getElementById('qr'), {
+              text: '${link}',
+              width: 220,
+              height: 220,
+              colorDark: '#080808',
+              colorLight: '#ffffff',
+            })
+          </script>
+        </body>
+        </html>
+      `)
+    } catch (e) { alert('Erreur: ' + e.message) }
+  }
+
   async function handleInvite() {
     if (!inviteEmail.trim()) return
     setInviting(true); setInviteMsg('')
@@ -272,6 +320,17 @@ export default function CoachPageProSport() {
                         transition: 'background 0.15s',
                       }}>
                       🏥 Inviter staff médical
+                    </button>
+                    <button
+                      className="more-menu-btn"
+                      onClick={() => { handleGenerateQR(); setShowMoreMenu(false) }}
+                      style={{
+                        width: '100%', padding: '10px 14px', borderRadius: 10,
+                        border: 'none', background: 'transparent', color: P.text,
+                        fontSize: 13, fontWeight: 600, cursor: 'pointer', textAlign: 'left',
+                        transition: 'background 0.15s',
+                      }}>
+                      📲 QR code inscription
                     </button>
                   </div>
                 )}
