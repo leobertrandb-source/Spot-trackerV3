@@ -196,6 +196,7 @@ export default function MedicalHubPage() {
           <Tab label="🏥 Infirmerie"  active={tab === 'infirmerie'} onClick={() => setTab('infirmerie')} count={blesseActif.length} color={P.red} />
           <Tab label="👥 Effectif"    active={tab === 'effectif'}   onClick={() => setTab('effectif')}   count={athletes.length} />
           <Tab label="📅 RDV"         active={tab === 'rdv'}        onClick={() => setTab('rdv')}         count={appointments.length} color={P.blue} />
+          <Tab label="📊 Statistiques" active={tab === 'stats'}     onClick={() => setTab('stats')}       count={injuries.length} />
           <button onClick={load} style={{ marginLeft: 'auto', padding: '7px 12px', borderRadius: 20, border: `1px solid ${P.border}`, background: 'transparent', color: P.sub, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
         </div>
 
@@ -353,6 +354,122 @@ export default function MedicalHubPage() {
                 </div>
               )
             })}
+          </div>
+        )}
+
+        {/* ── TAB STATS ── */}
+        {tab === 'stats' && (
+          <div style={{ display: 'grid', gap: 16 }}>
+
+            {/* Blessures par zone — barres horizontales */}
+            <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 16, padding: '20px 24px' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: P.text, marginBottom: 16 }}>Blessures par zone corporelle</div>
+              {zoneCounts.length === 0 ? (
+                <div style={{ fontSize: 13, color: P.sub, textAlign: 'center', padding: '20px 0' }}>Aucune donnée</div>
+              ) : zoneCounts.map(d => {
+                const zc = ZONE_COLORS[d.zone] || ZONE_COLORS.autre
+                const total = injuries.filter(i => i.status !== 'archive').length
+                const pct = total > 0 ? Math.round((d.count / total) * 100) : 0
+                return (
+                  <div key={d.zone} style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: P.text }}>{BODY_ZONES[d.zone]}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: zc.color }}>{d.count} <span style={{ fontWeight: 400, color: P.sub }}>({pct}%)</span></span>
+                    </div>
+                    <div style={{ height: 8, background: P.border, borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: zc.color, borderRadius: 4, transition: 'width 0.4s' }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Stats par joueur */}
+            <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 16, padding: '20px 24px' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: P.text, marginBottom: 16 }}>Blessures par joueur</div>
+              {loading ? (
+                <div style={{ fontSize: 13, color: P.sub, textAlign: 'center', padding: '20px 0' }}>Chargement...</div>
+              ) : (
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {athletesWithData
+                    .map(a => ({
+                      ...a,
+                      total: injuries.filter(i => i.athlete_id === a.id).length,
+                      actif: injuries.filter(i => i.athlete_id === a.id && i.status === 'active').length,
+                    }))
+                    .filter(a => a.total > 0)
+                    .sort((a, b) => b.total - a.total)
+                    .map(a => {
+                      const maxTotal = Math.max(...athletesWithData.map(x => injuries.filter(i => i.athlete_id === x.id).length))
+                      const pct = maxTotal > 0 ? Math.round((a.total / maxTotal) * 100) : 0
+                      return (
+                        <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
+                          onClick={() => navigate(`/medical/${a.id}`)}>
+                          <Avatar name={a.full_name || a.email} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: P.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {a.full_name || a.email}
+                              </span>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: a.actif > 0 ? P.red : P.sub, flexShrink: 0, marginLeft: 8 }}>
+                                {a.total} blessure{a.total > 1 ? 's' : ''}
+                                {a.actif > 0 && <span style={{ color: P.red }}> ({a.actif} active{a.actif > 1 ? 's' : ''})</span>}
+                              </span>
+                            </div>
+                            <div style={{ height: 6, background: P.border, borderRadius: 3, overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${pct}%`, background: a.actif > 0 ? P.red : P.green, borderRadius: 3 }} />
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                </div>
+              )}
+            </div>
+
+            {/* Résumé global */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px,1fr))', gap: 12 }}>
+              {[
+                {
+                  label: 'Total blessures',
+                  value: injuries.length,
+                  sub: 'depuis le début',
+                  color: P.text,
+                },
+                {
+                  label: 'Taux de blessure',
+                  value: athletes.length > 0 ? `${Math.round((blesseActif.length / athletes.length) * 100)}%` : '—',
+                  sub: 'de l\'effectif actuellement',
+                  color: blesseActif.length > 0 ? P.red : P.green,
+                },
+                {
+                  label: 'Durée moyenne',
+                  value: (() => {
+                    const archived = injuries.filter(i => i.status === 'archive' && i.date_return && i.date_injury)
+                    if (!archived.length) return '—'
+                    const avg = archived.reduce((sum, i) => {
+                      return sum + Math.floor((new Date(i.date_return) - new Date(i.date_injury)) / 86400000)
+                    }, 0) / archived.length
+                    return `${Math.round(avg)}j`
+                  })(),
+                  sub: 'par blessure (archivées)',
+                  color: P.blue,
+                },
+                {
+                  label: 'Zone la + touchée',
+                  value: zoneCounts[0] ? BODY_ZONES[zoneCounts[0].zone] : '—',
+                  sub: zoneCounts[0] ? `${zoneCounts[0].count} cas` : 'aucune donnée',
+                  color: zoneCounts[0] ? (ZONE_COLORS[zoneCounts[0].zone]?.color || P.sub) : P.sub,
+                },
+              ].map(({ label, value, sub, color }) => (
+                <div key={label} style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 14, padding: '16px 18px' }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: P.sub, marginBottom: 8 }}>{label}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color, lineHeight: 1, fontFamily: "'DM Serif Display', serif", marginBottom: 4 }}>{value}</div>
+                  <div style={{ fontSize: 11, color: P.dim }}>{sub}</div>
+                </div>
+              ))}
+            </div>
+
           </div>
         )}
 
