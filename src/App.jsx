@@ -9,6 +9,7 @@ import Sidebar from './components/Sidebar'
 import Topbar from './components/Topbar'
 
 import InviteAcceptPage from './pages/InviteAcceptPage'
+import PlayerJoinPage from './pages/PlayerJoinPage'
 import LoginPage from './pages/LoginPage'
 
 import GoalSelectionPage from './pages/GoalSelectionPage'
@@ -40,7 +41,8 @@ import PrepChargeExternePage from './pages/PrepChargeExternePage'
 import PrepDashboardPage from './pages/PrepDashboardPage'
 import PrepAnalysePage from './pages/PrepAnalysePage'
 import MedicalPage from './pages/MedicalPage'
-import MedicalHubPage from './pages/MedicalHubPage'
+import MedicalDashboardPage from './pages/MedicalDashboardPage'
+import InfirmeriePage from './pages/InfirmeriePage'
 import TrainingAttendancePage from './pages/TrainingAttendancePage'
 import MyAttendancePage from './pages/MyAttendancePage'
 import CoachPageProSport from './pages/CoachPage_ProSport'
@@ -187,8 +189,9 @@ function PrivateAppShell() {
           <Route path="/prep/charge-externe" element={canPrepPhysique ? <PrepChargeExternePage />  : <Navigate to={athleteHome} replace />} />
           <Route path="/prep/dashboard"      element={canPrepPhysique && isCoach ? <PrepDashboardPage /> : <Navigate to={athleteHome} replace />} />
           <Route path="/prep/analyse/:id"    element={canPrepPhysique && isCoach ? <PrepAnalysePage />   : <Navigate to={athleteHome} replace />} />
-          <Route path="/medical/:id"         element={canPrepPhysique && (isCoach || isStaffMedical) ? <MedicalPage />    : <Navigate to={athleteHome} replace />} />
-          <Route path="/medical"             element={canPrepPhysique && (isCoach || isStaffMedical) ? <MedicalHubPage /> : <Navigate to={athleteHome} replace />} />
+          <Route path="/medical/:id"         element={canPrepPhysique && (isCoach || isStaffMedical) ? <MedicalPage />          : <Navigate to={athleteHome} replace />} />
+          <Route path="/medical/dashboard"   element={canPrepPhysique && (isCoach || isStaffMedical) ? <MedicalDashboardPage /> : <Navigate to={athleteHome} replace />} />
+          <Route path="/infirmerie"          element={canPrepPhysique && (isCoach || isStaffMedical) ? <InfirmeriePage />        : <Navigate to={athleteHome} replace />} />
           <Route path="/presences"           element={canPrepPhysique && (isCoach || isStaffMedical) ? <TrainingAttendancePage /> : <Navigate to={athleteHome} replace />} />
           <Route path="/ma-presence"         element={!isCoach && !isStaffMedical ? <MyAttendancePage /> : <Navigate to={defaultRoute} replace />} />
 
@@ -252,6 +255,7 @@ function RootRouter() {
   return (
     <Routes>
       <Route path="/invite/:token" element={<InviteRoute />} />
+      <Route path="/join/:token" element={<PlayerJoinPage />} />
       <Route path="/coach-kiosk" element={<ClubKioskPage />} />
       <Route path="/coach-kiosk/hooper/:playerId" element={<ClubKioskHooperPage />} />
       <Route path="*" element={<PrivateAppShell />} />
