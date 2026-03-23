@@ -82,6 +82,36 @@ export default function TrainingAttendancePanel({ clients = [] }) {
 
   useEffect(() => { load() }, [load])
 
+  // ── Temps réel — écouter les réponses des athlètes ───────────────────────
+  useEffect(() => {
+    if (!clients.length) return
+
+    const ids = clients.map(c => c.id)
+    const isToday = selectedDate === new Date().toISOString().split('T')[0]
+    if (!isToday) return // pas de realtime pour les dates passées
+
+    const channel = supabase
+      .channel(`attendance-${selectedDate}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'training_attendance',
+        filter: `date=eq.${selectedDate}`,
+      }, (payload) => {
+        const row = payload.new || payload.old
+        if (!row || !ids.includes(row.athlete_id)) return
+
+        if (payload.eventType === 'DELETE') {
+          setAttendance(p => { const n = { ...p }; delete n[row.athlete_id]; return n })
+        } else {
+          setAttendance(p => ({ ...p, [row.athlete_id]: row.status }))
+        }
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [clients, selectedDate])
+
   async function setStatus(athleteId, status) {
     setSaving(p => ({ ...p, [athleteId]: true }))
     setAttendance(p => ({ ...p, [athleteId]: status }))
@@ -131,12 +161,12 @@ export default function TrainingAttendancePanel({ clients = [] }) {
         body: JSON.stringify({
           athleteIds: clients.map(c => c.id),
           title: '📋 Entraînement aujourd\'hui',
-          message: 'Rappel — entraînement ce soir. Signale ta présence !',
-          url: '/',
+          message: 'Rappel — entraînement ce soir. Clique pour indiquer ta présence !',
+          url: '/ma-presence',
         }),
       })
       const data = await res.json()
-      setSendMsg(res.ok ? `✓ Rappel envoyé à ${data.sent || 0} athlète(s)` : `❌ Erreur ${data.error || ''}`)
+      setSendMsg(res.ok ? `✓ Rappel envoyé à ${data.sent || 0} athlète(s)` : `❌ ${data.error || 'Erreur'}`)
     } catch { setSendMsg('❌ Erreur réseau') }
     setSending(false)
     setTimeout(() => setSendMsg(''), 4000)
@@ -146,18 +176,26 @@ export default function TrainingAttendancePanel({ clients = [] }) {
   const presentBlesse = clients.filter(c => attendance[c.id] === 'present_blesse').length
   const absentBlesse  = clients.filter(c => attendance[c.id] === 'absent_blesse').length
   const absent        = clients.filter(c => attendance[c.id] === 'absent').length
+  const nonRep        = clients.filter(c => !attendance[c.id]).length
   const isTodayTraining = schedule.includes(new Date().getDay())
+  const isToday = selectedDate === new Date().toISOString().split('T')[0]
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif" }}>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
-        <div style={{ display: 'flex', gap: 14 }}>
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
           <span style={{ fontSize: 13, color: P.green,  fontWeight: 700 }}>✓ {present}</span>
           <span style={{ fontSize: 13, color: P.yellow, fontWeight: 700 }}>🩹 {presentBlesse}</span>
           <span style={{ fontSize: 13, color: P.red,    fontWeight: 700 }}>🔴 {absentBlesse}</span>
           <span style={{ fontSize: 13, color: P.sub,    fontWeight: 700 }}>✗ {absent}</span>
+          {nonRep > 0 && <span style={{ fontSize: 13, color: '#aaa', fontWeight: 600 }}>? {nonRep} n.r.</span>}
+          {isToday && (
+            <span style={{ fontSize: 11, color: P.green, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: '#e8f5ee', border: '1px solid #b7dfc8' }}>
+              ● Temps réel
+            </span>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
@@ -210,7 +248,7 @@ export default function TrainingAttendancePanel({ clients = [] }) {
               style={{ padding: '7px 12px', borderRadius: 8, border: `1px solid ${P.border}`, background: P.card, color: P.text, fontSize: 13, fontFamily: 'inherit', outline: 'none' }} />
           </div>
           <div style={{ fontSize: 12, color: P.sub, marginBottom: 12 }}>
-            Les athlètes reçoivent un push automatique les jours sélectionnés à l'heure choisie.
+            Les athlètes reçoivent un push automatique les jours sélectionnés à l'heure choisie. En cliquant sur la notif ils arrivent directement sur la page de présence.
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={saveSchedule} disabled={savingSchedule} style={{
@@ -245,27 +283,35 @@ export default function TrainingAttendancePanel({ clients = [] }) {
           <div style={{ padding: 30, textAlign: 'center', color: P.sub, fontSize: 13 }}>Aucun athlète</div>
         ) : clients.map((client, i) => {
           const status = attendance[client.id]
+          const s = STATUSES.find(x => x.key === status)
           const injList = injuries[client.id] || []
           const isLast = i === clients.length - 1
+
           return (
             <div key={client.id} style={{
               padding: '12px 16px', borderBottom: isLast ? 'none' : `1px solid ${P.border}`,
               display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: P.card,
+              borderLeft: s ? `3px solid ${s.color}` : `3px solid transparent`,
+              transition: 'border-left-color 0.3s',
             }}>
               <Avatar name={client.full_name || client.email} />
               <div style={{ flex: 1, minWidth: 120 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: P.text }}>{client.full_name || client.email}</div>
-                {injList.length > 0 && <div style={{ fontSize: 11, color: P.red, marginTop: 1 }}>🩹 {injList.join(', ')}</div>}
+                <div style={{ display: 'flex', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
+                  {injList.length > 0 && <span style={{ fontSize: 11, color: P.red }}>🩹 {injList.join(', ')}</span>}
+                  {s && <span style={{ fontSize: 11, color: s.color, fontWeight: 600 }}>{s.icon} {s.label}</span>}
+                  {!status && <span style={{ fontSize: 11, color: '#aaa' }}>En attente de réponse...</span>}
+                </div>
               </div>
               <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                {STATUSES.map(s => (
-                  <button key={s.key} onClick={() => setStatus(client.id, s.key)} disabled={saving[client.id]} style={{
+                {STATUSES.map(st => (
+                  <button key={st.key} onClick={() => setStatus(client.id, st.key)} disabled={saving[client.id]} style={{
                     padding: '5px 10px', borderRadius: 999, fontSize: 11, fontWeight: 600,
                     cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
-                    border: `1px solid ${status === s.key ? s.color : P.border}`,
-                    background: status === s.key ? s.bg : 'transparent',
-                    color: status === s.key ? s.color : P.sub,
-                  }}>{s.icon} {s.label}</button>
+                    border: `1px solid ${status === st.key ? st.color : P.border}`,
+                    background: status === st.key ? st.bg : 'transparent',
+                    color: status === st.key ? st.color : P.sub,
+                  }}>{st.icon} {st.label}</button>
                 ))}
               </div>
             </div>
