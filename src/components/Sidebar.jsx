@@ -174,10 +174,13 @@ function Avatar({ name, role }) {
 function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
   const location = useLocation()
   const { profile, user, signOut, showMethodeSpot, showPrepPhysique } = useAuth()
-  const isCoach = profile?.role === 'coach'
+  const isCoach        = profile?.role === 'coach'
+  const isStaffMedical = profile?.role === 'staff_medical'
 
   const coachLinks = showPrepPhysique ? [
     { to: '/coach',          label: 'Dashboard' },
+    { to: '/infirmerie',     label: 'Infirmerie' },
+    { to: '/medical/dashboard', label: 'Suivi médical' },
     { to: '/programmes',     label: 'Programmes' },
     { to: '/exercices',      label: 'Exercices' },
   ] : [
@@ -344,7 +347,17 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
       </div>
 
       {/* Navigation */}
-      {isCoach ? (
+      {isStaffMedical ? (
+        <div style={{ display: 'grid', gap: 2 }}>
+          <SectionLabel>Médical</SectionLabel>
+          {[
+            { to: '/infirmerie',        label: 'Infirmerie' },
+            { to: '/medical/dashboard', label: 'Suivi médical' },
+          ].map((item, i) => (
+            <NavItem key={item.to} {...item} active={isActive(item.to)} onClick={isMobile ? onClose : undefined} index={i} />
+          ))}
+        </div>
+      ) : isCoach ? (
         <div style={{ display: 'grid', gap: 2 }}>
           <SectionLabel>Navigation</SectionLabel>
           {coachLinks.map((item, i) => (
