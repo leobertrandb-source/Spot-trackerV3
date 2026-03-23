@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
+import ImportICSModal from '../components/ImportICSModal'
 
 const P = {
   bg:     '#f5f3ef',
@@ -105,6 +106,7 @@ export default function MedicalHubPage() {
 
   // Match modal state
   const [showMatchModal, setShowMatchModal] = useState(false)
+  const [showICSModal, setShowICSModal]     = useState(false)
   const [selectedMatch, setSelectedMatch]   = useState(null)
   const [matchForm, setMatchForm]           = useState({ label: '', match_date: new Date().toISOString().split('T')[0], opponent: '' })
   const [matchInjuries, setMatchInjuries]   = useState([])
@@ -408,11 +410,18 @@ export default function MedicalHubPage() {
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: P.sub }}>{matches.length} match{matches.length > 1 ? 's' : ''} enregistré{matches.length > 1 ? 's' : ''}</div>
-                <button onClick={() => setShowMatchModal(true)} style={{
-                  padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                  border: 'none', background: P.accent, color: '#fff',
-                }}>+ Nouveau match</button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setShowICSModal(true)} style={{
+                    padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    border: `1px solid ${P.accent}`, background: 'transparent', color: P.accent,
+                  }}>📅 Import calendrier</button>
+                  <button onClick={() => setShowMatchModal(true)} style={{
+                    padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    border: 'none', background: P.accent, color: '#fff',
+                  }}>+ Nouveau match</button>
+                </div>
               </div>
 
               {loading ? (
@@ -535,6 +544,13 @@ export default function MedicalHubPage() {
         )}
 
         {/* Modal nouveau match */}
+        {showICSModal && (
+          <ImportICSModal
+            onClose={() => setShowICSModal(false)}
+            onImported={() => { setShowICSModal(false); load() }}
+            teamName="Tyrosse"
+          />
+        )}
         {showMatchModal && (
           <div onClick={() => setShowMatchModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
             <div onClick={e => e.stopPropagation()} style={{ background: P.card, borderRadius: 16, padding: 24, width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
