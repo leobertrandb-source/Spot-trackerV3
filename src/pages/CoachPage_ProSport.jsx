@@ -109,12 +109,24 @@ export default function CoachPageProSport() {
     : filter === 'missing' ? missing
     : clients
 
+  async function handleInviteStaff() {
+    const email = window.prompt('Email du staff médical à inviter :')
+    if (!email?.trim()) return
+    try {
+      const token = Math.random().toString(36).slice(2) + Date.now().toString(36)
+      await supabase.from('coach_invites').insert({ coach_id: user.id, email: email.trim(), invite_token: token, invited_role: 'staff_medical' })
+      const link = `${window.location.origin}/invite/${token}`
+      await navigator.clipboard.writeText(link)
+      alert('✓ Lien staff médical copié dans le presse-papier')
+    } catch { alert('Erreur lors de la génération') }
+  }
+
   async function handleInvite() {
     if (!inviteEmail.trim()) return
     setInviting(true); setInviteMsg('')
     try {
       const token = Math.random().toString(36).slice(2) + Date.now().toString(36)
-      await supabase.from('coach_invites').insert({ coach_id: user.id, email: inviteEmail.trim(), invite_token: token })
+      await supabase.from('coach_invites').insert({ coach_id: user.id, email: inviteEmail.trim(), invite_token: token, invited_role: 'athlete' })
       const link = `${window.location.origin}/invite/${token}`
       await navigator.clipboard.writeText(link)
       setInviteMsg('✓ Lien copié dans le presse-papier')
@@ -247,6 +259,17 @@ export default function CoachPageProSport() {
                         transition: 'background 0.15s',
                       }}>
                       📡 Importer GPS
+                    </button>
+                    <button
+                      className="more-menu-btn"
+                      onClick={() => { handleInviteStaff(); setShowMoreMenu(false) }}
+                      style={{
+                        width: '100%', padding: '10px 14px', borderRadius: 10,
+                        border: 'none', background: 'transparent', color: P.text,
+                        fontSize: 13, fontWeight: 600, cursor: 'pointer', textAlign: 'left',
+                        transition: 'background 0.15s',
+                      }}>
+                      🏥 Inviter staff médical
                     </button>
                   </div>
                 )}
