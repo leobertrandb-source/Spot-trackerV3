@@ -3,17 +3,17 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 
 const P = {
-  bg: '#f5f3ef',
-  card: '#ffffff',
+  bg:     '#f5f3ef',
+  card:   '#ffffff',
   border: '#e8e4dc',
-  text: '#1a1a1a',
-  sub: '#6b6b6b',
-  dim: '#9e9e9e',
+  text:   '#1a1a1a',
+  sub:    '#6b6b6b',
+  dim:    '#9e9e9e',
   accent: '#1a3a2a',
-  green: '#2d6a4f',
+  green:  '#2d6a4f',
   yellow: '#b5830a',
-  red: '#c0392b',
-  blue: '#1a3a5c',
+  red:    '#c0392b',
+  blue:   '#1a3a5c',
 }
 
 // ── Parser ICS ───────────────────────────────────────────────────────────────
@@ -21,6 +21,7 @@ function parseICS(text) {
   const events = []
   let current = null
 
+  // Unfold les lignes (RFC 5545 — continuation lines)
   const unfolded = text.replace(/\r?\n[ \t]/g, '')
   const lines = unfolded.split(/\r?\n/)
 
@@ -59,7 +60,7 @@ function parseDate(dtstart) {
   if (!dtstart) return null
   const clean = dtstart.replace(/[TZ]/g, '').slice(0, 8)
   if (clean.length === 8) {
-    return `${clean.slice(0, 4)}-${clean.slice(4, 6)}-${clean.slice(6, 8)}`
+    return `${clean.slice(0,4)}-${clean.slice(4,6)}-${clean.slice(6,8)}`
   }
   return null
 }
@@ -83,72 +84,49 @@ function extractTeams(summary) {
 
   for (const sep of separators) {
     if (main.includes(sep)) {
-      const [homeTeam, awayTeam] = main.split(sep).map((s) => s.trim())
-      return { homeTeam: homeTeam || '', awayTeam: awayTeam || '' }
+      const [homeTeam, awayTeam] = main.split(sep).map(s => s.trim())
+      return {
+        homeTeam: homeTeam || '',
+        awayTeam: awayTeam || '',
+      }
     }
   }
 
   return { homeTeam: '', awayTeam: '' }
 }
 
-function buildTeamCandidates(teamName, teamAliases = []) {
-  return [teamName, ...teamAliases].map(normalizeTeamName).filter(Boolean)
-}
-
 function isMatchingTeam(summary, teamName, teamAliases = []) {
-  if (!teamName) return true
-
   const { homeTeam, awayTeam } = extractTeams(summary)
-  const candidates = buildTeamCandidates(teamName, teamAliases)
+  const candidates = [teamName, ...teamAliases]
+    .map(normalizeTeamName)
+    .filter(Boolean)
+
   const home = normalizeTeamName(homeTeam)
   const away = normalizeTeamName(awayTeam)
 
-  return candidates.some((name) => home === name || away === name)
+  return candidates.some(name => home === name || away === name)
 }
 
-function getOpponent(summary, teamName, teamAliases = []) {
-  const main = summary?.split('|')[0].trim() || ''
-  const { homeTeam, awayTeam } = extractTeams(main)
-  const candidates = buildTeamCandidates(teamName, teamAliases)
-  const home = normalizeTeamName(homeTeam)
-  const away = normalizeTeamName(awayTeam)
-
-  if (candidates.some((name) => home === name)) return awayTeam || main
-  if (candidates.some((name) => away === name)) return homeTeam || main
-  return main
+function buildFallbackUid(event) {
+  const summary = event.summary?.split('|')[0].trim() || ''
+  const date = parseDate(event.dtstart) || 'no-date'
+  const location = (event.location || '').trim().toLowerCase()
+  return `ics:${summary}:${date}:${location}`
 }
 
-function buildExternalUid(event) {
-  if (event?.uid) return event.uid
-
-  const base = [
-    event?.summary?.split('|')[0].trim() || '',
-    parseDate(event?.dtstart) || '',
-    event?.location || '',
-  ]
-    .map((s) => (s || '').toLowerCase().trim())
-    .join('||')
-
-  return `ics:${base}`
-}
-
-export default function ImportICSModal({
-  onClose,
-  onImported,
-  teamName,
-  teamAliases = [],
-}) {
+export default function ImportICSModal({ onClose, onImported, teamName, teamAliases = [] }) {
   const { user, gym } = useAuth()
   const fileRef = useRef()
 
-  const [tab, setTab] = useState('file')
-  const [icalUrl, setIcalUrl] = useState('')
-  const [savedUrl, setSavedUrl] = useState('')
-  const [preview, setPreview] = useState([])
-  const [importing, setImporting] = useState(false)
-  const [syncing, setSyncing] = useState(false)
-  const [msg, setMsg] = useState('')
+  const [tab, setTab]               = useState('file')
+  const [icalUrl, setIcalUrl]       = useState('')
+  const [savedUrl, setSavedUrl]     = useState('')
+  const [preview, setPreview]       = useState([])
+  const [importing, setImporting]   = useState(false)
+  const [syncing, setSyncing]       = useState(false)
+  const [msg, setMsg]               = useState('')
   const [filterTeam, setFilterTeam] = useState(true)
+  const [manualTeamName, setManualTeamName] = useState(teamName || '')
 
   useEffect(() => {
     if (gym?.ical_url) {
@@ -157,10 +135,13 @@ export default function ImportICSModal({
     }
   }, [gym])
 
+  useEffect(() => {
+    setManualTeamName(teamName || '')
+  }, [teamName])
+
   function handleFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
-
     const reader = new FileReader()
     reader.onload = (ev) => {
       const events = parseICS(ev.target.result)
@@ -172,48 +153,47 @@ export default function ImportICSModal({
 
   async function handleLoadUrl() {
     if (!icalUrl.trim()) return
-
     setSyncing(true)
     setMsg('')
-
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      const res = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/fetch-ical`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url: icalUrl.trim() }),
-      })
-
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(
+        `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/fetch-ical`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ url: icalUrl.trim() }),
+        }
+      )
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur')
-
       const events = parseICS(data.content)
       setPreview(events)
       setMsg(`${events.length} événements trouvés.`)
     } catch (err) {
       setMsg(`❌ ${err.message}`)
     }
-
     setSyncing(false)
   }
 
   async function saveUrl() {
     if (!gym?.id) return
-
     await supabase.from('gyms').update({ ical_url: icalUrl.trim() }).eq('id', gym.id)
     setSavedUrl(icalUrl.trim())
     setMsg('✓ URL sauvegardée — synchronisation automatique activée')
   }
 
   async function handleImport() {
-    const toImport = filterTeam && teamName
-      ? preview.filter((e) => isMatchingTeam(e.summary, teamName, teamAliases))
+    if (filterTeam && !manualTeamName.trim()) {
+      setMsg('❌ Entre le nom de ton équipe avant d’importer.')
+      return
+    }
+
+    const toImport = filterTeam && manualTeamName.trim()
+      ? preview.filter(e => isMatchingTeam(e.summary, manualTeamName, teamAliases))
       : preview
 
     if (!toImport.length) {
@@ -224,21 +204,29 @@ export default function ImportICSModal({
     setImporting(true)
     setMsg('')
 
-    const rows = toImport
-      .map((e) => {
-        const summary = e.summary?.split('|')[0].trim() || ''
-        const matchDate = parseDate(e.dtstart)
+    const rows = toImport.map(e => {
+      const summary = e.summary?.split('|')[0].trim() || ''
+      const { homeTeam, awayTeam } = extractTeams(summary)
 
-        return {
-          coach_id: user.id,
-          label: summary,
-          match_date: matchDate,
-          opponent: getOpponent(summary, teamName, teamAliases),
-          location: e.location || null,
-          external_uid: buildExternalUid(e),
-        }
-      })
-      .filter((r) => r.match_date && r.external_uid)
+      const normalizedTeam = normalizeTeamName(manualTeamName)
+      const isHome = normalizeTeamName(homeTeam) === normalizedTeam
+      const isAway = normalizeTeamName(awayTeam) === normalizedTeam
+
+      const opponent = isHome
+        ? awayTeam
+        : isAway
+        ? homeTeam
+        : summary
+
+      return {
+        coach_id: user.id,
+        label: summary,
+        match_date: parseDate(e.dtstart),
+        opponent: opponent || summary,
+        location: e.location || null,
+        external_uid: e.uid || buildFallbackUid(e),
+      }
+    }).filter(r => r.match_date)
 
     const { error } = await supabase
       .from('match_history')
@@ -248,104 +236,53 @@ export default function ImportICSModal({
       setMsg(`❌ Erreur: ${error.message}`)
     } else {
       setMsg(`✓ ${rows.length} matchs importés avec succès !`)
-      setTimeout(() => {
-        onImported?.()
-        onClose()
-      }, 1500)
+      setTimeout(() => { onImported?.(); onClose() }, 1500)
     }
-
     setImporting(false)
   }
 
-  const filteredPreview = filterTeam && teamName
-    ? preview.filter((e) => isMatchingTeam(e.summary, teamName, teamAliases))
+  const filteredPreview = filterTeam && manualTeamName.trim()
+    ? preview.filter(e => isMatchingTeam(e.summary, manualTeamName, teamAliases))
     : preview
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.4)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-        padding: 16,
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: P.card,
-          borderRadius: 20,
-          padding: 28,
-          width: '100%',
-          maxWidth: 560,
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
-        }}
-      >
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: P.card, borderRadius: 20, padding: 28, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div>
             <div style={{ fontSize: 17, fontWeight: 700, color: P.text }}>Import calendrier</div>
             <div style={{ fontSize: 12, color: P.sub, marginTop: 2 }}>Fichier .ics ou abonnement URL</div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: P.sub }}>
-            ×
-          </button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: P.sub }}>×</button>
         </div>
 
         <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
-          {[
-            { key: 'file', label: '📄 Fichier .ics' },
-            { key: 'url', label: '🔗 Abonnement URL' },
-          ].map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              style={{
-                padding: '7px 16px',
-                borderRadius: 20,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                border: `1px solid ${tab === t.key ? P.accent : P.border}`,
-                background: tab === t.key ? P.accent : 'transparent',
-                color: tab === t.key ? '#fff' : P.text,
-              }}
-            >
-              {t.label}
-            </button>
+          {[{ key: 'file', label: '📄 Fichier .ics' }, { key: 'url', label: '🔗 Abonnement URL' }].map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)} style={{
+              padding: '7px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', fontFamily: 'inherit',
+              border: `1px solid ${tab === t.key ? P.accent : P.border}`,
+              background: tab === t.key ? P.accent : 'transparent',
+              color: tab === t.key ? '#fff' : P.text,
+            }}>{t.label}</button>
           ))}
         </div>
 
         {tab === 'file' && (
           <div>
             <div style={{ fontSize: 13, color: P.sub, marginBottom: 12, lineHeight: 1.6 }}>
-              Depuis le site de ta fédération, exporte le calendrier de ta compétition au format{' '}
-              <code style={{ background: P.bg, padding: '1px 5px', borderRadius: 4 }}>.ics</code> et importe-le ici.
+              Depuis le site de ta fédération, exporte le calendrier de ta compétition au format <code style={{ background: P.bg, padding: '1px 5px', borderRadius: 4 }}>.ics</code> et importe-le ici.
             </div>
             <div
               onClick={() => fileRef.current?.click()}
               style={{
-                border: `2px dashed ${P.border}`,
-                borderRadius: 14,
-                padding: '32px 20px',
-                textAlign: 'center',
-                cursor: 'pointer',
-                background: P.bg,
+                border: `2px dashed ${P.border}`, borderRadius: 14, padding: '32px 20px',
+                textAlign: 'center', cursor: 'pointer', background: P.bg,
                 transition: 'all 0.15s',
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = P.accent
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = P.border
-              }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = P.accent}
+              onMouseLeave={e => e.currentTarget.style.borderColor = P.border}
             >
               <div style={{ fontSize: 28, marginBottom: 8 }}>📅</div>
               <div style={{ fontSize: 14, fontWeight: 600, color: P.text, marginBottom: 4 }}>Cliquer pour sélectionner</div>
@@ -364,61 +301,59 @@ export default function ImportICSModal({
               <input
                 type="url"
                 value={icalUrl}
-                onChange={(e) => setIcalUrl(e.target.value)}
+                onChange={e => setIcalUrl(e.target.value)}
                 placeholder="https://api-web.monclubhouse.ffr.fr/ical/poule/..."
                 style={{
-                  flex: 1,
-                  padding: '10px 12px',
-                  background: P.bg,
-                  border: `1px solid ${P.border}`,
-                  borderRadius: 10,
-                  color: P.text,
-                  fontSize: 13,
-                  outline: 'none',
-                  fontFamily: 'inherit',
+                  flex: 1, padding: '10px 12px', background: P.bg,
+                  border: `1px solid ${P.border}`, borderRadius: 10,
+                  color: P.text, fontSize: 13, outline: 'none', fontFamily: 'inherit',
                 }}
               />
-              <button
-                onClick={handleLoadUrl}
-                disabled={syncing || !icalUrl.trim()}
-                style={{
-                  padding: '10px 16px',
-                  borderRadius: 10,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  border: 'none',
-                  background: P.accent,
-                  color: '#fff',
-                  flexShrink: 0,
-                  opacity: syncing || !icalUrl.trim() ? 0.6 : 1,
-                }}
-              >
+              <button onClick={handleLoadUrl} disabled={syncing || !icalUrl.trim()} style={{
+                padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'inherit', border: 'none',
+                background: P.accent, color: '#fff', flexShrink: 0,
+                opacity: syncing || !icalUrl.trim() ? 0.6 : 1,
+              }}>
                 {syncing ? '...' : 'Charger'}
               </button>
             </div>
-            {savedUrl && <div style={{ fontSize: 12, color: P.green, marginBottom: 8 }}>✓ URL sauvegardée — synchronisation active</div>}
+            {savedUrl && (
+              <div style={{ fontSize: 12, color: P.green, marginBottom: 8 }}>✓ URL sauvegardée — synchronisation active</div>
+            )}
             {icalUrl !== savedUrl && icalUrl.trim() && (
-              <button
-                onClick={saveUrl}
-                style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: P.accent,
-                  background: 'transparent',
-                  border: `1px solid ${P.accent}`,
-                  borderRadius: 8,
-                  padding: '5px 12px',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                }}
-              >
+              <button onClick={saveUrl} style={{
+                fontSize: 12, fontWeight: 600, color: P.accent, background: 'transparent',
+                border: `1px solid ${P.accent}`, borderRadius: 8, padding: '5px 12px',
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>
                 Sauvegarder cette URL pour la sync auto
               </button>
             )}
           </div>
         )}
+
+        <div style={{ marginTop: 18, marginBottom: 4 }}>
+          <div style={{ fontSize: 12, color: P.sub, marginBottom: 6 }}>
+            Nom de ton équipe
+          </div>
+          <input
+            value={manualTeamName}
+            onChange={(e) => setManualTeamName(e.target.value)}
+            placeholder="Ex: US Marmande"
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              borderRadius: 10,
+              border: `1px solid ${P.border}`,
+              background: P.bg,
+              fontSize: 13,
+              color: P.text,
+              outline: 'none',
+              fontFamily: 'inherit',
+            }}
+          />
+        </div>
 
         {preview.length > 0 && (
           <div style={{ marginTop: 20 }}>
@@ -426,17 +361,10 @@ export default function ImportICSModal({
               <div style={{ fontSize: 13, fontWeight: 700, color: P.text }}>
                 {filteredPreview.length} match{filteredPreview.length > 1 ? 's' : ''} à importer
               </div>
-              {teamName && (
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: P.sub }}>
-                  <input
-                    type="checkbox"
-                    checked={filterTeam}
-                    onChange={(e) => setFilterTeam(e.target.checked)}
-                    style={{ accentColor: P.accent }}
-                  />
-                  Seulement {teamName}
-                </label>
-              )}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, color: P.sub }}>
+                <input type="checkbox" checked={filterTeam} onChange={e => setFilterTeam(e.target.checked)} style={{ accentColor: P.accent }} />
+                Seulement cette équipe
+              </label>
             </div>
 
             <div style={{ maxHeight: 220, overflowY: 'auto', border: `1px solid ${P.border}`, borderRadius: 12 }}>
@@ -445,29 +373,14 @@ export default function ImportICSModal({
                 const summary = e.summary?.split('|')[0].trim()
                 const isLast = i === Math.min(filteredPreview.length, 50) - 1
                 return (
-                  <div
-                    key={i}
-                    style={{
-                      padding: '10px 14px',
-                      borderBottom: isLast ? 'none' : `1px solid ${P.border}`,
-                      display: 'flex',
-                      gap: 12,
-                      alignItems: 'center',
-                    }}
-                  >
+                  <div key={i} style={{
+                    padding: '10px 14px', borderBottom: isLast ? 'none' : `1px solid ${P.border}`,
+                    display: 'flex', gap: 12, alignItems: 'center',
+                  }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: P.sub, flexShrink: 0, minWidth: 80 }}>
-                      {date ? new Date(`${date}T00:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '?'}
+                      {date ? new Date(date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '?'}
                     </div>
-                    <div
-                      style={{
-                        flex: 1,
-                        fontSize: 13,
-                        color: P.text,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
+                    <div style={{ flex: 1, fontSize: 13, color: P.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {summary}
                     </div>
                   </div>
@@ -483,55 +396,26 @@ export default function ImportICSModal({
         )}
 
         {msg && (
-          <div
-            style={{
-              marginTop: 14,
-              padding: '8px 12px',
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 600,
-              color: msg.startsWith('✓') ? P.green : msg.startsWith('❌') ? P.red : P.sub,
-              background: msg.startsWith('✓') ? '#e8f5ee' : msg.startsWith('❌') ? '#fdecea' : P.bg,
-            }}
-          >
-            {msg}
-          </div>
+          <div style={{
+            marginTop: 14, padding: '8px 12px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+            color: msg.startsWith('✓') ? P.green : msg.startsWith('❌') ? P.red : P.sub,
+            background: msg.startsWith('✓') ? '#e8f5ee' : msg.startsWith('❌') ? '#fdecea' : P.bg,
+          }}>{msg}</div>
         )}
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: '9px 16px',
-              borderRadius: 10,
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              border: `1px solid ${P.border}`,
-              background: 'transparent',
-              color: P.sub,
-            }}
-          >
-            Annuler
-          </button>
+          <button onClick={onClose} style={{
+            padding: '9px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+            cursor: 'pointer', fontFamily: 'inherit',
+            border: `1px solid ${P.border}`, background: 'transparent', color: P.sub,
+          }}>Annuler</button>
           {filteredPreview.length > 0 && (
-            <button
-              onClick={handleImport}
-              disabled={importing}
-              style={{
-                padding: '9px 20px',
-                borderRadius: 10,
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: importing ? 'default' : 'pointer',
-                fontFamily: 'inherit',
-                border: 'none',
-                background: P.accent,
-                color: '#fff',
-                opacity: importing ? 0.7 : 1,
-              }}
-            >
+            <button onClick={handleImport} disabled={importing || (filterTeam && !manualTeamName.trim())} style={{
+              padding: '9px 20px', borderRadius: 10, fontSize: 13, fontWeight: 700,
+              cursor: importing ? 'default' : 'pointer', fontFamily: 'inherit',
+              border: 'none', background: P.accent, color: '#fff',
+              opacity: importing || (filterTeam && !manualTeamName.trim()) ? 0.7 : 1,
+            }}>
               {importing ? 'Import...' : `Importer ${filteredPreview.length} matchs`}
             </button>
           )}
