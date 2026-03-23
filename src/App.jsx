@@ -8,7 +8,6 @@ import { Grain, Layout } from './components/UI'
 import Sidebar from './components/Sidebar'
 import Topbar from './components/Topbar'
 
-import AuthPage from './pages/AuthPage'
 import InviteAcceptPage from './pages/InviteAcceptPage'
 import LoginPage from './pages/LoginPage'
 
@@ -65,7 +64,7 @@ function LoadingScreen() {
 }
 
 function PrivateAppShell() {
-  const { user, profile, loading, showPrepPhysique } = useAuth()
+  const { user, profile, loading, showPrepPhysique, showCoachingPerso } = useAuth()
   const location = useLocation()
 
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 980)
@@ -92,12 +91,18 @@ function PrivateAppShell() {
   }, [location.pathname])
 
   if (loading) return <LoadingScreen />
- if (!user) return <LoginPage />
+  if (!user) return <LoginPage />
 
   const isCoach = profile?.role === 'coach'
   const hasGoal = !!profile?.goal_type
   const athleteHome = hasGoal ? '/mon-espace' : '/objectif'
   const defaultRoute = isCoach ? '/coach' : athleteHome
+
+  // ── Accès par monde ─────────────────────────────────────────────────────────
+  // Coaching perso  : nutrition, recettes, séances, exercices, progression
+  // Prépa physique  : HOOPER, charge, topset, GPS, mode borne, RTP
+  const canCoachingPerso = showCoachingPerso
+  const canPrepPhysique  = showPrepPhysique
 
   return (
     <DirtyProvider>
@@ -122,6 +127,7 @@ function PrivateAppShell() {
         <Routes>
           <Route path="/" element={<Navigate to={defaultRoute} replace />} />
 
+          {/* ── COACHING PERSO ── */}
           <Route
             path="/objectif"
             element={isCoach ? <Navigate to="/coach" replace /> : <GoalSelectionPage />}
@@ -151,67 +157,62 @@ function PrivateAppShell() {
             element={isCoach ? <Navigate to="/coach" replace /> : <ProgressionPage />}
           />
 
+          {/* Nutrition — accessible uniquement en coaching perso */}
           <Route
             path="/nutrition/macros"
-            element={isCoach ? <Navigate to="/coach" replace /> : <NutritionPage />}
+            element={isCoach ? <Navigate to="/coach" replace /> : canCoachingPerso ? <NutritionPage /> : <Navigate to={athleteHome} replace />}
           />
-
           <Route
             path="/nutrition/recettes"
-            element={isCoach ? <Navigate to="/coach" replace /> : <RecipesPage />}
+            element={isCoach ? <Navigate to="/coach" replace /> : canCoachingPerso ? <RecipesPage /> : <Navigate to={athleteHome} replace />}
           />
-
           <Route
             path="/nutrition/recette/:id"
-            element={isCoach ? <Navigate to="/coach" replace /> : <RecipeDetailPage />}
+            element={isCoach ? <Navigate to="/coach" replace /> : canCoachingPerso ? <RecipeDetailPage /> : <Navigate to={athleteHome} replace />}
           />
 
-          <Route
-            path="/exercices"
-            element={<ExercisesPage />}
-          />
+          {/* Exercices — accessible aux deux mondes */}
+          <Route path="/exercices" element={<ExercisesPage />} />
 
-          <Route path="/prep/hooper" element={showPrepPhysique ? <PrepHooperPage /> : <Navigate to={athleteHome} replace />} />
-          <Route path="/prep/charge" element={showPrepPhysique ? <PrepChargePage /> : <Navigate to={athleteHome} replace />} />
-          <Route path="/prep/compo"  element={showPrepPhysique ? <PrepCompoPage /> : <Navigate to={athleteHome} replace />} />
-          <Route path="/prep/topset" element={showPrepPhysique ? <PrepTopsetPage /> : <Navigate to={athleteHome} replace />} />
-          <Route path="/prep/charge-externe" element={showPrepPhysique ? <PrepChargeExternePage /> : <Navigate to={athleteHome} replace />} />
-          <Route path="/prep/dashboard" element={showPrepPhysique && isCoach ? <PrepDashboardPage /> : <Navigate to={athleteHome} replace />} />
-          <Route path="/prep/analyse/:id" element={showPrepPhysique && isCoach ? <PrepAnalysePage /> : <Navigate to={athleteHome} replace />} />
+          {/* ── PRÉPA PHYSIQUE ── */}
+          <Route path="/prep/hooper"         element={canPrepPhysique ? <PrepHooperPage />        : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/charge"         element={canPrepPhysique ? <PrepChargePage />         : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/compo"          element={canPrepPhysique ? <PrepCompoPage />          : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/topset"         element={canPrepPhysique ? <PrepTopsetPage />         : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/charge-externe" element={canPrepPhysique ? <PrepChargeExternePage />  : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/dashboard"      element={canPrepPhysique && isCoach ? <PrepDashboardPage /> : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/analyse/:id"    element={canPrepPhysique && isCoach ? <PrepAnalysePage />   : <Navigate to={athleteHome} replace />} />
 
+          {/* ── COACH ── */}
           <Route
             path="/coach"
             element={isCoach ? (showPrepPhysique ? <CoachPageProSport /> : <CoachPage />) : <Navigate to={athleteHome} replace />}
           />
-
           <Route
             path="/coach/clients"
             element={isCoach ? <CoachClientsPage /> : <Navigate to={athleteHome} replace />}
           />
-
           <Route
             path="/coach/client/:id"
             element={isCoach ? <CoachClientDetailPage /> : <Navigate to={athleteHome} replace />}
           />
-
           <Route
             path="/programmes"
             element={isCoach ? <ProgramBuilderPage /> : <Navigate to={athleteHome} replace />}
           />
 
+          {/* Programmes athlètes — coaching perso uniquement */}
           <Route
             path="/programme/bodybuilding"
-            element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammeBodybuildingPage />}
+            element={isCoach ? <Navigate to="/coach" replace /> : canCoachingPerso ? <ProgrammeBodybuildingPage /> : <Navigate to={athleteHome} replace />}
           />
-
           <Route
             path="/programme/perte-de-poids"
-            element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammePerteDePoidsPage />}
+            element={isCoach ? <Navigate to="/coach" replace /> : canCoachingPerso ? <ProgrammePerteDePoidsPage /> : <Navigate to={athleteHome} replace />}
           />
-
           <Route
             path="/programme/athletique"
-            element={isCoach ? <Navigate to="/coach" replace /> : <ProgrammeAthletiquePage />}
+            element={isCoach ? <Navigate to="/coach" replace /> : canCoachingPerso ? <ProgrammeAthletiquePage /> : <Navigate to={athleteHome} replace />}
           />
 
           {/* Redirects legacy */}
@@ -231,7 +232,7 @@ function PrivateAppShell() {
 }
 
 function InviteRoute() {
-  const { user, profile, loading, showPrepPhysique } = useAuth()
+  const { user, profile, loading } = useAuth()
   if (loading) return <LoadingScreen />
   if (!user) return <InviteAcceptPage />
   const redirect = profile?.role === 'coach' ? '/coach' : profile?.goal_type ? '/mon-espace' : '/objectif'
