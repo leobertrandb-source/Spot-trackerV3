@@ -129,8 +129,7 @@ export default function MedicalHubPage() {
       supabase.from('profiles').select('id, full_name, email').in('id', ids),
       supabase.from('medical_injuries').select('*').in('athlete_id', ids).order('date_injury', { ascending: false }),
       supabase.from('medical_appointments').select('*').in('athlete_id', ids)
-        .gte('date_appointment', new Date().toISOString())
-        .order('date_appointment', { ascending: true }),
+        .order('date_appointment', { ascending: false }),
       supabase.from('match_history').select('*, match_injuries(*)').eq('coach_id', coachId).order('match_date', { ascending: false }),
     ])
 
@@ -184,12 +183,14 @@ export default function MedicalHubPage() {
     .filter(d => d.count > 0)
     .sort((a, b) => b.count - a.count)
 
+  const upcomingAppointments = appointments.filter(ap => new Date(ap.date_appointment) >= new Date())
+
   const athletesWithData = athletes.map(a => ({
     ...a,
     activeInjuries:  injuries.filter(i => i.athlete_id === a.id && i.status === 'active'),
     surveillance:    injuries.filter(i => i.athlete_id === a.id && i.status === 'surveillance'),
     archived:        injuries.filter(i => i.athlete_id === a.id && i.status === 'archive'),
-    nextAppt:        appointments.find(ap => ap.athlete_id === a.id),
+    nextAppt:        upcomingAppointments.filter(ap => ap.athlete_id === a.id).sort((a,b) => new Date(a.date_appointment) - new Date(b.date_appointment))[0],
   }))
 
   const blesseActif     = athletesWithData.filter(a => a.activeInjuries.length > 0)
@@ -225,7 +226,7 @@ export default function MedicalHubPage() {
             { label: 'Effectif',       value: athletes.length,       color: P.text,   bg: P.card },
             { label: 'Blessés actifs', value: blesseActif.length,    color: blesseActif.length > 0 ? P.red : P.sub,    bg: blesseActif.length > 0 ? '#fdecea' : P.card },
             { label: 'Surveillance',   value: enSurveillance.length, color: enSurveillance.length > 0 ? P.yellow : P.sub, bg: enSurveillance.length > 0 ? '#fdf6e3' : P.card },
-            { label: 'RDV à venir',    value: appointments.length,   color: appointments.length > 0 ? P.blue : P.sub,  bg: appointments.length > 0 ? '#eef3ff' : P.card },
+            { label: 'RDV à venir',    value: upcomingAppointments.length,   color: upcomingAppointments.length > 0 ? P.blue : P.sub,  bg: upcomingAppointments.length > 0 ? '#eef3ff' : P.card },
             { label: 'Aptes',          value: aptes.length,          color: P.green,  bg: '#e8f5ee' },
           ].map(({ label, value, color, bg }) => (
             <div key={label} style={{ background: bg, border: `1px solid ${P.border}`, borderRadius: 14, padding: '14px 16px' }}>
@@ -705,7 +706,7 @@ export default function MedicalHubPage() {
             {loading ? (
               <div style={{ padding: 40, textAlign: 'center', color: P.sub, background: P.card, borderRadius: 16, border: `1px solid ${P.border}` }}>Chargement...</div>
             ) : appointments.length === 0 ? (
-              <div style={{ padding: 40, textAlign: 'center', color: P.sub, background: P.card, borderRadius: 16, border: `1px solid ${P.border}` }}>Aucun RDV à venir</div>
+              <div style={{ padding: 40, textAlign: 'center', color: P.sub, background: P.card, borderRadius: 16, border: `1px solid ${P.border}` }}>Aucun rendez-vous</div>
             ) : appointments.map(appt => {
               const athlete = athletes.find(a => a.id === appt.athlete_id)
               const d = new Date(appt.date_appointment)
