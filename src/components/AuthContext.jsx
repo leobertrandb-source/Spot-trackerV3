@@ -10,125 +10,77 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   const fetchProfile = useCallback(async (userId) => {
-    if (!userId) {
-      setProfile(null)
-      setGym(null)
-      return null
-    }
-
+    if (!userId) { setProfile(null); setGym(null); return null }
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*, gym:gym_id(*)')
         .eq('id', userId)
         .maybeSingle()
-
       if (error) throw error
-
       const { gym: gymData, ...profileData } = data || {}
       setProfile(profileData || null)
       setGym(gymData || null)
       return profileData || null
     } catch (error) {
       console.error('fetchProfile error:', error)
-      setProfile(null)
-      setGym(null)
-      return null
+      setProfile(null); setGym(null); return null
     }
   }, [])
 
   useEffect(() => {
     let active = true
-
     async function init() {
       try {
         const result = await supabase.auth.getSession()
         const session = result?.data?.session ?? null
-
         if (!active) return
-
         const nextUser = session?.user ?? null
         setUser(nextUser)
-
-        if (nextUser?.id) {
-          await fetchProfile(nextUser.id)
-        } else {
-          setProfile(null)
-        }
+        if (nextUser?.id) await fetchProfile(nextUser.id)
+        else setProfile(null)
         setLoading(false)
       } catch (error) {
         console.error('init auth error:', error)
         if (!active) return
-        setUser(null)
-        setProfile(null)
-        setLoading(false)
+        setUser(null); setProfile(null); setLoading(false)
       }
     }
-
     init()
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return
       const nextUser = session?.user ?? null
       setUser(nextUser)
-      if (nextUser?.id) {
-        fetchProfile(nextUser.id).then(() => setLoading(false))
-      } else {
-        setProfile(null)
-        setLoading(false)
-      }
+      if (nextUser?.id) fetchProfile(nextUser.id).then(() => setLoading(false))
+      else { setProfile(null); setLoading(false) }
     })
-
-    return () => {
-      active = false
-      subscription.unsubscribe()
-    }
+    return () => { active = false; subscription.unsubscribe() }
   }, [fetchProfile])
 
   const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut()
-    if (!error) {
-      setUser(null)
-      setProfile(null)
-      setGym(null)
-      setLoading(false)
-    }
+    if (!error) { setUser(null); setProfile(null); setGym(null); setLoading(false) }
     return { error }
   }, [])
 
   const value = useMemo(() => {
     const gymSlug = gym?.slug || ''
-
-    // ── Deux mondes ──────────────────────────────────────────────────────────
-    // coaching-perso  → nutrition, recettes, séances, exercices, progression
-    // prep-physique   → HOOPER, charge, topset, GPS, mode borne, RTP
-    const isCoachingPerso  = gymSlug === 'coaching-perso'
-    const isPrepPhysique   = gymSlug === 'prep-physique'
-
-    // Fallback : si pas de gym ou gym inconnu → coaching perso par défaut
-    const showCoachingPerso  = isCoachingPerso || (!isCoachingPerso && !isPrepPhysique)
-    const showPrepPhysique   = isPrepPhysique
-
-    // Rétrocompatibilité avec l'ancien flag show_methode_spot
-    const showMethodeSpot = gym?.show_methode_spot === true || showCoachingPerso
+    const isCoachingPerso = gymSlug === 'coaching-perso'
+    const isPrepPhysique  = gymSlug === 'prep-physique'
+    // Fallback coaching perso si aucun gym assigné
+    const showCoachingPerso = isCoachingPerso || (!isCoachingPerso && !isPrepPhysique)
+    const showPrepPhysique  = isPrepPhysique
+    const showMethodeSpot   = gym?.show_methode_spot === true || showCoachingPerso
 
     return {
-      user,
-      profile,
-      gym,
-      gymSlug,
+      user, profile, gym, gymSlug,
       isCoach:          profile?.role === 'coach',
       isCoachingPerso,
       isPrepPhysique,
       showCoachingPerso,
       showPrepPhysique,
       showMethodeSpot,
-      // Rétrocompatibilité — certains composants utilisent encore ces noms
-      showPrepPhysique,
-      loading,
-      fetchProfile,
-      setProfile,
-      signOut,
+      loading, fetchProfile, setProfile, signOut,
     }
   }, [user, profile, gym, loading, fetchProfile, signOut])
 
