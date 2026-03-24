@@ -2,7 +2,7 @@ import { supabase } from './supabase'
 
 export async function createMedicalNotifications({
   athleteId,
-  athleteName,
+  actorUserId = null,
   type,
   title,
   body,
@@ -12,7 +12,7 @@ export async function createMedicalNotifications({
   try {
     const recipientIds = new Set()
 
-    // 1. Récupérer les coachs liés
+    // 1. Coachs liés à l’athlète
     const { data: coachLinks, error: coachError } = await supabase
       .from('coach_clients')
       .select('coach_id')
@@ -26,22 +26,40 @@ export async function createMedicalNotifications({
 
     const coachIds = [...recipientIds]
 
-    // 2. Récupérer le staff lié aux coachs
+    // 2. Staff lié aux coachs (optionnel)
     if (coachIds.length > 0) {
       const { data: staffLinks, error: staffError } = await supabase
         .from('staff_links')
         .select('staff_user_id')
         .in('owner_coach_id', coachIds)
 
-      if (staffError) throw staffError
-
-      for (const row of staffLinks || []) {
-        if (row.staff_user_id) recipientIds.add(row.staff_user_id)
+      // Important : ne bloque pas si la table n'existe pas ou si elle est vide
+      if (!staffError) {
+        for (const row of staffLinks || []) {
+          if (row.staff_user_id) recipientIds.add(row.staff_user_id)
+        }
+      } else {
+        console.warn('staff_links skipped:', staffError.message || staffError)
       }
     }
 
-    // 3. Construire les notifications
-    const notifications = [...recipientIds].map((userId) => ({
+    // 3. Ne pas notifier l’auteur lui-même
+    if (actorUserId) {
+      recipientIds.delete(actorUserId)
+    }
+
+    const finalRecipients = [...recipientIds]
+
+    if (!finalRecipients.length) {
+      console.warn('Aucun destinataire trouvé pour la notification médicale', {
+        athleteId,
+        actorUserId,
+        type,
+      })
+      return
+    }
+
+    const notifications = finalRecipients.map((userId) => ({
       user_id: userId,
       athlete_id: athleteId,
       type,
@@ -51,30 +69,25 @@ export async function createMedicalNotifications({
       metadata,
     }))
 
-    if (!notifications.length) return
-
-    // 4. Insert DB
     const { error: insertError } = await supabase
       .from('notifications')
       .insert(notifications)
 
     if (insertError) throw insertError
 
-    // 5. Tentative push (optionnel)
+    // Push optionnel
     try {
       await supabase.functions.invoke('send-notifications/manual', {
         body: {
-          userIds: [...recipientIds],
+          userIds: finalRecipients,
           title,
           body,
         },
       })
     } catch (e) {
-      console.warn('Push notification failed (non bloquant)', e)
+      console.warn('Push notification failed (non bloquant):', e)
     }
-
   } catch (err) {
     console.error('Erreur createMedicalNotifications:', err)
   }
 }
-
