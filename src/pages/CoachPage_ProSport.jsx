@@ -40,7 +40,8 @@ function Avatar({ name }) {
 }
 
 export default function CoachPageProSport() {
-  const { user } = useAuth()
+  const { user, gym } = useAuth()
+  const gymName = gym?.name || 'Atlyo'
   const navigate = useNavigate()
   const today = new Date().toISOString().split('T')[0]
 
@@ -157,7 +158,7 @@ export default function CoachPageProSport() {
         <div style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: P.sub, marginBottom: 8 }}>
-              ProSportConcept · Préparation physique
+              {gymName} · Préparation physique
             </div>
             <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(26px,4vw,36px)', fontWeight: 400, color: P.text, margin: 0, lineHeight: 1.2 }}>
               {mainTab === 'dashboard' ? 'Tableau de bord' : mainTab === 'gps' ? 'GPS PlayerTek' : mainTab === 'presences' ? 'Présences' : 'Notifications'}
