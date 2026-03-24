@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 import { T } from '../lib/data'
+import MedicalNotificationsBell from './MedicalNotificationsBell'
 
 function getPageTitle(pathname, isCoach) {
 if (isCoach) {
@@ -96,6 +97,7 @@ if (showPrepPhysique) {
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <MedicalNotificationsBell dark={false} />
         {!isMobile && (
           <div style={{ padding: '7px 14px', borderRadius: 20, border: `1px solid ${T.border}`, background: T.bgAlt, color: T.textMid, fontSize: 12, fontWeight: 600 }}>
             {displayName}
@@ -188,6 +190,7 @@ gap: 10,
 minWidth: 0,
 }}
 >
+<MedicalNotificationsBell dark />
 {!isMobile ? (
 <div
 style={{
