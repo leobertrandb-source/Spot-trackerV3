@@ -145,10 +145,11 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
   const isStaffMedical = profile?.role === 'staff_medical'
 
   const coachLinks = showPrepPhysique ? [
-    { to: '/coach',      label: 'Dashboard' },
-    { to: '/medical',    label: 'Médical' },
-    { to: '/programmes', label: 'Programmes' },
-    { to: '/exercices',  label: 'Exercices' },
+    { to: '/coach',       label: 'Dashboard' },
+    { to: '/calendrier',  label: 'Calendrier' },
+    { to: '/medical',     label: 'Médical' },
+    { to: '/programmes',  label: 'Programmes' },
+    { to: '/exercices',   label: 'Exercices' },
   ] : [
     { to: '/coach',          label: 'Dashboard' },
     { to: '/coach/clients',  label: 'Clients' },
@@ -175,6 +176,7 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
       { to: '/prep/charge-externe', label: 'Charge externe' },
       { to: '/prep/compo',   label: 'Composition corporelle' },
       { to: '/prep/topset',  label: 'TOPSET' },
+      { to: '/calendrier',   label: 'Calendrier' },
     ] : []),
   ]
 
@@ -317,7 +319,8 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
         <div style={{ display: 'grid', gap: 2 }}>
           <SectionLabel>Médical</SectionLabel>
           {[
-            { to: '/medical', label: 'Médical' },
+            { to: '/medical',    label: 'Médical' },
+            { to: '/calendrier', label: 'Calendrier' },
           ].map((item, i) => (
             <NavItem key={item.to} {...item} active={isActive(item.to)} onClick={isMobile ? onClose : undefined} index={i} />
           ))}
