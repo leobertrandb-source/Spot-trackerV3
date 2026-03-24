@@ -46,6 +46,7 @@ import ClubKioskHooperPage from './pages/ClubKioskHooperPage'
 
 import MedicalPage from './pages/MedicalPage'
 import MedicalHubPage from './pages/MedicalHubPage'
+import CalendarPage from './pages/CalendarPage'
 import TrainingAttendancePage from './pages/TrainingAttendancePage'
 import MyAttendancePage from './pages/MyAttendancePage'
 
@@ -176,6 +177,7 @@ function PrivateAppShell() {
           {/* ── MODULE MÉDICAL ── */}
           <Route path="/medical"     element={canMedical ? <MedicalHubPage /> : <Navigate to={athleteHome} replace />} />
           <Route path="/medical/:id" element={canMedical ? <MedicalPage />    : <Navigate to={athleteHome} replace />} />
+          <Route path="/calendrier"  element={canPrepPhysique ? <CalendarPage /> : <Navigate to={athleteHome} replace />} />
           <Route path="/presences"   element={canMedical ? <TrainingAttendancePage /> : <Navigate to={athleteHome} replace />} />
           <Route path="/ma-presence" element={!isCoach && !isStaffMedical ? <MyAttendancePage /> : <Navigate to={defaultRoute} replace />} />
 
