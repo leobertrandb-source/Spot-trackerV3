@@ -46,7 +46,7 @@ function parseLocalDate(str) {
 }
 
 function startOfWeek(date) {
-  const d = new Date(date)
+  const d = parseLocalDate(date)
   const day = d.getDay()
   const diff = day === 0 ? -6 : 1 - day
   d.setDate(d.getDate() + diff)
@@ -55,7 +55,7 @@ function startOfWeek(date) {
 }
 
 function addDays(date, n) {
-  const d = new Date(date)
+  const d = parseLocalDate(date)
   d.setDate(d.getDate() + n)
   d.setHours(0, 0, 0, 0)
   return d
@@ -272,30 +272,29 @@ export default function CalendarPage() {
   // Offset pour commencer lundi
   const startOffset = (firstDay.getDay() + 6) % 7
   const monthDays = []
-const prevMonthLastDay = new Date(year, month, 0).getDate()
 
-for (let i = startOffset - 1; i >= 0; i--) {
-  monthDays.push({ date: new Date(year, month - 1, prevMonthLastDay - i), outside: true })
-}
-
-for (let d = 1; d <= lastDay.getDate(); d++) {
-  monthDays.push({ date: new Date(year, month, d), outside: false })
-}
-
-while (monthDays.length % 7 !== 0) {
-  const nextDay = monthDays.length - (startOffset + lastDay.getDate()) + 1
-  monthDays.push({ date: new Date(year, month + 1, nextDay), outside: true })
-}
   const prevMonthLastDay = new Date(year, month, 0).getDate()
+
   for (let i = startOffset - 1; i >= 0; i--) {
-    monthDays.push({ date: new Date(year, month - 1, prevMonthLastDay - i), outside: true })
+    monthDays.push({
+      date: new Date(year, month - 1, prevMonthLastDay - i),
+      outside: true,
+    })
   }
+
   for (let d = 1; d <= lastDay.getDate(); d++) {
-    monthDays.push({ date: new Date(year, month, d), outside: false })
+    monthDays.push({
+      date: new Date(year, month, d),
+      outside: false,
+    })
   }
+
   while (monthDays.length % 7 !== 0) {
     const nextDay = monthDays.length - (startOffset + lastDay.getDate()) + 1
-    monthDays.push({ date: new Date(year, month + 1, nextDay), outside: true })
+    monthDays.push({
+      date: new Date(year, month + 1, nextDay),
+      outside: true,
+    })
   }
 
   const today = toISO(new Date())
@@ -425,57 +424,77 @@ while (monthDays.length % 7 !== 0) {
             {/* Grille mois */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
               {monthDays.map((item, i) => {
-  const d = item.date
-  const iso = toISO(d)
-  const dayEvents = getEventsForDay(iso)
-  const isToday = iso === today
-  const isOutside = item.outside
+                const d = item.date
+                const iso = toISO(d)
+                const dayEvents = getEventsForDay(iso)
+                const isToday = iso === today
+                const isOutside = item.outside
 
-  return (
-    <div
-      key={iso + '-' + i}
-      style={{
-        minHeight: 110,
-        padding: '8px',
-        borderRight: (i + 1) % 7 !== 0 ? `1px solid ${P.border}` : 'none',
-        borderBottom: `1px solid ${P.border}`,
-        background: isToday ? '#fcfffd' : isOutside ? P.cardAlt : P.card,
-        opacity: isOutside ? 0.55 : 1,
-      }}
-    >
-      <div style={{
-        fontSize: 14,
-        fontWeight: 700,
-        color: isToday ? P.green : P.text,
-        width: 28,
-        height: 28,
-        borderRadius: '50%',
-        background: isToday ? P.accentSoft : 'transparent',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 6,
-      }}>
-        {d.getDate()}
-      </div>
+                return (
+                  <div
+                    key={iso + '-' + i}
+                    style={{
+                      minHeight: 90,
+                      padding: '6px',
+                      borderRight: (i + 1) % 7 !== 0 ? `1px solid ${P.border}` : 'none',
+                      borderBottom: `1px solid ${P.border}`,
+                      background: isToday ? 'rgba(45,106,79,0.04)' : isOutside ? '#faf8f4' : 'transparent',
+                      opacity: isOutside ? 0.55 : 1,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: isToday ? 700 : 400,
+                        color: isToday ? P.green : P.text,
+                        width: 24,
+                        height: 24,
+                        borderRadius: '50%',
+                        background: isToday ? '#e8f5ee' : 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: 4,
+                      }}
+                    >
+                      {d.getDate()}
+                    </div>
 
-      {dayEvents.slice(0,2).map(e => (
-        <EventChip key={e.id} event={e} onClick={setSelectedEvent} />
-      ))}
+                    {dayEvents.length > 1 && (
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
+                        {getDayIndicators(dayEvents).map(([type, count]) => (
+                          <div
+                            key={type}
+                            title={`${count} ${EVENT_TYPES[type]?.label || type}`}
+                            style={{
+                              minWidth: 16,
+                              height: 16,
+                              padding: '0 4px',
+                              borderRadius: 999,
+                              background: EVENT_TYPES[type].bg,
+                              color: EVENT_TYPES[type].color,
+                              fontSize: 9,
+                              fontWeight: 700,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              lineHeight: 1,
+                            }}
+                          >
+                            {count}
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
-      {dayEvents.length > 2 && (
-        <div style={{ fontSize: 10, color: P.sub }}>
-          +{dayEvents.length - 2}
-        </div>
-      )}
-    </div>
-  )
-})</div>
-                    {dayEvents.slice(0, 3).map(e => (
+                    {dayEvents.slice(0, 2).map(e => (
                       <EventChip key={e.id} event={e} onClick={setSelectedEvent} />
                     ))}
-                    {dayEvents.length > 3 && (
-                      <div style={{ fontSize: 10, color: P.sub, fontWeight: 600 }}>+{dayEvents.length - 3} autres</div>
+
+                    {dayEvents.length > 2 && (
+                      <div style={{ fontSize: 10, color: P.sub, fontWeight: 700, marginTop: 4 }}>
+                        +{dayEvents.length - 2} autres
+                      </div>
                     )}
                   </div>
                 )
