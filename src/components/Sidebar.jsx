@@ -106,7 +106,7 @@ function NavItem({ to, label, active, onClick, index = 0 }) {
 
 // ─── Section header ───────────────────────────────────────────────────────────
 
-function NavItemPS({ to, label, active, onClick, index = 0 }) {
+function NavItem({ to, label, active, onClick, index = 0 }) {
   const style = {
     display: 'flex', alignItems: 'center', gap: 10,
     padding: '9px 12px', borderRadius: 10,
@@ -129,7 +129,7 @@ function NavItemPS({ to, label, active, onClick, index = 0 }) {
   )
 }
 
-function SectionLabelPS({ children }) {
+function SectionLabel({ children }) {
   return (
     <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', color: PS.dim, padding: '4px 10px 2px', fontFamily: "'DM Sans', sans-serif" }}>
       {children}
@@ -264,16 +264,16 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
         {/* Navigation */}
         {isCoach ? (
           <div style={{ display: 'grid', gap: 2 }}>
-            <SectionLabelPS>Navigation</SectionLabelPS>
+            <SectionLabel>Navigation</SectionLabel>
             {coachLinks.map((item, i) => (
-              <NavItemPS key={item.to} {...item} active={isActive(item.to)} onClick={isMobile ? onClose : undefined} index={i} />
+              <NavItem key={item.to} {...item} active={isActive(item.to)} onClick={isMobile ? onClose : undefined} index={i} />
             ))}
           </div>
         ) : (
           <div style={{ display: 'grid', gap: 2 }}>
-            <SectionLabelPS>Entraînement</SectionLabelPS>
+            <SectionLabel>Entraînement</SectionLabel>
             {athleteMainLinks.map((item, i) => (
-              <NavItemPS key={item.to} {...item} active={isActive(item.to)} onClick={isMobile ? onClose : undefined} index={i} />
+              <NavItem key={item.to} {...item} active={isActive(item.to)} onClick={isMobile ? onClose : undefined} index={i} />
             ))}
           </div>
         )}
