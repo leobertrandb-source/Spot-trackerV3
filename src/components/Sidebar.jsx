@@ -104,39 +104,6 @@ function NavItem({ to, label, active, onClick, index = 0 }) {
   )
 }
 
-// ─── Section header ───────────────────────────────────────────────────────────
-
-function NavItem({ to, label, active, onClick, index = 0 }) {
-  const style = {
-    display: 'flex', alignItems: 'center', gap: 10,
-    padding: '9px 12px', borderRadius: 10,
-    textDecoration: 'none',
-    fontSize: 13, fontWeight: active ? 600 : 400,
-    color: active ? PS.active : PS.sub,
-    background: active ? `${PS.accent}10` : 'transparent',
-    border: `1px solid ${active ? PS.accent+'25' : 'transparent'}`,
-    transition: 'all 0.15s',
-    animation: `navSlideIn 0.2s ease both`,
-    animationDelay: `${index * 0.04}s`,
-  }
-  return (
-    <Link to={to} style={style} onClick={onClick}
-      onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = PS.text } }}
-      onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = PS.sub } }}>
-      <span style={{ flex: 1, fontFamily: "'DM Sans', sans-serif" }}>{label}</span>
-      {active && <div style={{ width: 5, height: 5, borderRadius: '50%', background: PS.active, flexShrink: 0 }} />}
-    </Link>
-  )
-}
-
-function SectionLabel({ children }) {
-  return (
-    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', color: PS.dim, padding: '4px 10px 2px', fontFamily: "'DM Sans', sans-serif" }}>
-      {children}
-    </div>
-  )
-}
-
 function SectionLabel({ children }) {
   return (
     <div style={{
