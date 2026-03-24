@@ -4,7 +4,7 @@ import { useAuth } from './AuthContext'
 import { T } from '../lib/data'
 
 
-// ─── Tokens ProSportConcept ───────────────────────────────────────────────────
+// ─── Tokens prépa physique ───────────────────────────────────────────────────
 const PS = {
   bg:     T.bg,
   card:   T.bgAlt,
@@ -194,7 +194,7 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
     }
   }
 
-  // ProSportConcept blanc cassé vs Le Spot sombre
+  // Prépa physique (clair) vs coaching perso (sombre)
   if (showPrepPhysique) {
     const psContent = (
       <aside style={{
@@ -213,7 +213,7 @@ function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
           .ps-logout:hover { background: #fee2e2 !important; color: #c0392b !important; }
         `}</style>
 
-        {/* Logo ProSportConcept */}
+        {/* Logo prépa physique */}
         <div style={{ padding: '12px 10px 16px', borderBottom: `1px solid ${PS.border}`, marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 56, height: 56, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
