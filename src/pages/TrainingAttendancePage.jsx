@@ -34,7 +34,8 @@ function Avatar({ name }) {
 }
 
 export default function TrainingAttendancePage() {
-  const { user } = useAuth()
+  const { user, gym } = useAuth()
+  const gymName = gym?.name || 'Atlyo'
   const navigate = useNavigate()
 
   const [athletes, setAthletes]       = useState([])
@@ -150,7 +151,7 @@ export default function TrainingAttendancePage() {
         <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: P.sub, marginBottom: 8 }}>
-              ProSportConcept · Préparation physique
+              {gymName} · Préparation physique
             </div>
             <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(22px,3vw,30px)', fontWeight: 400, color: P.text, margin: 0 }}>
               Présences entraînement
