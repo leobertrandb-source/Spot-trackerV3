@@ -612,7 +612,8 @@ function extractKmData(notes) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function PrepAnalysePage() {
-  const { user, profile, isCoach } = useAuth()
+  const { user, profile, isCoach, gym } = useAuth()
+  const gymName = gym?.name || 'Atlyo'
   const coachId = profile?.id || user?.id || null
   const { id } = useParams()
   const navigate = useNavigate()
@@ -775,7 +776,7 @@ export default function PrepAnalysePage() {
         {/* Header athlète */}
         <div style={{ marginBottom:32 }}>
           <div style={{ fontSize:11, fontWeight:600, letterSpacing:2, textTransform:'uppercase', color:P.sub, marginBottom:6 }}>
-            ProSportConcept · Analyse prépa physique
+            {gymName} · Analyse prépa physique
           </div>
           <h1 style={{ fontFamily:"'DM Serif Display', serif", fontSize:'clamp(24px,4vw,34px)', fontWeight:400, color:P.text, margin:0, lineHeight:1.2 }}>
             {client?.full_name || client?.email}
