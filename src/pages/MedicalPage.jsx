@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
+import { createMedicalNotifications } from '../lib/medicalNotifications'
 
 const P = {
   bg:     '#f5f3ef',
@@ -137,6 +138,8 @@ export default function MedicalPage() {
   const [noteForm, setNoteForm]     = useState({ content: '', injury_id: '', is_pinned: false })
   const [saving, setSaving]         = useState(false)
 
+  const athleteName = athlete?.full_name || athlete?.email || 'cet athlète'
+
   const load = useCallback(async () => {
     setLoading(true)
     const [
@@ -148,7 +151,7 @@ export default function MedicalPage() {
     ] = await Promise.all([
       supabase.from('profiles').select('id, full_name, email').eq('id', athleteId).single(),
       supabase.from('medical_injuries').select('*').eq('athlete_id', athleteId).order('date_injury', { ascending: false }),
-      supabase.from('medical_appointments').select('*').eq('athlete_id', athleteId).order('date_appointment', { ascending: true }),
+      supabase.from('medical_appointments').select('*').eq('athlete_id', athleteId).order('date_appointment', { ascending: false }),
       supabase.from('medical_notes').select('*').eq('athlete_id', athleteId).order('is_pinned', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('match_history').select('id, label, match_date, opponent').eq('coach_id', user.id).order('match_date', { ascending: false }),
     ])
@@ -232,6 +235,16 @@ export default function MedicalPage() {
       match_id: '',
     })
 
+    await createMedicalNotifications({
+      athleteId,
+      actorUserId: user.id,
+      type: editingInjury ? 'injury_updated' : 'injury_added',
+      title: editingInjury ? 'Blessure mise à jour' : 'Nouvelle blessure enregistrée',
+      body: `${editingInjury ? 'Mise à jour' : 'Ajout'} d'une blessure pour ${athleteName}`,
+      link: `/medical/${athleteId}`,
+      metadata: { body_zone: injuryForm.body_zone, status: injuryForm.status },
+    })
+
     await load()
   } catch (error) {
     console.error('saveInjury error:', error)
@@ -244,32 +257,66 @@ export default function MedicalPage() {
   // ── Sauvegarder un RDV ───────────────────────────────────────────────────
   async function saveAppt() {
     setSaving(true)
-    await supabase.from('medical_appointments').insert({
-      ...apptForm,
-      athlete_id: athleteId,
-      coach_id: user.id,
-      injury_id: apptForm.injury_id || null,
-    })
-    setSaving(false)
-    setShowApptModal(false)
-    setApptForm({ type: 'kine', date_appointment: '', location: '', notes: '', injury_id: '' })
-    load()
+    try {
+      await supabase.from('medical_appointments').insert({
+        ...apptForm,
+        athlete_id: athleteId,
+        coach_id: user.id,
+        injury_id: apptForm.injury_id || null,
+      })
+
+      await createMedicalNotifications({
+        athleteId,
+        actorUserId: user.id,
+        type: 'medical_appointment_added',
+        title: 'Nouveau rendez-vous médical',
+        body: `RDV ${apptForm.type} ajouté pour ${athleteName}`,
+        link: `/medical/${athleteId}`,
+        metadata: { appointment_type: apptForm.type, injury_id: apptForm.injury_id || null },
+      })
+
+      setShowApptModal(false)
+      setApptForm({ type: 'kine', date_appointment: '', location: '', notes: '', injury_id: '' })
+      await load()
+    } catch (error) {
+      console.error('saveAppt error:', error)
+      alert(`Erreur enregistrement rendez-vous : ${error.message}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
   // ── Sauvegarder une note ─────────────────────────────────────────────────
   async function saveNote() {
     if (!noteForm.content.trim()) return
     setSaving(true)
-    await supabase.from('medical_notes').insert({
-      ...noteForm,
-      athlete_id: athleteId,
-      author_id: user.id,
-      injury_id: noteForm.injury_id || null,
-    })
-    setSaving(false)
-    setShowNoteModal(false)
-    setNoteForm({ content: '', injury_id: '', is_pinned: false })
-    load()
+    try {
+      await supabase.from('medical_notes').insert({
+        ...noteForm,
+        athlete_id: athleteId,
+        author_id: user.id,
+        injury_id: noteForm.injury_id || null,
+      })
+
+      await createMedicalNotifications({
+        athleteId,
+        actorUserId: user.id,
+        type: 'medical_note_added',
+        title: 'Nouvelle note médicale',
+        body: `Une note a été ajoutée pour ${athleteName}`,
+        link: `/medical/${athleteId}`,
+        metadata: { injury_id: noteForm.injury_id || null, is_pinned: noteForm.is_pinned },
+      })
+
+      setShowNoteModal(false)
+      setNoteForm({ content: '', injury_id: '', is_pinned: false })
+      await load()
+    } catch (error) {
+      console.error('saveNote error:', error)
+      alert(`Erreur enregistrement note : ${error.message}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
   // ── Toggle pin note ───────────────────────────────────────────────────────
