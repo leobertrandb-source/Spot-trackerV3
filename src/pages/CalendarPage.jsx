@@ -29,7 +29,21 @@ const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const MONTHS_FR = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 const DAYS_OF_WEEK = { 1: 'Lun', 2: 'Mar', 3: 'Mer', 4: 'Jeu', 5: 'Ven', 6: 'Sam', 0: 'Dim' }
 
-function toISO(date) { return date.toISOString().split('T')[0] }
+function toISO(date) { 
+  const d = new Date(date)
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+
+// Parse une date ISO string sans décalage timezone
+function parseLocalDate(str) {
+  if (!str) return new Date()
+  // Si c'est déjà une date ISO (YYYY-MM-DD), forcer heure locale
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const [y, m, d] = str.split('-').map(Number)
+    return new Date(y, m - 1, d)
+  }
+  return new Date(str)
+}
 
 function startOfWeek(date) {
   const d = new Date(date)
@@ -43,6 +57,7 @@ function startOfWeek(date) {
 function addDays(date, n) {
   const d = new Date(date)
   d.setDate(d.getDate() + n)
+  d.setHours(0, 0, 0, 0)
   return d
 }
 
@@ -374,8 +389,7 @@ export default function CalendarPage() {
                     background: isToday ? 'rgba(45,106,79,0.04)' : 'transparent',
                     opacity: isCurrentMonth ? 1 : 0.4,
                   }}>
-                    <div style={{
-                      fontSize: 13, fontWeight: isToday ? 700 : 400,
+                    <div style={{ fontSize: 13, fontWeight: isToday ? 700 : 400,
                       color: isToday ? P.green : P.text,
                       width: 24, height: 24, borderRadius: '50%',
                       background: isToday ? '#e8f5ee' : 'transparent',
@@ -411,7 +425,7 @@ export default function CalendarPage() {
                     </div>
                     <div style={{ fontSize: 18, fontWeight: 700, color: P.text, marginBottom: 8 }}>{selectedEvent.title}</div>
                     <div style={{ fontSize: 13, color: P.sub, marginBottom: 4 }}>
-                      📅 {new Date(selectedEvent.date + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                      📅 {parseLocalDate(selectedEvent.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                     </div>
                     {selectedEvent.time && <div style={{ fontSize: 13, color: P.sub, marginBottom: 4 }}>🕐 {selectedEvent.time}</div>}
                     {selectedEvent.subtitle && <div style={{ fontSize: 13, color: P.sub, marginBottom: 4 }}>⚔️ {selectedEvent.subtitle}</div>}
