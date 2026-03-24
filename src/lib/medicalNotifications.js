@@ -1,4 +1,3 @@
-```js
 import { supabase } from './supabase'
 
 export async function createMedicalNotifications({
@@ -78,4 +77,4 @@ export async function createMedicalNotifications({
     console.error('Erreur createMedicalNotifications:', err)
   }
 }
-```
+
