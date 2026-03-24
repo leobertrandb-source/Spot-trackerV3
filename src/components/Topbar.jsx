@@ -34,7 +34,8 @@ return 'Atlyo'
 export default function Topbar({ isMobile = false, onMenuClick }) {
 const navigate = useNavigate()
 const location = useLocation()
-const { user, profile, showPrepPhysique } = useAuth()
+const { user, profile, gym, showPrepPhysique } = useAuth()
+const gymName = gym?.name || 'Atlyo'
 const [loggingOut, setLoggingOut] = useState(false)
 
 const isCoach = profile?.role === 'coach'
@@ -90,7 +91,7 @@ if (showPrepPhysique) {
             {pageTitle}
           </div>
           <div style={{ fontSize: 10, color: T.textDim, marginTop: 3, textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 600 }}>
-            {isCoach ? 'ProSportConcept · Préparateur physique' : 'ProSportConcept · Athlète'}
+            {gymName}{isCoach ? ' · Préparateur physique' : ' · Athlète'}
           </div>
         </div>
       </div>
