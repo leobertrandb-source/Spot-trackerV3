@@ -16,10 +16,17 @@ const C = {
 }
 
 const POSTES = [
+  // Rugby
   'Pilier gauche', 'Talonneur', 'Pilier droit',
   'Deuxième ligne', 'Troisième ligne aile', 'Troisième ligne centre',
-  'Demi de mêlée', 'Demi d\'ouverture',
+  'Demi de mêlée', "Demi d'ouverture",
   'Centre', 'Ailier', 'Arrière',
+  // Football
+  'Gardien', 'Défenseur central', 'Latéral', 'Milieu défensif',
+  'Milieu central', 'Milieu offensif', 'Attaquant', 'Avant-centre',
+  // Collectifs génériques
+  'Pivot', 'Ailier gauche', 'Ailier droit',
+  // Autre
   'Autre',
 ]
 
