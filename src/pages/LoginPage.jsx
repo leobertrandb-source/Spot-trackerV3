@@ -117,12 +117,20 @@ export default function LoginPage() {
           : error.message
       )
     } else if (data.user) {
-      // Upsert profile with role
+      // Récupérer le gym_id selon le rôle choisi
+      const gymSlug = role === 'club' ? 'prep-physique' : 'coaching-perso'
+      const { data: gymData } = await supabase
+        .from('gyms')
+        .select('id')
+        .eq('slug', gymSlug)
+        .maybeSingle()
+
       await supabase.from('profiles').upsert({
         id: data.user.id,
         full_name: `${firstName.trim()} ${lastName.trim()}`,
         email: regEmail.trim(),
-        role,
+        role: 'coach', // toujours coach à l'inscription
+        gym_id: gymData?.id || null,
       })
       setRegSuccess(true)
     }
