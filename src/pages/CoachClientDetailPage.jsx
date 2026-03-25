@@ -93,6 +93,42 @@ function formatDate(value) {
   }
 }
 
+function normalizeScanDate(value) {
+  if (!value) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return String(value)
+
+  const match = String(value).match(/(\d{2})[\/.-](\d{2})[\/.-](\d{4})/)
+  if (match) {
+    const [, dd, mm, yyyy] = match
+    return `${yyyy}-${mm}-${dd}`
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return ''
+  return parsed.toISOString().slice(0, 10)
+}
+
+function buildInbodyInsertPayload(userId, parsed) {
+  const today = new Date().toISOString().slice(0, 10)
+  return {
+    user_id: userId,
+    date: normalizeScanDate(parsed?.date) || today,
+    weight_kg: parsed?.weight != null ? parseFloat(parsed.weight) : null,
+    body_fat_pct: parsed?.body_fat_percentage != null ? parseFloat(parsed.body_fat_percentage) : null,
+    muscle_mass_kg: parsed?.skeletal_muscle_mass != null ? parseFloat(parsed.skeletal_muscle_mass) : null,
+    notes: JSON.stringify({
+      tenue: null,
+      modele_balance: 'InBody',
+      heure: parsed?.time || parsed?.heure || null,
+      impedance: null,
+      mg1: null,
+      mg2: null,
+      silhouette: null,
+      inbody_scan: parsed || null,
+    }),
+  }
+}
+
 function getSessionVolume(session) {
   return (session.sets || []).reduce(
     (sum, set) => sum + Number(set.weight || 0) * Number(set.reps || 0),
@@ -109,8 +145,11 @@ export default function CoachClientDetailPage() {
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const [activeTab, setActiveTab] = useState('performances')
-  const [prepSubTab, setPrepSubTab] = useState('bilan')
+  const [prepSubTab, setPrepSubTab] = useState('apercu')
   const [prepData, setPrepData] = useState({ hooper: [], compo: [], topsets: [], charge: [] })
+  const [scanLoading, setScanLoading] = useState(false)
+  const [scanError, setScanError] = useState('')
+  const [scanSuccess, setScanSuccess] = useState('')
   // Nutrition
   const [nutri, setNutri] = useState({ weight: '', height: '', age: '', sex: 'homme', activity: '1.55', goal: 'maintain' })
   const [nutriGoals, setNutriGoals] = useState(null)
@@ -353,6 +392,44 @@ export default function CoachClientDetailPage() {
   }
 
   const calculated = calcMifflin(nutri)
+
+  async function handleDirectInbodyImport(file) {
+    if (!file || !id) return
+
+    setScanLoading(true)
+    setScanError('')
+    setScanSuccess('')
+
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+
+      const { data, error } = await supabase.functions.invoke('inbody-scan', {
+        body: { image: base64 },
+      })
+
+      if (error) throw error
+
+      const parsed = typeof data?.data === 'string' ? JSON.parse(data.data) : (data?.data || data)
+      const payload = buildInbodyInsertPayload(id, parsed)
+
+      const { error: insertError } = await supabase.from('body_composition_logs').insert(payload)
+      if (insertError) throw insertError
+
+      await loadClient()
+      setPrepSubTab('apercu')
+      setScanSuccess(`Scan InBody importé : ${payload.weight_kg ?? '—'} kg · ${payload.body_fat_pct ?? '—'}% MG · ${payload.muscle_mass_kg ?? '—'} kg MM`)
+    } catch (error) {
+      console.error('Erreur import InBody direct :', error)
+      setScanError(error?.message || "Impossible d'importer le scan InBody")
+    } finally {
+      setScanLoading(false)
+    }
+  }
 
   async function saveNutriGoals() {
     if (!calculated) return
@@ -950,22 +1027,9 @@ export default function CoachClientDetailPage() {
 
             {activeTab === 'prepa' && (
               <div>
-                <Card style={{ padding: 14, marginBottom: 12, border: `1px solid ${T.accent}33`, background: 'linear-gradient(180deg, rgba(62,207,142,0.08), rgba(255,255,255,0.02))' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                    <div>
-                      <div style={{ color: T.text, fontSize: 16, fontWeight: 900 }}>Import InBody du client</div>
-                      <div style={{ color: T.textDim, fontSize: 13, marginTop: 6 }}>Le bouton d’import est dans l’onglet bilan compo juste en dessous. Cette vue s’ouvre désormais directement sur ce sous-onglet.</div>
-                    </div>
-                    <button onClick={() => setPrepSubTab('bilan')}
-                      style={{ padding: '10px 14px', borderRadius: 12, border: `1px solid ${T.accent}40`, background: `${T.accent}16`, color: T.accentLight, fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
-                      📸 Ouvrir l’import InBody
-                    </button>
-                  </div>
-                </Card>
-
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    {[{ key: 'bilan', label: '📸 Import / bilan compo' }, { key: 'apercu', label: '📊 Aperçu' }].map(t => (
+                    {[{ key: 'apercu', label: '📊 Aperçu' }, { key: 'bilan', label: '⚖️ Saisir un bilan compo' }].map(t => (
                       <button key={t.key} onClick={() => setPrepSubTab(t.key)}
                         style={{ padding: '7px 14px', borderRadius: 10, border: `1px solid ${prepSubTab === t.key ? T.accent + '40' : T.border}`, background: prepSubTab === t.key ? T.accent + '12' : 'transparent', color: prepSubTab === t.key ? T.accentLight : T.textDim, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                         {t.label}
@@ -977,8 +1041,16 @@ export default function CoachClientDetailPage() {
                     📊 Analyse complète →
                   </button>
                 </div>
-                {prepSubTab === 'apercu' && <PrepDataView prepData={prepData} />}
-                {prepSubTab === 'bilan' && <PrepCompoPage athleteId={id} forceTab="saisie" />}
+                {prepSubTab === 'apercu' && (
+                  <PrepDataView
+                    prepData={prepData}
+                    onInbodyScan={handleDirectInbodyImport}
+                    scanLoading={scanLoading}
+                    scanError={scanError}
+                    scanSuccess={scanSuccess}
+                  />
+                )}
+                {prepSubTab === 'bilan' && <PrepCompoPage athleteId={id} />}
               </div>
             )}
           </>
@@ -1007,7 +1079,7 @@ function MiniLine({ data, color = '#3ecf8e' }) {
   const pts = data.map((v, i) => `${(pad + (i / (data.length - 1)) * (W - pad * 2)).toFixed(1)},${(h - pad - ((v - min) / range) * (h - pad * 2)).toFixed(1)}`).join(' ')
   return <div style={{ height: 70, overflow: 'hidden' }}><svg viewBox={`0 0 ${W} ${h}`} style={{ width: '100%', height: '100%', display: 'block' }} preserveAspectRatio="none"><polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg></div>
 }
-function PrepDataView({ prepData }) {
+function PrepDataView({ prepData, onInbodyScan, scanLoading, scanError, scanSuccess }) {
   const { hooper, compo, topsets, charge } = prepData
   const today = new Date().toISOString().split('T')[0]
   const lastH = hooper[0], lastC = compo[0]
@@ -1063,7 +1135,54 @@ function PrepDataView({ prepData }) {
 
       <div style={{ display: 'grid', gap: 12 }}>
         <Card style={{ padding: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: T.text, marginBottom: 12 }}>Bilan morphologique</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: T.text }}>Bilan morphologique</div>
+              <div style={{ fontSize: 12, color: T.textDim, marginTop: 4 }}>Import direct d'une photo InBody dans cette fiche.</div>
+            </div>
+            <label
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                minHeight: 42,
+                padding: '0 14px',
+                borderRadius: 12,
+                border: `1px solid ${T.accent}40`,
+                background: `${T.accent}12`,
+                color: T.accentLight,
+                fontSize: 13,
+                fontWeight: 800,
+                cursor: scanLoading ? 'default' : 'pointer',
+                opacity: scanLoading ? 0.75 : 1,
+              }}
+            >
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                disabled={scanLoading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file && onInbodyScan) onInbodyScan(file)
+                  e.target.value = ''
+                }}
+              />
+              {scanLoading ? 'Analyse InBody…' : '📸 Scanner InBody'}
+            </label>
+          </div>
+
+          {scanError ? (
+            <div style={{ marginBottom: 12, padding: '10px 12px', borderRadius: 10, background: 'rgba(255,90,90,0.08)', border: '1px solid rgba(255,120,120,0.18)', color: '#ff9b9b', fontSize: 12, fontWeight: 700 }}>
+              {scanError}
+            </div>
+          ) : null}
+
+          {scanSuccess ? (
+            <div style={{ marginBottom: 12, padding: '10px 12px', borderRadius: 10, background: `${T.accent}12`, border: `1px solid ${T.accent}24`, color: T.accentLight, fontSize: 12, fontWeight: 700 }}>
+              {scanSuccess}
+            </div>
+          ) : null}
           {lastC ? (() => {
             let n = null; try { n = lastC.notes ? JSON.parse(lastC.notes) : null } catch {}
             return (
