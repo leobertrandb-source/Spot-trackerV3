@@ -84,6 +84,10 @@ export default function PrepCompoPage({ athleteId = null }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
+  const [measureDate, setMeasureDate] = useState(today)
+  const [scanLoading, setScanLoading] = useState(false)
+  const [scanError, setScanError] = useState('')
+  const [scanPreview, setScanPreview] = useState(null)
 
   // Pesée & conditions générales
   const [pesee, setPesee] = useState({ weight_kg: '', tenue: '', modele_balance: '', heure: '' })
@@ -114,6 +118,68 @@ export default function PrepCompoPage({ athleteId = null }) {
 
   useEffect(() => { load() }, [load])
 
+  function normalizeScanDate(value) {
+    if (!value) return ''
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return String(value)
+    const m = String(value).match(/(\d{2})[\/.-](\d{2})[\/.-](\d{4})/)
+    if (m) {
+      const [, dd, mm, yyyy] = m
+      return `${yyyy}-${mm}-${dd}`
+    }
+    const d = new Date(value)
+    if (Number.isNaN(d.getTime())) return ''
+    return d.toISOString().slice(0, 10)
+  }
+
+  function applyScanPreview(parsed) {
+    if (!parsed) return
+    setScanPreview(parsed)
+    const normalizedDate = normalizeScanDate(parsed.date)
+    if (normalizedDate) setMeasureDate(normalizedDate)
+
+    setPesee(prev => ({
+      ...prev,
+      weight_kg: parsed.weight != null ? String(parsed.weight) : prev.weight_kg,
+      modele_balance: prev.modele_balance || 'InBody',
+    }))
+
+    setMesures(prev => ({
+      ...prev,
+      weight_kg: parsed.weight != null ? String(parsed.weight) : prev.weight_kg,
+      muscle_mass_kg: parsed.skeletal_muscle_mass != null ? String(parsed.skeletal_muscle_mass) : prev.muscle_mass_kg,
+      body_fat_pct: parsed.body_fat_percentage != null ? String(parsed.body_fat_percentage) : prev.body_fat_pct,
+    }))
+  }
+
+  async function handleInBodyScan(file) {
+    if (!file) return
+    setScanLoading(true)
+    setScanError('')
+
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+
+      const { data, error } = await supabase.functions.invoke('inbody-scan', {
+        body: { image: base64 },
+      })
+
+      if (error) throw error
+
+      const parsed = typeof data?.data === 'string' ? JSON.parse(data.data) : (data?.data || data)
+      applyScanPreview(parsed)
+    } catch (e) {
+      console.error(e)
+      setScanError(e?.message || 'Impossible d'analyser la photo InBody')
+    } finally {
+      setScanLoading(false)
+    }
+  }
+
   async function handleSave() {
     setSaving(true); setMsg('')
     const notes = JSON.stringify({
@@ -124,9 +190,10 @@ export default function PrepCompoPage({ athleteId = null }) {
       mg1: { ...mg1 },
       mg2: { ...mg2 },
       silhouette: { ...silhouette },
+      inbody_scan: scanPreview || null,
     })
     const { error } = await supabase.from('body_composition_logs').insert({
-      user_id: targetId, date: today,
+      user_id: targetId, date: measureDate || today,
       weight_kg:       parseFloat(mesures.weight_kg || pesee.weight_kg) || null,
       body_fat_pct:    parseFloat(mesures.body_fat_pct) || null,
       muscle_mass_kg:  parseFloat(mesures.muscle_mass_kg) || null,
@@ -136,6 +203,9 @@ export default function PrepCompoPage({ athleteId = null }) {
     else {
       setMsg('Bilan enregistré ✓')
       setPesee({ weight_kg: '', tenue: '', modele_balance: '', heure: '' })
+      setMeasureDate(today)
+      setScanPreview(null)
+      setScanError('')
       setMesures({ weight_kg: '', muscle_mass_kg: '', body_fat_pct: '' })
       setMg1({ sous_scapulaire: '', tricipital: '', supra_iliaque: '', ombilical: '', resultat: '' })
       setMg2({ sous_scapulaire: '', tricipital: '', supra_iliaque: '', ombilical: '', bicipital: '', sural: '', quadricipital: '', resultat: '' })
@@ -246,6 +316,11 @@ export default function PrepCompoPage({ athleteId = null }) {
               <SectionTitle>Pesée</SectionTitle>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
                 <div>
+                  <div style={{ fontSize: 11, color: T.textDim, marginBottom: 5 }}>Date de mesure</div>
+                  <input type="date" value={measureDate} onChange={e => setMeasureDate(e.target.value)}
+                    style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 8, padding: '8px 10px', color: T.text, fontSize: 13, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                </div>
+                <div>
                   <div style={{ fontSize: 11, color: T.textDim, marginBottom: 5 }}>Poids (kg)</div>
                   {inp(pesee.weight_kg, v => setPesee(p => ({...p, weight_kg: v})), '75.0')}
                 </div>
@@ -265,6 +340,43 @@ export default function PrepCompoPage({ athleteId = null }) {
                 </div>
                 </>)}
               </div>
+
+              {isCoach && (
+                <div style={{ marginTop: 14, padding: 14, borderRadius: 14, border: `1px dashed ${T.accent}55`, background: 'rgba(62,207,142,0.05)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: T.text }}>Importer une photo InBody</div>
+                      <div style={{ fontSize: 12, color: T.textDim, marginTop: 4 }}>La photo remplit automatiquement le poids, la masse maigre et la masse grasse.</div>
+                    </div>
+                    <label style={{ cursor: 'pointer' }}>
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handleInBodyScan(e.target.files?.[0])} />
+                      <div style={{ padding: '10px 14px', borderRadius: 10, background: `${T.accent}16`, color: T.accentLight, fontSize: 13, fontWeight: 800, border: `1px solid ${T.accent}35` }}>
+                        {scanLoading ? 'Analyse en cours…' : 'Scanner InBody'}
+                      </div>
+                    </label>
+                  </div>
+
+                  {scanError && <div style={{ marginTop: 10, fontSize: 12, fontWeight: 700, color: '#ff7b7b' }}>{scanError}</div>}
+
+                  {scanPreview && (
+                    <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
+                      {[
+                        { label: 'Date', value: normalizeScanDate(scanPreview.date) || '—' },
+                        { label: 'Poids', value: scanPreview.weight != null ? `${scanPreview.weight} kg` : '—' },
+                        { label: 'Masse maigre', value: scanPreview.skeletal_muscle_mass != null ? `${scanPreview.skeletal_muscle_mass} kg` : '—' },
+                        { label: 'Masse grasse', value: scanPreview.body_fat_percentage != null ? `${scanPreview.body_fat_percentage} %` : '—' },
+                        { label: 'Masse grasse (kg)', value: scanPreview.body_fat_mass != null ? `${scanPreview.body_fat_mass} kg` : '—' },
+                        { label: 'IMC', value: scanPreview.bmi != null ? scanPreview.bmi : '—' },
+                      ].map(item => (
+                        <div key={item.label} style={{ padding: 10, borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}` }}>
+                          <div style={{ fontSize: 10, color: T.textDim, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>{item.label}</div>
+                          <div style={{ marginTop: 4, fontSize: 14, fontWeight: 800, color: T.text }}>{item.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </Card>
 
             {/* Sections coach uniquement */}
