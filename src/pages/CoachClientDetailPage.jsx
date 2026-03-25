@@ -109,7 +109,7 @@ export default function CoachClientDetailPage() {
   const [loading, setLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState('')
   const [activeTab, setActiveTab] = useState('performances')
-  const [prepSubTab, setPrepSubTab] = useState('apercu')
+  const [prepSubTab, setPrepSubTab] = useState('bilan')
   const [prepData, setPrepData] = useState({ hooper: [], compo: [], topsets: [], charge: [] })
   // Nutrition
   const [nutri, setNutri] = useState({ weight: '', height: '', age: '', sex: 'homme', activity: '1.55', goal: 'maintain' })
@@ -950,9 +950,22 @@ export default function CoachClientDetailPage() {
 
             {activeTab === 'prepa' && (
               <div>
+                <Card style={{ padding: 14, marginBottom: 12, border: `1px solid ${T.accent}33`, background: 'linear-gradient(180deg, rgba(62,207,142,0.08), rgba(255,255,255,0.02))' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ color: T.text, fontSize: 16, fontWeight: 900 }}>Import InBody du client</div>
+                      <div style={{ color: T.textDim, fontSize: 13, marginTop: 6 }}>Le bouton d’import est dans l’onglet bilan compo juste en dessous. Cette vue s’ouvre désormais directement sur ce sous-onglet.</div>
+                    </div>
+                    <button onClick={() => setPrepSubTab('bilan')}
+                      style={{ padding: '10px 14px', borderRadius: 12, border: `1px solid ${T.accent}40`, background: `${T.accent}16`, color: T.accentLight, fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
+                      📸 Ouvrir l’import InBody
+                    </button>
+                  </div>
+                </Card>
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    {[{ key: 'apercu', label: '📊 Aperçu' }, { key: 'bilan', label: '⚖️ Saisir un bilan compo' }].map(t => (
+                    {[{ key: 'bilan', label: '📸 Import / bilan compo' }, { key: 'apercu', label: '📊 Aperçu' }].map(t => (
                       <button key={t.key} onClick={() => setPrepSubTab(t.key)}
                         style={{ padding: '7px 14px', borderRadius: 10, border: `1px solid ${prepSubTab === t.key ? T.accent + '40' : T.border}`, background: prepSubTab === t.key ? T.accent + '12' : 'transparent', color: prepSubTab === t.key ? T.accentLight : T.textDim, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                         {t.label}
@@ -965,7 +978,7 @@ export default function CoachClientDetailPage() {
                   </button>
                 </div>
                 {prepSubTab === 'apercu' && <PrepDataView prepData={prepData} />}
-                {prepSubTab === 'bilan' && <PrepCompoPage athleteId={id} />}
+                {prepSubTab === 'bilan' && <PrepCompoPage athleteId={id} forceTab="saisie" />}
               </div>
             )}
           </>
