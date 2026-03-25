@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import { PageWrap, Card, Btn, Badge } from '../components/UI'
+import { resolveImageUrl } from '../lib/media'
 import { T } from '../lib/data'
 
 const today = new Date().toISOString().split('T')[0]
@@ -289,13 +290,11 @@ function StepCard({ step }) {
 
 function getRecipeImageUrl(recipe) {
   if (!recipe) return ''
-  if (recipe.image_url) return recipe.image_url
-  if (recipe.image_path) {
-    const bucket = recipe.image_bucket || 'recipe-images'
-    const { data } = supabase.storage.from(bucket).getPublicUrl(recipe.image_path)
-    return data?.publicUrl || ''
-  }
-  return ''
+  return resolveImageUrl({
+    imageUrl: recipe.image_url,
+    imagePath: recipe.image_path,
+    imageBucket: recipe.image_bucket || 'recipe-images',
+  })
 }
 
 function calcPlateFillPercent(targetCalories, baseCalories) {
