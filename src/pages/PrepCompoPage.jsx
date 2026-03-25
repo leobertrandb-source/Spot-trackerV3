@@ -544,7 +544,7 @@ function MultiD3Chart({ series, h = 120 }) {
 }
 
 // ─── Section card ─────────────────────────────────────────────────────────────
-function Section({ title, color, icon, badge, children, defaultOpen = false, headerAction = null }) {
+function Section({ title, color, icon, badge, children, defaultOpen = false, action = null }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
     <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 16, overflow: 'hidden', marginBottom: 12 }}>
@@ -558,7 +558,7 @@ function Section({ title, color, icon, badge, children, defaultOpen = false, hea
           </div>
         </div>
         <div style={{ fontSize: 11, color: P.sub, display: 'flex', gap: 10, alignItems: 'center' }}>
-          {headerAction && <div onClick={(e) => e.stopPropagation()}>{headerAction}</div>}
+          {action && <div onClick={(e) => e.stopPropagation()}>{action}</div>}
           <span style={{ fontSize: 18, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block' }}>⌄</span>
         </div>
       </div>
@@ -622,10 +622,6 @@ export default function PrepAnalysePage() {
   const [data, setData] = useState({ hooper: [], compo: [], topsets: [], charge: [], chargeInterne: [] })
   const [loading, setLoading] = useState(true)
   const [selectedEx, setSelectedEx] = useState(null)
-  const [scanLoading, setScanLoading] = useState(false)
-  const [scanError, setScanError] = useState('')
-  const [scanSuccess, setScanSuccess] = useState('')
-  const scanInputRef = useRef(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -651,65 +647,6 @@ export default function PrepAnalysePage() {
 
   useEffect(() => { load() }, [load])
 
-  function normalizeScanDate(value) {
-    if (!value) return ''
-    if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return String(value)
-    const match = String(value).match(/(\d{2})[\/.-](\d{2})[\/.-](\d{4})/)
-    if (match) {
-      const [, dd, mm, yyyy] = match
-      return `${yyyy}-${mm}-${dd}`
-    }
-    const parsed = new Date(value)
-    if (Number.isNaN(parsed.getTime())) return ''
-    return parsed.toISOString().slice(0, 10)
-  }
-
-  async function handleInBodyFile(file) {
-    if (!file || scanLoading) return
-    setScanLoading(true)
-    setScanError('')
-    setScanSuccess('')
-
-    try {
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onloadend = () => resolve(reader.result)
-        reader.onerror = reject
-        reader.readAsDataURL(file)
-      })
-
-      const { data: scanData, error: scanInvokeError } = await supabase.functions.invoke('inbody-scan', {
-        body: { image: base64 },
-      })
-      if (scanInvokeError) throw scanInvokeError
-
-      const parsed = typeof scanData?.data === 'string' ? JSON.parse(scanData.data) : (scanData?.data || scanData || {})
-      const payload = {
-        user_id: id,
-        date: normalizeScanDate(parsed.date) || new Date().toISOString().slice(0, 10),
-        weight_kg: parsed.weight != null ? parseFloat(parsed.weight) : null,
-        body_fat_pct: parsed.body_fat_percentage != null ? parseFloat(parsed.body_fat_percentage) : null,
-        muscle_mass_kg: parsed.skeletal_muscle_mass != null ? parseFloat(parsed.skeletal_muscle_mass) : null,
-        notes: JSON.stringify({
-          modele_balance: 'InBody',
-          inbody_scan: parsed,
-        }),
-      }
-
-      const { error: insertError } = await supabase.from('body_composition_logs').insert(payload)
-      if (insertError) throw insertError
-
-      await load()
-      setScanSuccess('Scan InBody importé.')
-    } catch (error) {
-      console.error(error)
-      setScanError(error?.message || "Impossible d'importer la photo InBody")
-    } finally {
-      setScanLoading(false)
-      if (scanInputRef.current) scanInputRef.current.value = ''
-    }
-  }
-
   // ── Calculs ──────────────────────────────────────────────────────────────────
   const hooperScores = useMemo(() => data.hooper.map(h => ({
     value: h.fatigue+h.sommeil+h.stress+h.courbatures, date: h.date
@@ -727,6 +664,10 @@ export default function PrepAnalysePage() {
   const lastC = data.compo[data.compo.length-1]
   const prevC = data.compo.length > 1 ? data.compo[data.compo.length-2] : null
   const [selectedBilanIdx, setSelectedBilanIdx] = useState(null)
+  const [scanLoading, setScanLoading] = useState(false)
+  const [scanError, setScanError] = useState('')
+  const [scanSuccess, setScanSuccess] = useState('')
+  const inbodyInputRef = useRef(null)
   const [selectedDomsLog, setSelectedDomsLog] = useState(null)
   const [rtpOpen, setRtpOpen] = useState(false)
   // Auto-sélectionner le dernier bilan quand les données arrivent
@@ -801,6 +742,70 @@ export default function PrepAnalysePage() {
   const acwrColor = !acwr?P.sub:acwr<=1.3?P.green:acwr<=1.5?P.yellow:P.red
 
   const dateLabel = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})
+
+  async function handleInbodyFile(file) {
+    if (!file) return
+    setScanLoading(true)
+    setScanError('')
+    setScanSuccess('')
+
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+
+      const { data: scanData, error: scanErr } = await supabase.functions.invoke('inbody-scan', {
+        body: { image: base64 },
+      })
+      if (scanErr) throw scanErr
+
+      const parsed = typeof scanData?.data === 'string'
+        ? JSON.parse(scanData.data)
+        : (scanData?.data || scanData || {})
+
+      const notes = JSON.stringify({
+        tenue: null,
+        modele_balance: 'InBody',
+        heure: null,
+        impedance: {},
+        mg1: {},
+        mg2: {},
+        silhouette: {},
+        inbody_scan: parsed,
+      })
+
+      const measureDate = (() => {
+        const raw = parsed?.date
+        if (!raw) return new Date().toISOString().slice(0, 10)
+        const d = new Date(raw)
+        return Number.isNaN(d.getTime()) ? new Date().toISOString().slice(0, 10) : d.toISOString().slice(0, 10)
+      })()
+
+      const payload = {
+        user_id: id,
+        date: measureDate,
+        weight_kg: parsed?.weight != null ? parseFloat(parsed.weight) : null,
+        body_fat_pct: parsed?.body_fat_percentage != null ? parseFloat(parsed.body_fat_percentage) : null,
+        muscle_mass_kg: parsed?.skeletal_muscle_mass != null ? parseFloat(parsed.skeletal_muscle_mass) : null,
+        notes,
+      }
+
+      const { error: insertErr } = await supabase.from('body_composition_logs').insert(payload)
+      if (insertErr) throw insertErr
+
+      setScanSuccess('Import InBody enregistré.')
+      await load()
+    } catch (e) {
+      console.error(e)
+      setScanError(e?.message || "Impossible d'importer la photo InBody")
+    } finally {
+      setScanLoading(false)
+      if (inbodyInputRef.current) inbodyInputRef.current.value = ''
+    }
+  }
 
   if (loading) return (
     <div style={{minHeight:'100vh',background:P.bg,display:'grid',placeItems:'center',fontFamily:"'DM Sans',sans-serif"}}>
@@ -938,44 +943,51 @@ export default function PrepAnalysePage() {
         {/* ── COMPOSITION ── */}
         <Section title="Composition corporelle" icon="⚖️" color={P.blue}
           badge={selectedC ? `${selectedC.weight_kg||'—'}kg · MG ${selectedC.body_fat_pct||'—'}% · MM ${selectedC.muscle_mass_kg||'—'}kg` : 'Aucune mesure'}
-          headerAction={isCoach ? (
+          action={isCoach ? (
             <>
               <input
-                ref={scanInputRef}
+                ref={inbodyInputRef}
                 type="file"
                 accept="image/*"
-                style={{ display: 'none' }}
-                onChange={(e) => handleInBodyFile(e.target.files?.[0])}
+                style={{ display:'none' }}
+                onChange={(e) => handleInbodyFile(e.target.files?.[0])}
               />
               <button
-                onClick={() => scanInputRef.current?.click()}
+                type="button"
+                onClick={() => inbodyInputRef.current?.click()}
                 disabled={scanLoading}
                 style={{
-                  border: `1px solid ${P.border}`,
+                  border:`1px solid ${P.border}`,
                   background: scanLoading ? P.bg : P.card,
-                  color: P.text,
-                  borderRadius: 999,
-                  padding: '9px 14px',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: scanLoading ? 'wait' : 'pointer',
-                  whiteSpace: 'nowrap',
+                  color:P.text,
+                  borderRadius:999,
+                  height:36,
+                  padding:'0 14px',
+                  fontSize:12,
+                  fontWeight:700,
+                  cursor:scanLoading?'default':'pointer',
+                  display:'inline-flex',
+                  alignItems:'center',
+                  gap:8,
+                  whiteSpace:'nowrap'
                 }}
               >
-                {scanLoading ? 'Import…' : '📸 Importer InBody'}
+                {scanLoading ? 'Import en cours...' : '📸 Importer InBody'}
               </button>
             </>
           ) : null}>
           <div style={{ paddingTop:20, display:'grid', gap:24 }}>
+
             {(scanError || scanSuccess) && (
               <div style={{
-                padding: '12px 14px',
-                borderRadius: 12,
-                border: `1px solid ${scanError ? '#f3b2ab' : '#b7dec6'}`,
-                background: scanError ? '#fff4f2' : '#f4fbf6',
+                marginTop:-4,
+                padding:'10px 12px',
+                borderRadius:10,
+                border:`1px solid ${scanError ? '#f5c2c7' : '#cfe8d8'}`,
+                background: scanError ? '#fff5f5' : '#f3fbf5',
                 color: scanError ? P.red : P.green,
-                fontSize: 12,
-                fontWeight: 600,
+                fontSize:12,
+                fontWeight:600,
               }}>
                 {scanError || scanSuccess}
               </div>
