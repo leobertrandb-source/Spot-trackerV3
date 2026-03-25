@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
     if (!image) return new Response(JSON.stringify({ error: 'No image provided' }), { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } })
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4.1-mini',
+      model: 'gpt-4o-mini',
       response_format: { type: 'json_object' },
       messages: [
         {
