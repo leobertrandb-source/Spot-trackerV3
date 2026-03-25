@@ -174,7 +174,7 @@ export default function PrepCompoPage({ athleteId = null }) {
       applyScanPreview(parsed)
     } catch (e) {
       console.error(e)
-      setScanError(e?.message || 'Impossible d'analyser la photo InBody')
+      setScanError(e?.message || "Impossible d'analyser la photo InBody")
     } finally {
       setScanLoading(false)
     }
