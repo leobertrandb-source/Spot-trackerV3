@@ -73,54 +73,13 @@ function SectionTitle({ children }) {
   return <div style={{ fontSize: 13, fontWeight: 800, color: T.accentLight, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, marginTop: 4 }}>{children}</div>
 }
 
-function InBodyImportCard({ isCoach, scanLoading, scanError, scanPreview, onScan, normalizeScanDate }) {
-  if (!isCoach) return null
-
-  return (
-    <Card>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 800, color: T.text }}>Importer une photo InBody</div>
-          <div style={{ fontSize: 12, color: T.textDim, marginTop: 4 }}>Le scan détecte les valeurs et enregistre automatiquement le bilan.</div>
-        </div>
-        <label style={{ cursor: scanLoading ? 'default' : 'pointer' }}>
-          <input type="file" accept="image/*" style={{ display: 'none' }} disabled={scanLoading} onChange={e => onScan(e.target.files?.[0])} />
-          <div style={{ padding: '10px 14px', borderRadius: 10, background: `${T.accent}16`, color: T.accentLight, fontSize: 13, fontWeight: 800, border: `1px solid ${T.accent}35`, opacity: scanLoading ? 0.7 : 1 }}>
-            {scanLoading ? 'Analyse en cours…' : 'Scanner InBody'}
-          </div>
-        </label>
-      </div>
-
-      {scanError && <div style={{ marginTop: 10, fontSize: 12, fontWeight: 700, color: '#ff7b7b' }}>{scanError}</div>}
-
-      {scanPreview && (
-        <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
-          {[
-            { label: 'Date', value: normalizeScanDate(scanPreview.date) || '—' },
-            { label: 'Poids', value: scanPreview.weight != null ? `${scanPreview.weight} kg` : '—' },
-            { label: 'Masse maigre', value: scanPreview.skeletal_muscle_mass != null ? `${scanPreview.skeletal_muscle_mass} kg` : '—' },
-            { label: 'Masse grasse', value: scanPreview.body_fat_percentage != null ? `${scanPreview.body_fat_percentage} %` : '—' },
-            { label: 'Masse grasse (kg)', value: scanPreview.body_fat_mass != null ? `${scanPreview.body_fat_mass} kg` : '—' },
-            { label: 'IMC', value: scanPreview.bmi != null ? scanPreview.bmi : '—' },
-          ].map(item => (
-            <div key={item.label} style={{ padding: 10, borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}` }}>
-              <div style={{ fontSize: 10, color: T.textDim, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>{item.label}</div>
-              <div style={{ marginTop: 4, fontSize: 14, fontWeight: 800, color: T.text }}>{item.value}</div>
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
-  )
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
-export default function PrepCompoPage({ athleteId = null }) {
+export default function PrepCompoPage({ athleteId = null, forceTab = null, onSaved = null }) {
   const { user, profile, isCoach } = useAuth()
   const today = new Date().toISOString().split('T')[0]
   const targetId = athleteId || user.id  // coach saisit pour un athlète, sinon soi-même
 
-  const [tab, setTab] = useState('saisie')
+  const [tab, setTab] = useState(forceTab || 'saisie')
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -158,6 +117,10 @@ export default function PrepCompoPage({ athleteId = null }) {
   }, [targetId])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    if (forceTab) setTab(forceTab)
+  }, [forceTab])
 
   function normalizeScanDate(value) {
     if (!value) return ''
@@ -213,7 +176,42 @@ export default function PrepCompoPage({ athleteId = null }) {
 
       const parsed = typeof data?.data === 'string' ? JSON.parse(data.data) : (data?.data || data)
       applyScanPreview(parsed)
-      await saveComposition({ parsedOverride: parsed, successMessage: 'Scan InBody importé automatiquement ✓' })
+
+      const previewDate = normalizeScanDate(parsed?.date)
+      const saveDate = previewDate || measureDate || today
+      const notes = JSON.stringify({
+        tenue: pesee.tenue || null,
+        modele_balance: 'InBody',
+        heure: pesee.heure || null,
+        impedance: { ...impedance },
+        mg1: { ...mg1 },
+        mg2: { ...mg2 },
+        silhouette: { ...silhouette },
+        inbody_scan: parsed || null,
+      })
+
+      const { error: insertError } = await supabase.from('body_composition_logs').insert({
+        user_id: targetId,
+        date: saveDate,
+        weight_kg: parseFloat(parsed?.weight) || parseFloat(mesures.weight_kg || pesee.weight_kg) || null,
+        body_fat_pct: parseFloat(parsed?.body_fat_percentage) || parseFloat(mesures.body_fat_pct) || null,
+        muscle_mass_kg: parseFloat(parsed?.skeletal_muscle_mass) || parseFloat(mesures.muscle_mass_kg) || null,
+        notes,
+      })
+
+      if (insertError) throw insertError
+
+      if (previewDate) setMeasureDate(previewDate)
+      setTab('analyse')
+      setMsg('Scan InBody importé et enregistré ✓')
+      await load()
+      onSaved?.({
+        user_id: targetId,
+        date: saveDate,
+        weight_kg: parseFloat(parsed?.weight) || null,
+        body_fat_pct: parseFloat(parsed?.body_fat_percentage) || null,
+        muscle_mass_kg: parseFloat(parsed?.skeletal_muscle_mass) || null,
+      })
     } catch (e) {
       console.error(e)
       setScanError(e?.message || "Impossible d'analyser la photo InBody")
@@ -222,16 +220,8 @@ export default function PrepCompoPage({ athleteId = null }) {
     }
   }
 
-  async function saveComposition({ parsedOverride = null, successMessage = 'Bilan enregistré ✓' } = {}) {
-    setSaving(true)
-    setMsg('')
-
-    const effectiveScan = parsedOverride || scanPreview || null
-    const effectiveDate = normalizeScanDate(parsedOverride?.date) || measureDate || today
-    const weightValue = parsedOverride?.weight ?? mesures.weight_kg ?? pesee.weight_kg
-    const bodyFatValue = parsedOverride?.body_fat_percentage ?? mesures.body_fat_pct
-    const muscleMassValue = parsedOverride?.skeletal_muscle_mass ?? mesures.muscle_mass_kg
-
+  async function saveComposition({ preview = scanPreview, successMessage = 'Bilan enregistré ✓', resetAfterSave = true } = {}) {
+    setSaving(true); setMsg('')
     const notes = JSON.stringify({
       tenue: pesee.tenue || null,
       modele_balance: pesee.modele_balance || null,
@@ -240,34 +230,38 @@ export default function PrepCompoPage({ athleteId = null }) {
       mg1: { ...mg1 },
       mg2: { ...mg2 },
       silhouette: { ...silhouette },
-      inbody_scan: effectiveScan,
+      inbody_scan: preview || null,
     })
-
-    const { error } = await supabase.from('body_composition_logs').insert({
+    const payload = {
       user_id: targetId,
-      date: effectiveDate,
-      weight_kg: parseFloat(weightValue) || null,
-      body_fat_pct: parseFloat(bodyFatValue) || null,
-      muscle_mass_kg: parseFloat(muscleMassValue) || null,
+      date: measureDate || today,
+      weight_kg: parseFloat(mesures.weight_kg || pesee.weight_kg) || null,
+      body_fat_pct: parseFloat(mesures.body_fat_pct) || null,
+      muscle_mass_kg: parseFloat(mesures.muscle_mass_kg) || null,
       notes,
-    })
-
+    }
+    const { error } = await supabase.from('body_composition_logs').insert(payload)
     if (error) {
       setMsg('Erreur : ' + error.message)
-    } else {
-      setMsg(successMessage)
+      setSaving(false)
+      return { ok: false, error }
+    }
+
+    setMsg(successMessage)
+    if (resetAfterSave) {
       setPesee({ weight_kg: '', tenue: '', modele_balance: '', heure: '' })
       setMeasureDate(today)
-      setScanPreview(effectiveScan)
+      setScanPreview(null)
       setScanError('')
       setMesures({ weight_kg: '', muscle_mass_kg: '', body_fat_pct: '' })
       setMg1({ sous_scapulaire: '', tricipital: '', supra_iliaque: '', ombilical: '', resultat: '' })
       setMg2({ sous_scapulaire: '', tricipital: '', supra_iliaque: '', ombilical: '', bicipital: '', sural: '', quadricipital: '', resultat: '' })
       setSilhouette({ epaule: '', poitrine: '', hanche: '', taille: '', cuisse: '', genoux: '' })
-      load()
     }
-
+    await load()
+    onSaved?.(payload)
     setSaving(false)
+    return { ok: true, payload }
   }
 
   async function handleSave() {
@@ -357,14 +351,43 @@ export default function PrepCompoPage({ athleteId = null }) {
           <div style={{ color: T.textMid, fontSize: 14, marginTop: 4 }}>{history.length} bilan{history.length > 1 ? 's' : ''} enregistré{history.length > 1 ? 's' : ''}</div>
         </div>
 
-        <InBodyImportCard
-          isCoach={isCoach}
-          scanLoading={scanLoading || saving}
-          scanError={scanError}
-          scanPreview={scanPreview}
-          onScan={handleInBodyScan}
-          normalizeScanDate={normalizeScanDate}
-        />
+        {isCoach && (
+          <Card style={{ border: `1px solid ${T.accent}33`, background: 'linear-gradient(180deg, rgba(62,207,142,0.08), rgba(255,255,255,0.02))' }}>
+            <SectionTitle>Import InBody</SectionTitle>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: T.text }}>Scanner une feuille InBody</div>
+                <div style={{ fontSize: 13, color: T.textDim, marginTop: 6 }}>Import direct depuis la fiche client : le scan détecte les valeurs puis enregistre automatiquement le bilan.</div>
+              </div>
+              <label style={{ cursor: scanLoading ? 'progress' : 'pointer' }}>
+                <input type="file" accept="image/*" style={{ display: 'none' }} disabled={scanLoading || saving} onChange={e => handleInBodyScan(e.target.files?.[0])} />
+                <div style={{ padding: '12px 16px', borderRadius: 12, background: `${T.accent}18`, color: T.accentLight, fontSize: 14, fontWeight: 900, border: `1px solid ${T.accent}44` }}>
+                  {scanLoading ? 'Analyse en cours…' : '📸 Scanner InBody'}
+                </div>
+              </label>
+            </div>
+
+            {scanError && <div style={{ marginTop: 10, fontSize: 12, fontWeight: 700, color: '#ff7b7b' }}>{scanError}</div>}
+
+            {scanPreview && (
+              <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
+                {[
+                  { label: 'Date', value: normalizeScanDate(scanPreview.date) || '—' },
+                  { label: 'Poids', value: scanPreview.weight != null ? `${scanPreview.weight} kg` : '—' },
+                  { label: 'Masse maigre', value: scanPreview.skeletal_muscle_mass != null ? `${scanPreview.skeletal_muscle_mass} kg` : '—' },
+                  { label: 'Masse grasse', value: scanPreview.body_fat_percentage != null ? `${scanPreview.body_fat_percentage} %` : '—' },
+                  { label: 'Masse grasse (kg)', value: scanPreview.body_fat_mass != null ? `${scanPreview.body_fat_mass} kg` : '—' },
+                  { label: 'IMC', value: scanPreview.bmi != null ? scanPreview.bmi : '—' },
+                ].map(item => (
+                  <div key={item.label} style={{ padding: 10, borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}` }}>
+                    <div style={{ fontSize: 10, color: T.textDim, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>{item.label}</div>
+                    <div style={{ marginTop: 4, fontSize: 14, fontWeight: 800, color: T.text }}>{item.value}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 6 }}>
@@ -408,6 +431,8 @@ export default function PrepCompoPage({ athleteId = null }) {
                 </div>
                 </>)}
               </div>
+                </div>
+              )}
             </Card>
 
             {/* Sections coach uniquement */}
