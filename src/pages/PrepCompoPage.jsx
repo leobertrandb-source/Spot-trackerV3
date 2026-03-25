@@ -51,6 +51,70 @@ const CHART_COLORS = {
   mg2:        '#c0392b',
 }
 
+
+function normalizeScanDate(value) {
+  if (!value) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return String(value)
+
+  const match = String(value).match(/(\d{2})[\/.-](\d{2})[\/.-](\d{4})/)
+  if (match) {
+    const [, dd, mm, yyyy] = match
+    return `${yyyy}-${mm}-${dd}`
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return ''
+  return parsed.toISOString().slice(0, 10)
+}
+
+function buildInbodyInsertPayload(userId, parsed) {
+  const today = new Date().toISOString().slice(0, 10)
+  return {
+    user_id: userId,
+    date: normalizeScanDate(parsed?.date) || today,
+    weight_kg: parsed?.weight != null ? parseFloat(parsed.weight) : null,
+    body_fat_pct: parsed?.body_fat_percentage != null ? parseFloat(parsed.body_fat_percentage) : null,
+    muscle_mass_kg: parsed?.skeletal_muscle_mass != null ? parseFloat(parsed.skeletal_muscle_mass) : null,
+    notes: JSON.stringify({
+      tenue: null,
+      modele_balance: 'InBody',
+      heure: null,
+      impedance: {},
+      mg1: {},
+      mg2: {},
+      silhouette: {},
+      inbody_scan: parsed || {},
+    }),
+  }
+}
+
+function compressImageFile(file, { maxWidth = 1600, quality = 0.82 } = {}) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = reject
+    reader.onload = () => {
+      const img = new Image()
+      img.onerror = reject
+      img.onload = () => {
+        const scale = Math.min(1, maxWidth / img.width)
+        const width = Math.round(img.width * scale)
+        const height = Math.round(img.height * scale)
+
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, width, height)
+
+        const dataUrl = canvas.toDataURL('image/jpeg', quality)
+        resolve(dataUrl)
+      }
+      img.src = reader.result
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
 // ─── Hook D3-style SVG chart ──────────────────────────────────────────────────
 function useD3Chart(containerRef, data, options = {}) {
   const { color = P.green, h = 120, smooth = true, showDots = true, showArea = true, animate = true } = options
@@ -750,53 +814,24 @@ export default function PrepAnalysePage() {
     setScanSuccess('')
 
     try {
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onloadend = () => resolve(reader.result)
-        reader.onerror = reject
-        reader.readAsDataURL(file)
-      })
+      const base64 = await compressImageFile(file, { maxWidth: 1600, quality: 0.82 })
 
       const { data: scanData, error: scanErr } = await supabase.functions.invoke('inbody-scan', {
         body: { image: base64 },
       })
       if (scanErr) throw scanErr
+      if (scanData?.error) throw new Error(scanData.error)
 
       const parsed = typeof scanData?.data === 'string'
         ? JSON.parse(scanData.data)
         : (scanData?.data || scanData || {})
 
-      const notes = JSON.stringify({
-        tenue: null,
-        modele_balance: 'InBody',
-        heure: null,
-        impedance: {},
-        mg1: {},
-        mg2: {},
-        silhouette: {},
-        inbody_scan: parsed,
-      })
-
-      const measureDate = (() => {
-        const raw = parsed?.date
-        if (!raw) return new Date().toISOString().slice(0, 10)
-        const d = new Date(raw)
-        return Number.isNaN(d.getTime()) ? new Date().toISOString().slice(0, 10) : d.toISOString().slice(0, 10)
-      })()
-
-      const payload = {
-        user_id: id,
-        date: measureDate,
-        weight_kg: parsed?.weight != null ? parseFloat(parsed.weight) : null,
-        body_fat_pct: parsed?.body_fat_percentage != null ? parseFloat(parsed.body_fat_percentage) : null,
-        muscle_mass_kg: parsed?.skeletal_muscle_mass != null ? parseFloat(parsed.skeletal_muscle_mass) : null,
-        notes,
-      }
+      const payload = buildInbodyInsertPayload(id, parsed)
 
       const { error: insertErr } = await supabase.from('body_composition_logs').insert(payload)
       if (insertErr) throw insertErr
 
-      setScanSuccess('Import InBody enregistré.')
+      setScanSuccess(`Import InBody enregistré : ${payload.weight_kg ?? '—'} kg · ${payload.body_fat_pct ?? '—'}% MG · ${payload.muscle_mass_kg ?? '—'} kg MM`)
       await load()
     } catch (e) {
       console.error(e)
