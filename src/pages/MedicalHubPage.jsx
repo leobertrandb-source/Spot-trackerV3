@@ -49,6 +49,134 @@ function Avatar({ name }) {
   )
 }
 
+function RosterAvatar({ name, avatarUrl, size = 86 }) {
+  const initials = (name || '?')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0]?.toUpperCase())
+    .join('')
+
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={name}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          objectFit: 'cover',
+          border: '3px solid #f5f3ef',
+          background: '#f5f3ef',
+        }}
+      />
+    )
+  }
+
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        display: 'grid',
+        placeItems: 'center',
+        background: P.accent,
+        color: '#fff',
+        fontWeight: 900,
+        fontSize: Math.max(22, Math.round(size * 0.3)),
+      }}
+    >
+      {initials || '?'}
+    </div>
+  )
+}
+
+function normalizePoste(poste) {
+  return (poste || '').trim() || 'Poste non renseigné'
+}
+
+function MedicalRosterTile({ athlete, onClick }) {
+  const isFit = athlete.activeInjuries.length === 0
+  const hasSurveillance = athlete.surveillance.length > 0
+  const statusLabel = isFit ? 'Apte' : 'Inapte'
+  const statusColor = isFit ? P.green : P.red
+  const statusBg = isFit ? '#e8f5ee' : '#fdecea'
+  const subStatus = isFit
+    ? hasSurveillance
+      ? 'Sous surveillance'
+      : 'Disponible'
+    : athlete.activeInjuries[0]
+      ? BODY_ZONES[athlete.activeInjuries[0].body_zone] || 'Blessure en cours'
+      : 'Blessure en cours'
+
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        border: `2px solid ${statusColor}`,
+        background: '#ffffff',
+        borderRadius: 24,
+        padding: 18,
+        cursor: 'pointer',
+        minHeight: 214,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 14,
+        boxShadow: isFit ? '0 12px 28px rgba(45,106,79,0.12)' : '0 12px 28px rgba(192,57,43,0.12)',
+        transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)' }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)' }}
+    >
+      <RosterAvatar
+        name={athlete.full_name || athlete.email}
+        avatarUrl={athlete.avatar_url}
+      />
+
+      <div style={{ textAlign: 'center', width: '100%' }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: P.text, lineHeight: 1.2 }}>
+          {athlete.full_name || athlete.email}
+        </div>
+        <div style={{ marginTop: 6, fontSize: 12, color: P.sub, fontWeight: 600 }}>
+          {normalizePoste(athlete.poste)}
+        </div>
+        <div
+          style={{
+            marginTop: 12,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '7px 12px',
+            borderRadius: 999,
+            fontSize: 12,
+            fontWeight: 800,
+            background: statusBg,
+            color: statusColor,
+          }}
+        >
+          <span
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              background: statusColor,
+              display: 'inline-block',
+            }}
+          />
+          {statusLabel}
+        </div>
+        <div style={{ marginTop: 10, minHeight: 18, fontSize: 12, color: isFit && hasSurveillance ? P.yellow : P.sub, fontWeight: 600 }}>
+          {subStatus}
+        </div>
+      </div>
+    </button>
+  )
+}
+
 function Tab({ label, active, onClick, count, color }) {
   return (
     <button onClick={onClick} style={{
@@ -126,7 +254,7 @@ export default function MedicalHubPage() {
     const ids = links.map(l => l.client_id)
 
     const [{ data: profiles }, { data: inj }, { data: appts }, { data: mtch }] = await Promise.all([
-      supabase.from('profiles').select('id, full_name, email').in('id', ids),
+      supabase.from('profiles').select('id, full_name, email, poste, avatar_url').in('id', ids),
       supabase.from('medical_injuries').select('*').in('athlete_id', ids).order('date_injury', { ascending: false }),
       supabase.from('medical_appointments').select('*').in('athlete_id', ids)
         .order('date_appointment', { ascending: false }),
@@ -196,6 +324,27 @@ export default function MedicalHubPage() {
   const blesseActif     = athletesWithData.filter(a => a.activeInjuries.length > 0)
   const enSurveillance  = athletesWithData.filter(a => a.surveillance.length > 0 && a.activeInjuries.length === 0)
   const aptes           = athletesWithData.filter(a => a.activeInjuries.length === 0 && a.surveillance.length === 0)
+
+  const groupedAthletes = athletesWithData.reduce((acc, athlete) => {
+    const posteKey = normalizePoste(athlete.poste)
+    if (!acc[posteKey]) acc[posteKey] = []
+    acc[posteKey].push(athlete)
+    return acc
+  }, {})
+
+  const orderedPostes = Object.keys(groupedAthletes)
+    .sort((a, b) => {
+      if (a === 'Poste non renseigné') return 1
+      if (b === 'Poste non renseigné') return -1
+      return a.localeCompare(b, 'fr')
+    })
+
+  const rosterGroups = orderedPostes.map(poste => ({
+    poste,
+    athletes: groupedAthletes[poste].sort((a, b) =>
+      (a.full_name || a.email || '').localeCompare(b.full_name || b.email || '', 'fr')
+    ),
+  }))
 
   const returns = active
     .filter(i => i.date_return)
@@ -357,49 +506,96 @@ export default function MedicalHubPage() {
 
         {/* ── TAB EFFECTIF ── */}
         {tab === 'effectif' && (
-          <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 16, overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 120px 80px', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${P.border}`, background: '#faf8f4' }}>
-              {['Joueur', 'Statut', 'Prochain RDV', ''].map(h => (
-                <div key={h} style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: P.sub }}>{h}</div>
-              ))}
-            </div>
-            {loading ? (
-              <div style={{ padding: 40, textAlign: 'center', color: P.sub }}>Chargement...</div>
-            ) : athletes.length === 0 ? (
-              <div style={{ padding: 40, textAlign: 'center', color: P.sub }}>Aucun athlète</div>
-            ) : athletesWithData.map((athlete, i) => {
-              const hasActive = athlete.activeInjuries.length > 0
-              const hasSurv = athlete.surveillance.length > 0
-              const statusColor = hasActive ? P.red : hasSurv ? P.yellow : P.green
-              const statusLabel = hasActive ? `${athlete.activeInjuries.length} blessure${athlete.activeInjuries.length > 1 ? 's' : ''}` : hasSurv ? 'Surveillance' : 'Apte'
-              const statusBg = hasActive ? '#fdecea' : hasSurv ? '#fdf6e3' : '#e8f5ee'
-              const isLast = i === athletesWithData.length - 1
+          <div style={{ display: 'grid', gap: 18 }}>
+            <div style={{
+              background: P.card,
+              border: `1px solid ${P.border}`,
+              borderRadius: 18,
+              padding: '18px 20px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 12,
+              flexWrap: 'wrap',
+            }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: P.sub, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+                  Effectif médical
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: P.text }}>
+                  Vue trombinoscope rangée par poste, à partir des données renseignées à l'onboarding.
+                </div>
+              </div>
 
-              return (
-                <div key={athlete.id} onClick={() => navigate(`/medical/${athlete.id}`)}
-                  style={{ display: 'grid', gridTemplateColumns: '1fr 140px 120px 80px', gap: 12, padding: '14px 20px', borderBottom: isLast ? 'none' : `1px solid ${P.border}`, cursor: 'pointer', background: P.card, alignItems: 'center' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#faf8f4'}
-                  onMouseLeave={e => e.currentTarget.style.background = P.card}
-                >
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', minWidth: 0 }}>
-                    <Avatar name={athlete.full_name || athlete.email} />
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: P.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{athlete.full_name || athlete.email}</div>
-                      {athlete.activeInjuries[0] && (
-                        <div style={{ fontSize: 11, color: P.red, marginTop: 2 }}>{BODY_ZONES[athlete.activeInjuries[0].body_zone]}</div>
-                      )}
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  padding: '8px 12px', borderRadius: 999, background: '#e8f5ee',
+                  color: P.green, fontSize: 12, fontWeight: 800,
+                }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: P.green, display: 'inline-block' }} />
+                  {aptes.length} aptes
+                </div>
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  padding: '8px 12px', borderRadius: 999, background: '#fdecea',
+                  color: P.red, fontSize: 12, fontWeight: 800,
+                }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: P.red, display: 'inline-block' }} />
+                  {blesseActif.length} inaptes
+                </div>
+              </div>
+            </div>
+
+            {loading ? (
+              <div style={{ padding: 40, textAlign: 'center', color: P.sub, background: P.card, border: `1px solid ${P.border}`, borderRadius: 16 }}>
+                Chargement...
+              </div>
+            ) : athletes.length === 0 ? (
+              <div style={{ padding: 40, textAlign: 'center', color: P.sub, background: P.card, border: `1px solid ${P.border}`, borderRadius: 16 }}>
+                Aucun athlète
+              </div>
+            ) : (
+              rosterGroups.map(group => (
+                <div key={group.poste} style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 18, padding: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: P.text }}>
+                        {group.poste}
+                      </div>
+                      <div style={{ fontSize: 12, color: P.sub, marginTop: 4 }}>
+                        {group.athletes.length} joueur{group.athletes.length > 1 ? 's' : ''}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: P.green, background: '#e8f5ee', borderRadius: 999, padding: '6px 10px' }}>
+                        {group.athletes.filter(a => a.activeInjuries.length === 0).length} aptes
+                      </div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: P.red, background: '#fdecea', borderRadius: 999, padding: '6px 10px' }}>
+                        {group.athletes.filter(a => a.activeInjuries.length > 0).length} inaptes
+                      </div>
                     </div>
                   </div>
-                  <div style={{ padding: '4px 10px', borderRadius: 20, background: statusBg, fontSize: 11, fontWeight: 700, color: statusColor, textAlign: 'center', whiteSpace: 'nowrap' }}>
-                    {statusLabel}
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                      gap: 16,
+                    }}
+                  >
+                    {group.athletes.map(athlete => (
+                      <MedicalRosterTile
+                        key={athlete.id}
+                        athlete={athlete}
+                        onClick={() => navigate(`/medical/${athlete.id}`)}
+                      />
+                    ))}
                   </div>
-                  <div style={{ fontSize: 12, color: athlete.nextAppt ? P.blue : P.dim }}>
-                    {athlete.nextAppt ? new Date(athlete.nextAppt.date_appointment).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '—'}
-                  </div>
-                  <div style={{ color: P.sub, fontSize: 14, textAlign: 'right' }}>›</div>
                 </div>
-              )
-            })}
+              ))
+            )}
           </div>
         )}
 
