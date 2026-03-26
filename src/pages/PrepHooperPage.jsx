@@ -301,6 +301,7 @@ export default function PrepHooperPage() {
   const { user, profile, isCoach } = useAuth()
   const today = new Date().toISOString().split('T')[0]
 
+  const [entryDate, setEntryDate] = useState(today)
   const [values, setValues] = useState({
     fatigue: 5,
     sommeil: 5,
@@ -310,13 +311,13 @@ export default function PrepHooperPage() {
   const [domsZones, setDomsZones] = useState({})
   const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
-  const [savedToday, setSavedToday] = useState(false)
+  const [savedForDate, setSavedForDate] = useState(false)
   const [history, setHistory] = useState([])
   const [tab, setTab] = useState('saisie') // 'saisie' | 'doms' | 'historique'
 
   useEffect(() => {
     if (user?.id) loadData()
-  }, [user?.id])
+  }, [user?.id, entryDate])
 
   async function loadData() {
     if (!user?.id) return
@@ -332,20 +333,23 @@ export default function PrepHooperPage() {
 
     setHistory(data)
 
-    const todayLog = data.find((d) => d.date === today)
+    const selectedLog = data.find((d) => d.date === entryDate)
 
-    if (todayLog) {
+    if (selectedLog) {
       setValues({
-        fatigue: todayLog.fatigue,
-        sommeil: todayLog.sommeil,
-        stress: todayLog.stress,
-        courbatures: todayLog.courbatures,
+        fatigue: selectedLog.fatigue,
+        sommeil: selectedLog.sommeil,
+        stress: selectedLog.stress,
+        courbatures: selectedLog.courbatures,
       })
-      setDomsZones(todayLog.doms_zones || {})
-      setNotes(todayLog.notes || '')
-      setSavedToday(true)
+      setDomsZones(selectedLog.doms_zones || {})
+      setNotes(selectedLog.notes || '')
+      setSavedForDate(true)
     } else {
-      setSavedToday(false)
+      setValues({ fatigue: 5, sommeil: 5, stress: 5, courbatures: 5 })
+      setDomsZones({})
+      setNotes('')
+      setSavedForDate(false)
     }
   }
 
@@ -363,7 +367,7 @@ export default function PrepHooperPage() {
 
     const payload = {
       user_id: user.id,
-      date: today,
+      date: entryDate,
       ...values,
       doms_zones: domsZones,
       notes,
@@ -374,7 +378,7 @@ export default function PrepHooperPage() {
     })
 
     if (!error) {
-      setSavedToday(true)
+      setSavedForDate(true)
       loadData()
 
       const score = values.fatigue + values.sommeil + values.stress + values.courbatures
@@ -458,9 +462,9 @@ export default function PrepHooperPage() {
 
           <div style={{ color: T.textMid, fontSize: 14, marginTop: 4 }}>
             {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-            {savedToday && (
+            {savedForDate && (
               <span style={{ marginLeft: 10, color: T.accentLight, fontSize: 12, fontWeight: 700 }}>
-                ✓ Rempli aujourd&apos;hui
+                ✓ Déjà enregistré pour cette date
               </span>
             )}
           </div>
@@ -468,6 +472,39 @@ export default function PrepHooperPage() {
 
         {/* Notifications push */}
         <PushNotifToggle user={user} />
+
+        <Card>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: T.text, textTransform: 'uppercase', letterSpacing: 0.8 }}>Date de saisie</div>
+                <div style={{ fontSize: 12, color: T.textDim, marginTop: 4 }}>
+                  Tu peux antidater une réponse si elle n'a pas été saisie le bon jour.
+                </div>
+              </div>
+              <input
+                type="date"
+                value={entryDate}
+                max={today}
+                onChange={(e) => setEntryDate(e.target.value || today)}
+                style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${T.border}`,
+                  borderRadius: 10,
+                  padding: '10px 12px',
+                  color: T.text,
+                  fontSize: 14,
+                  outline: 'none',
+                }}
+              />
+            </div>
+            {entryDate !== today && (
+              <div style={{ fontSize: 12, color: T.accentLight, fontWeight: 700 }}>
+                Saisie rétroactive pour le {new Date(entryDate + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </div>
+            )}
+          </div>
+        </Card>
 
         {/* Score du jour */}
         <Card glow>
@@ -648,7 +685,7 @@ export default function PrepHooperPage() {
             </Card>
 
             <Btn onClick={handleSave} disabled={saving}>
-              {saving ? 'Enregistrement...' : savedToday ? '✓ Mettre à jour' : 'Enregistrer'}
+              {saving ? 'Enregistrement...' : savedForDate ? '✓ Mettre à jour' : 'Enregistrer'}
             </Btn>
           </>
         )}
