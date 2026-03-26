@@ -32,7 +32,7 @@ export const T = {
   accent:       '#22c55e',
   accentDim:    '#16a34a',
   accentLight:  '#86efac',
-  accentGlow:   'rgba(34,197,94,0.10),
+  accentGlow:   'rgba(34,197,94,0.10)',
   accentGlowMd: 'rgba(34,197,94,0.18)',
   accentGlowSm: 'rgba(34,197,94,0.05)',
   blue:         '#60a5fa',
