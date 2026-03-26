@@ -49,27 +49,76 @@ const CHART_COLORS = {
   charge:     '#4a2d6b',
   mg1:        '#b5830a',
   mg2:        '#c0392b',
+}
 
 
-function getInbodyActionButtonStyle(disabled = false) {
+
+function normalizeScanDate(value) {
+  if (!value) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return String(value)
+
+  const match = String(value).match(/(\d{2})[\/.-](\d{2})[\/.-](\d{4})/)
+  if (match) {
+    const [, dd, mm, yyyy] = match
+    return `${yyyy}-${mm}-${dd}`
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return ''
+  return parsed.toISOString().slice(0, 10)
+}
+
+function buildInbodyInsertPayload(userId, parsed) {
+  const today = new Date().toISOString().slice(0, 10)
   return {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 8,
-    minHeight: 38,
-    padding: '0 14px',
-    borderRadius: 12,
-    border: `1px solid ${P.blue}25`,
-    background: `${P.blue}10`,
-    color: P.blue,
-    fontSize: 12,
-    fontWeight: 700,
-    cursor: disabled ? 'default' : 'pointer',
-    opacity: disabled ? 0.7 : 1,
-    whiteSpace: 'nowrap',
+    user_id: userId,
+    date: normalizeScanDate(parsed?.date) || today,
+    weight_kg: parsed?.weight != null ? parseFloat(parsed.weight) : null,
+    body_fat_pct: parsed?.body_fat_percentage != null ? parseFloat(parsed.body_fat_percentage) : null,
+    muscle_mass_kg: parsed?.skeletal_muscle_mass != null ? parseFloat(parsed.skeletal_muscle_mass) : null,
+    notes: JSON.stringify({
+      tenue: null,
+      modele_balance: 'InBody',
+      heure: null,
+      impedance: {},
+      mg1: {},
+      mg2: {},
+      silhouette: {},
+      inbody_scan: parsed || {},
+    }),
   }
 }
 
+function compressImageFile(file, { maxWidth = 1600, quality = 0.82 } = {}) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = reject
+    reader.onload = () => {
+      const img = new Image()
+      img.onerror = reject
+      img.onload = () => {
+        const scale = Math.min(1, maxWidth / img.width)
+        const width = Math.round(img.width * scale)
+        const height = Math.round(img.height * scale)
+
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          reject(new Error('Canvas indisponible'))
+          return
+        }
+        ctx.drawImage(img, 0, 0, width, height)
+
+        const dataUrl = canvas.toDataURL('image/jpeg', quality)
+        resolve(dataUrl)
+      }
+      img.src = reader.result
+    }
+    reader.readAsDataURL(file)
+  })
+}
 // ─── Hook D3-style SVG chart ──────────────────────────────────────────────────
 function useD3Chart(containerRef, data, options = {}) {
   const { color = P.green, h = 120, smooth = true, showDots = true, showArea = true, animate = true } = options
@@ -563,21 +612,25 @@ function MultiD3Chart({ series, h = 120 }) {
 }
 
 // ─── Section card ─────────────────────────────────────────────────────────────
-function Section({ title, color, icon, badge, children, defaultOpen = false, action = null }) {
+function Section({ title, color, icon, badge, children, defaultOpen = false, headerActions = null }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
     <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 16, overflow: 'hidden', marginBottom: 12 }}>
       <div onClick={() => setOpen(o => !o)}
-        style={{ padding: '18px 22px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none', gap: 16 }}>
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center', minWidth: 0 }}>
+        style={{ padding: '18px 22px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
+        <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
           <div style={{ width: 38, height: 38, borderRadius: 10, background: color+'15', border: `1px solid ${color}25`, display: 'grid', placeItems: 'center', fontSize: 17, flexShrink: 0 }}>{icon}</div>
-          <div style={{ minWidth: 0 }}>
+          <div>
             <div style={{ fontSize: 15, fontWeight: 600, color: P.text, letterSpacing: '-0.2px' }}>{title}</div>
             {badge && <div style={{ fontSize: 11, color: P.sub, marginTop: 2 }}>{badge}</div>}
           </div>
         </div>
-        <div style={{ fontSize: 11, color: P.sub, display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 }}>
-          {action ? <div onClick={(e) => e.stopPropagation()}>{action}</div> : null}
+        <div style={{ fontSize: 11, color: P.sub, display: 'flex', gap: 8, alignItems: 'center' }}>
+          {headerActions && (
+            <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center' }}>
+              {headerActions}
+            </div>
+          )}
           <span style={{ fontSize: 18, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block' }}>⌄</span>
         </div>
       </div>
@@ -669,40 +722,6 @@ export default function PrepAnalysePage() {
   }, [id])
 
   useEffect(() => { load() }, [load])
-
-  const handleInbodyFile = useCallback(async (file) => {
-    if (!file || !id || scanLoading) return
-
-    setScanLoading(true)
-    setScanError('')
-    setScanSuccess('')
-
-    try {
-      const image = await compressImageFile(file)
-      const { data: scanData, error: scanErr } = await supabase.functions.invoke('inbody-scan', {
-        body: { image },
-      })
-
-      if (scanErr) throw scanErr
-
-      const parsed = typeof scanData?.data === 'string'
-        ? JSON.parse(scanData.data)
-        : (scanData?.data || scanData || {})
-
-      const payload = buildInbodyInsertPayload(id, parsed)
-      const { error: insertErr } = await supabase.from('body_composition_logs').insert(payload)
-      if (insertErr) throw insertErr
-
-      await load()
-      setSelectedBilanIdx(null)
-      setScanSuccess(`Import InBody enregistré : ${payload.weight_kg ?? '—'} kg · ${payload.body_fat_pct ?? '—'}% MG · ${payload.muscle_mass_kg ?? '—'} kg MM`)
-    } catch (e) {
-      console.error('Erreur import InBody :', e)
-      setScanError(e?.message || "Impossible d'importer la photo InBody")
-    } finally {
-      setScanLoading(false)
-    }
-  }, [id, load, scanLoading])
 
   // ── Calculs ──────────────────────────────────────────────────────────────────
   const hooperScores = useMemo(() => data.hooper.map(h => ({
@@ -796,6 +815,42 @@ export default function PrepAnalysePage() {
 
   const dateLabel = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})
 
+
+  async function handleInbodyFile(file) {
+    if (!file) return
+    setScanLoading(true)
+    setScanError('')
+    setScanSuccess('')
+
+    try {
+      const base64 = await compressImageFile(file, { maxWidth: 1600, quality: 0.82 })
+
+      const { data: scanData, error: scanErr } = await supabase.functions.invoke('inbody-scan', {
+        body: { image: base64 },
+      })
+      if (scanErr) throw scanErr
+      if (scanData?.error) throw new Error(scanData.error)
+
+      const parsed = typeof scanData?.data === 'string'
+        ? JSON.parse(scanData.data)
+        : (scanData?.data || scanData || {})
+
+      const payload = buildInbodyInsertPayload(id, parsed)
+
+      const { error: insertErr } = await supabase.from('body_composition_logs').insert(payload)
+      if (insertErr) throw insertErr
+
+      setScanSuccess(`Import InBody enregistré : ${payload.weight_kg ?? '—'} kg · ${payload.body_fat_pct ?? '—'}% MG · ${payload.muscle_mass_kg ?? '—'} kg MM`)
+      await load()
+    } catch (e) {
+      console.error(e)
+      setScanError(e?.message || "Impossible d'importer la photo InBody")
+    } finally {
+      setScanLoading(false)
+      if (inbodyInputRef.current) inbodyInputRef.current.value = ''
+    }
+  }
+
   if (loading) return (
     <div style={{minHeight:'100vh',background:P.bg,display:'grid',placeItems:'center',fontFamily:"'DM Sans',sans-serif"}}>
       <div style={{fontSize:13,color:P.sub}}>Chargement de l'analyse...</div>
@@ -858,17 +913,8 @@ export default function PrepAnalysePage() {
           badge={lastScore !== null ? `Score actuel : ${lastScore}/40 · ${lastScore<=7?'Très bon':lastScore<=13?'Correct':lastScore<=20?'Vigilance':'⚠️ Fatigue importante'}` : 'Aucune donnée'}
           defaultOpen={true}>
           <div style={{ paddingTop:20, display:'grid', gap:24 }}>
-            {scanError ? (
-              <div style={{ padding:'10px 12px', borderRadius:10, background:'#fee2e2', border:'1px solid #fecaca', color:P.red, fontSize:12, fontWeight:700 }}>
-                {scanError}
-              </div>
-            ) : null}
 
-            {scanSuccess ? (
-              <div style={{ padding:'10px 12px', borderRadius:10, background:'#ecfdf5', border:'1px solid #bbf7d0', color:P.green, fontSize:12, fontWeight:700 }}>
-                {scanSuccess}
-              </div>
-            ) : null}
+
             <ClickableChart data={hooperScores} color={P.green} unit="" title="HOOPER — Score total /40">
               <D3Chart data={hooperScores} color={P.green} h={130} title="Score total /40" lastValue={lastScore} delta={prevScore!==null?lastScore-prevScore:null} />
             </ClickableChart>
@@ -943,42 +989,56 @@ export default function PrepAnalysePage() {
         {/* ── COMPOSITION ── */}
         <Section title="Composition corporelle" icon="⚖️" color={P.blue}
           badge={selectedC ? `${selectedC.weight_kg||'—'}kg · MG ${selectedC.body_fat_pct||'—'}% · MM ${selectedC.muscle_mass_kg||'—'}kg` : 'Aucune mesure'}
-          action={
+          headerActions={(
             <>
               <input
                 ref={inbodyInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,.pdf"
                 style={{ display: 'none' }}
-                disabled={scanLoading}
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) handleInbodyFile(file)
-                  e.target.value = ''
-                }}
+                onChange={(e) => handleInbodyFile(e.target.files?.[0])}
               />
               <button
                 type="button"
-                disabled={scanLoading}
                 onClick={() => inbodyInputRef.current?.click()}
-                style={getInbodyActionButtonStyle(scanLoading)}
+                disabled={scanLoading}
+                style={{
+                  border: `1px solid ${P.blue}33`,
+                  background: scanLoading ? `${P.blue}12` : `${P.blue}08`,
+                  color: P.blue,
+                  borderRadius: 999,
+                  height: 36,
+                  padding: '0 14px',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: scanLoading ? 'wait' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  whiteSpace: 'nowrap',
+                }}
               >
-                {scanLoading ? 'Import…' : '📸 Importer InBody'}
+                {scanLoading ? 'Analyse InBody…' : '📸 Importer InBody'}
               </button>
             </>
-          }>
+          )}>
           <div style={{ paddingTop:20, display:'grid', gap:24 }}>
-            {scanError ? (
-              <div style={{ padding:'10px 12px', borderRadius:10, background:'#fee2e2', border:'1px solid #fecaca', color:P.red, fontSize:12, fontWeight:700 }}>
-                {scanError}
-              </div>
-            ) : null}
 
-            {scanSuccess ? (
-              <div style={{ padding:'10px 12px', borderRadius:10, background:'#ecfdf5', border:'1px solid #bbf7d0', color:P.green, fontSize:12, fontWeight:700 }}>
-                {scanSuccess}
+            {(scanError || scanSuccess) && (
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  border: `1px solid ${scanError ? '#f3b0ab' : '#b7dfc8'}`,
+                  background: scanError ? '#fff5f4' : '#f3fbf5',
+                  color: scanError ? P.red : P.green,
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              >
+                {scanError || scanSuccess}
               </div>
-            ) : null}
+            )}
 
             {/* Graphiques courbes */}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px,1fr))', gap:20 }}>
