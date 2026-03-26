@@ -728,6 +728,8 @@ export default function PrepAnalysePage() {
   const lastC = data.compo[data.compo.length-1]
   const prevC = data.compo.length > 1 ? data.compo[data.compo.length-2] : null
   const [selectedBilanIdx, setSelectedBilanIdx] = useState(null)
+  const today = new Date().toISOString().slice(0, 10)
+  const [inbodyDate, setInbodyDate] = useState(today)
   const [scanLoading, setScanLoading] = useState(false)
   const [scanError, setScanError] = useState('')
   const [scanSuccess, setScanSuccess] = useState('')
@@ -826,7 +828,7 @@ export default function PrepAnalysePage() {
         ? JSON.parse(scanData.data)
         : (scanData?.data || scanData || {})
 
-      const payload = buildInbodyInsertPayload(id, parsed)
+      const payload = buildInbodyInsertPayload(id, { ...parsed, date: parsed?.date || inbodyDate })
 
       const { error: insertErr } = await supabase.from('body_composition_logs').insert(payload)
       if (insertErr) throw insertErr
@@ -980,6 +982,21 @@ export default function PrepAnalysePage() {
           badge={selectedC ? `${selectedC.weight_kg||'—'}kg · MG ${selectedC.body_fat_pct||'—'}% · MM ${selectedC.muscle_mass_kg||'—'}kg` : 'Aucune mesure'}
           action={isCoach ? (
             <>
+              <input
+                type="date"
+                value={inbodyDate}
+                max={today}
+                onChange={(e) => setInbodyDate(e.target.value || today)}
+                style={{
+                  padding:'7px 10px',
+                  borderRadius:10,
+                  border:`1px solid ${P.border}`,
+                  background:P.card,
+                  color:P.text,
+                  fontSize:12,
+                  fontWeight:600,
+                }}
+              />
               <input
                 ref={inbodyInputRef}
                 type="file"
