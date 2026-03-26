@@ -104,6 +104,7 @@ function Sparkline({ points, color = '#3ecf8e', h = 80, showDots = true, showGri
 function TopsetForm({ exercises, onSaved }) {
   const { user, profile, isCoach } = useAuth()
   const today = new Date().toISOString().split('T')[0]
+  const [entryDate, setEntryDate] = useState(today)
   const [exerciseName, setExerciseName] = useState('')
   const [showExList, setShowExList] = useState(false)
   const [sets, setSets] = useState([{ weight: '', reps: '', rpe: '' }])
@@ -151,7 +152,7 @@ function TopsetForm({ exercises, onSaved }) {
     for (const s of sets) {
       if (!s.weight) continue
       await supabase.from('topset_logs').insert({
-        user_id: user.id, date: today,
+        user_id: user.id, date: entryDate,
         exercise_name: exerciseName,
         weight_kg: parseFloat(s.weight),
         reps: parseInt(s.reps) || null,
@@ -167,6 +168,31 @@ function TopsetForm({ exercises, onSaved }) {
 
   return (
     <div style={{ display: 'grid', gap: 14 }}>
+      <div style={{ display: 'grid', gap: 6 }}>
+        <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>Date de la séance</div>
+        <input
+          type="date"
+          value={entryDate}
+          max={today}
+          onChange={e => setEntryDate(e.target.value || today)}
+          style={{
+            width: '100%',
+            background: 'rgba(255,255,255,0.04)',
+            border: `1px solid ${T.border}`,
+            borderRadius: 10,
+            padding: '10px 14px',
+            color: T.text,
+            fontSize: 14,
+            outline: 'none'
+          }}
+        />
+        {entryDate !== today && (
+          <div style={{ fontSize: 12, color: T.accentLight, fontWeight: 700 }}>
+            Saisie rétroactive pour la séance du {new Date(entryDate + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+          </div>
+        )}
+      </div>
+
       {/* Pattern de mouvement */}
       <div>
         <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>Pattern de mouvement</div>
