@@ -26,8 +26,6 @@ const POSTES = [
   'Milieu central', 'Milieu offensif', 'Attaquant', 'Avant-centre',
   // Collectifs génériques
   'Pivot', 'Ailier gauche', 'Ailier droit',
-  // Autre
-  'Autre',
 ]
 
 const BODY_ZONES = [
@@ -123,7 +121,7 @@ export default function PlayerJoinPage() {
   }
 
   function validateStep2() {
-    if (!form.poste) return 'Le poste est obligatoire'
+    if (!form.poste.trim()) return 'Le poste est obligatoire'
     if (form.has_injury && !form.injury_zone) return 'Indique la zone de ta blessure'
     return null
   }
@@ -177,7 +175,7 @@ export default function PlayerJoinPage() {
       role: 'athlete',
       gym_id: gymId,
       phone: form.phone || null,
-      poste: form.poste,
+      poste: form.poste.trim(),
     })
 
     // Relier au coach
@@ -321,10 +319,19 @@ export default function PlayerJoinPage() {
             <>
               <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 20 }}>Ton profil sportif</div>
               <Field label="Poste principal" required>
-                <select value={form.poste} onChange={e => set('poste', e.target.value)} style={{ ...inp, appearance: 'none' }}>
-                  <option value="">Sélectionne ton poste</option>
-                  {POSTES.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
+                <input
+                  list="poste-options"
+                  value={form.poste}
+                  onChange={e => set('poste', e.target.value)}
+                  placeholder="Ex : Gardien, Pilier droit, Demi de mêlée..."
+                  style={inp}
+                />
+                <datalist id="poste-options">
+                  {POSTES.map(p => <option key={p} value={p} />)}
+                </datalist>
+                <div style={{ fontSize: 11, color: C.sub, marginTop: 6, lineHeight: 1.5 }}>
+                  Le joueur peut saisir librement son poste. Cette valeur sera ensuite réutilisée dans l'effectif médical pour ranger le trombinoscope par poste.
+                </div>
               </Field>
 
               <div style={{ marginBottom: 16 }}>
