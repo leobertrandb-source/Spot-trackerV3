@@ -7,20 +7,26 @@ import DomsPanelClickable from '../components/DomsPanelClickable'
 
 // ─── Design tokens — médical premium ─────────────────────────────────────────
 const P = {
-  bg:      '#f5f3ef',
+  bg:      '#f6f8fb',
+  bgSoft:  '#eef3f8',
   card:    '#ffffff',
-  border:  '#e8e4dc',
-  text:    '#1a1a1a',
-  sub:     '#6b6b6b',
-  dim:     '#9e9e9e',
-  accent:  '#1a3a2a',
-  green:   '#2d6a4f',
-  yellow:  '#b5830a',
-  red:     '#c0392b',
-  blue:    '#1a3a5c',
-  purple:  '#4a2d6b',
-  teal:    '#1a5c52',
+  cardAlt: '#f8fafc',
+  border:  '#dbe4ee',
+  text:    '#0f172a',
+  sub:     '#64748b',
+  dim:     '#94a3b8',
+  accent:  '#2563eb',
+  accent2: '#1d4ed8',
+  green:   '#16a34a',
+  yellow:  '#d97706',
+  red:     '#dc2626',
+  blue:    '#0f766e',
+  purple:  '#7c3aed',
+  teal:    '#0891b2',
+  shadowSm:'0 8px 24px rgba(15,23,42,0.06)',
+  shadowMd:'0 18px 40px rgba(15,23,42,0.08)',
 }
+
 
 const DOMS_ZONES = [
   { key: 'nuque',      label: 'Nuque / Cou' },
@@ -609,22 +615,22 @@ function MultiD3Chart({ series, h = 120 }) {
 function Section({ title, color, icon, badge, children, defaultOpen = false, action = null }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 16, overflow: 'hidden', marginBottom: 12 }}>
+    <div style={{ background: P.card, border: `1px solid ${P.border}`, borderRadius: 22, overflow: 'hidden', marginBottom: 16, boxShadow: P.shadowSm }}>
       <div onClick={() => setOpen(o => !o)}
-        style={{ padding: '18px 22px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}>
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: color+'15', border: `1px solid ${color}25`, display: 'grid', placeItems: 'center', fontSize: 17, flexShrink: 0 }}>{icon}</div>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: P.text, letterSpacing: '-0.2px' }}>{title}</div>
-            {badge && <div style={{ fontSize: 11, color: P.sub, marginTop: 2 }}>{badge}</div>}
+        style={{ padding: '18px 22px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none', gap: 14, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 14, alignItems: 'center', minWidth: 0 }}>
+          <div style={{ width: 42, height: 42, borderRadius: 14, background: color+'15', border: `1px solid ${color}25`, display: 'grid', placeItems: 'center', fontSize: 18, flexShrink: 0, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7)' }}>{icon}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: P.text, letterSpacing: '-0.3px' }}>{title}</div>
+            {badge && <div style={{ fontSize: 12, color: P.sub, marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{badge}</div>}
           </div>
         </div>
-        <div style={{ fontSize: 11, color: P.sub, display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ fontSize: 11, color: P.sub, display: 'flex', gap: 12, alignItems: 'center', marginLeft: 'auto' }}>
           {action && <div onClick={(e) => e.stopPropagation()}>{action}</div>}
-          <span style={{ fontSize: 18, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', display: 'inline-block' }}>⌄</span>
+          <span style={{ width: 32, height: 32, borderRadius: 999, background: P.bgSoft, display: 'grid', placeItems: 'center', fontSize: 18, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', color: P.sub }}>⌄</span>
         </div>
       </div>
-      {open && <div style={{ padding: '0 22px 22px', borderTop: `1px solid ${P.border}` }}>{children}</div>}
+      {open && <div style={{ padding: '0 22px 22px', borderTop: `1px solid ${P.border}`, background: 'linear-gradient(180deg, rgba(248,250,252,0.65) 0%, rgba(255,255,255,1) 90%)' }}>{children}</div>}
     </div>
   )
 }
@@ -632,16 +638,17 @@ function Section({ title, color, icon, badge, children, defaultOpen = false, act
 // ─── Stat pill ────────────────────────────────────────────────────────────────
 function StatPill({ label, value, unit, color, delta, deltaUnit }) {
   return (
-    <div style={{ padding: '12px 16px', background: P.bg, borderRadius: 10, border: `1px solid ${P.border}` }}>
-      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase', color: P.sub, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, color, fontFamily: "'DM Serif Display', serif", lineHeight: 1 }}>
-        {value}<span style={{ fontSize: 12, fontWeight: 400, color: P.sub, marginLeft: 3 }}>{unit}</span>
+    <div style={{ padding: '14px 16px', background: P.card, borderRadius: 18, border: `1px solid ${P.border}`, boxShadow: P.shadowSm, minHeight: 96, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: P.sub }}>{label}</div>
+      <div style={{ fontSize: 26, fontWeight: 700, color, fontFamily: "'DM Serif Display', serif", lineHeight: 1.05, marginTop: 8 }}>
+        {value}<span style={{ fontSize: 12, fontWeight: 500, color: P.sub, marginLeft: 4 }}>{unit}</span>
       </div>
-      {delta != null && (
-        <div style={{ fontSize: 11, color: delta > 0 ? P.red : P.green, marginTop: 4, fontWeight: 600 }}>
-          {delta > 0 ? '↑' : '↓'} {Math.abs(Math.round(delta*10)/10)}{deltaUnit}
+      {delta != null ? (
+        <div style={{ fontSize: 11, color: delta > 0 ? P.red : P.green, marginTop: 8, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span>{delta > 0 ? '↑' : '↓'}</span>
+          <span>{Math.abs(Math.round(delta*10)/10)}{deltaUnit}</span>
         </div>
-      )}
+      ) : <div style={{ height: 16 }} />}
     </div>
   )
 }
@@ -854,41 +861,56 @@ export default function PrepAnalysePage() {
         * { box-sizing: border-box; }
       `}</style>
 
-      <div style={{ maxWidth: 900, margin: '0 auto' }}>
+      <div style={{ width:'100%', maxWidth: 1240, margin: '0 auto' }}>
 
         {/* Navigation */}
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:28, flexWrap:'wrap', gap:12 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:28, flexWrap:'wrap', gap:12, padding:'12px 4px' }}>
           <button onClick={() => navigate(-1)}
-            style={{ background:'none', border:'none', color:P.sub, cursor:'pointer', fontSize:13, fontWeight:500, padding:0, display:'flex', gap:6, alignItems:'center' }}>
+            style={{ background:'none', border:'none', color:P.sub, cursor:'pointer', fontSize:13, fontWeight:600, padding:0, display:'flex', gap:6, alignItems:'center' }}>
             ← Retour
           </button>
           <div style={{ display:'flex', gap:8 }}>
             {isCoach && (
               <button onClick={() => setRtpOpen(true)}
-                style={{ padding:'7px 16px', borderRadius:20, border:`1px solid ${P.accent}`, background:`${P.accent}10`, color:P.accent, fontSize:12, cursor:'pointer', fontWeight:700 }}>
+                style={{ padding:'10px 16px', borderRadius:999, border:'none', background:P.accent, color:'#fff', fontSize:12, cursor:'pointer', fontWeight:700, boxShadow:P.shadowSm }}>
                 🎮 Protocole RTP
               </button>
             )}
             <button onClick={load}
-              style={{ padding:'7px 14px', borderRadius:20, border:`1px solid ${P.border}`, background:'transparent', color:P.sub, fontSize:11, cursor:'pointer', fontWeight:600 }}>
+              style={{ padding:'10px 14px', borderRadius:999, border:`1px solid ${P.border}`, background:P.card, color:P.sub, fontSize:11, cursor:'pointer', fontWeight:700, boxShadow:P.shadowSm }}>
               ↻ Actualiser
             </button>
           </div>
         </div>
 
         {/* Header athlète */}
-        <div style={{ marginBottom:32 }}>
-          <div style={{ fontSize:11, fontWeight:600, letterSpacing:2, textTransform:'uppercase', color:P.sub, marginBottom:6 }}>
-            {gymName} · Analyse prépa physique
+        <div style={{ marginBottom:28, background:'linear-gradient(135deg, #ffffff 0%, #f8fbff 100%)', border:`1px solid ${P.border}`, borderRadius:28, padding:'22px 24px', boxShadow:P.shadowMd }}>
+          <div style={{ display:'flex', justifyContent:'space-between', gap:18, alignItems:'flex-start', flexWrap:'wrap' }}>
+            <div>
+              <div style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'6px 10px', borderRadius:999, background:P.bgSoft, color:P.accent, fontSize:11, fontWeight:700, letterSpacing:1, textTransform:'uppercase', marginBottom:10 }}>
+                <span style={{ width:8, height:8, borderRadius:'50%', background:P.green, display:'inline-block' }} />
+                {gymName} · Analyse prépa physique
+              </div>
+              <h1 style={{ fontFamily:"'DM Serif Display', serif", fontSize:'clamp(28px,4vw,42px)', fontWeight:400, color:P.text, margin:0, lineHeight:1.08, letterSpacing:'-0.03em' }}>
+                {client?.full_name || client?.email}
+              </h1>
+              <div style={{ fontSize:14, color:P.sub, marginTop:8, textTransform:'capitalize' }}>{dateLabel}</div>
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(2, minmax(150px, 1fr))', gap:10, minWidth:'min(100%, 340px)' }}>
+              <div style={{ padding:'12px 14px', borderRadius:18, background:P.cardAlt, border:`1px solid ${P.border}` }}>
+                <div style={{ fontSize:10, fontWeight:700, letterSpacing:1, textTransform:'uppercase', color:P.sub, marginBottom:6 }}>Mesure active</div>
+                <div style={{ fontSize:14, fontWeight:700, color:P.text }}>{selectedC?.date ? new Date(selectedC.date+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'}) : 'Aucune mesure'}</div>
+              </div>
+              <div style={{ padding:'12px 14px', borderRadius:18, background:P.cardAlt, border:`1px solid ${P.border}` }}>
+                <div style={{ fontSize:10, fontWeight:700, letterSpacing:1, textTransform:'uppercase', color:P.sub, marginBottom:6 }}>Dernier statut</div>
+                <div style={{ fontSize:14, fontWeight:700, color:lastScore == null ? P.sub : scoreColor(lastScore) }}>{lastScore == null ? 'À renseigner' : `${lastScore}/40 HOOPER`}</div>
+              </div>
+            </div>
           </div>
-          <h1 style={{ fontFamily:"'DM Serif Display', serif", fontSize:'clamp(24px,4vw,34px)', fontWeight:400, color:P.text, margin:0, lineHeight:1.2 }}>
-            {client?.full_name || client?.email}
-          </h1>
-          <div style={{ fontSize:13, color:P.sub, marginTop:6, textTransform:'capitalize' }}>{dateLabel}</div>
         </div>
 
         {/* Résumé rapide */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(130px,1fr))', gap:10, marginBottom:28 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(190px,1fr))', gap:14, marginBottom:30 }}>
           {lastScore !== null && (
             <StatPill label="HOOPER" value={lastScore} unit="/40" color={scoreColor(lastScore)} delta={prevScore !== null ? lastScore-prevScore : null} deltaUnit="" />
           )}
@@ -991,20 +1013,21 @@ export default function PrepAnalysePage() {
         <Section title="Composition corporelle" icon="⚖️" color={P.blue}
           badge={selectedC ? `${selectedC.weight_kg||'—'}kg · MG ${selectedC.body_fat_pct||'—'}% · MM ${selectedC.muscle_mass_kg||'—'}kg` : 'Aucune mesure'}
           action={isCoach ? (
-            <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', justifyContent:'flex-end' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', justifyContent:'flex-end' }}>
               <input
                 type="date"
                 value={inbodyDate}
                 max={today}
                 onChange={(e) => setInbodyDate(e.target.value || today)}
                 style={{
-                  padding:'7px 10px',
-                  borderRadius:10,
+                  height:40,
+                  padding:'0 12px',
+                  borderRadius:12,
                   border:`1px solid ${P.border}`,
-                  background:P.card,
+                  background:P.cardAlt,
                   color:P.text,
-                  fontSize:12,
-                  fontWeight:600,
+                  fontSize:13,
+                  fontWeight:700,
                 }}
               />
               <input
@@ -1019,15 +1042,17 @@ export default function PrepAnalysePage() {
                 onClick={() => inbodyInputRef.current?.click()}
                 disabled={scanLoading}
                 style={{
-                  padding:'8px 12px',
-                  borderRadius:999,
-                  border:`1px solid ${P.accent}`,
-                  background:`${P.accent}10`,
-                  color:P.accent,
-                  fontSize:12,
+                  height:40,
+                  padding:'0 14px',
+                  borderRadius:12,
+                  border:'none',
+                  background: scanLoading ? '#93c5fd' : P.accent,
+                  color:'#fff',
+                  fontSize:13,
                   cursor:scanLoading ? 'wait' : 'pointer',
-                  fontWeight:700,
+                  fontWeight:800,
                   whiteSpace:'nowrap',
+                  boxShadow:P.shadowSm,
                 }}
               >
                 {scanLoading ? 'Import...' : '📸 Importer InBody'}
