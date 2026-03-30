@@ -86,6 +86,8 @@ export default function PlayerJoinPage() {
     injury_desc: '',
     password: '',
     confirm_password: '',
+    terms_accepted: false,
+    health_consent: false,
   })
 
   const set = (key, val) => setForm(p => ({ ...p, [key]: val }))
@@ -129,6 +131,8 @@ export default function PlayerJoinPage() {
   function validateStep3() {
     if (!form.password || form.password.length < 6) return 'Mot de passe minimum 6 caractères'
     if (form.password !== form.confirm_password) return 'Les mots de passe ne correspondent pas'
+    if (!form.terms_accepted) return 'Vous devez accepter les conditions générales'
+    if (form.has_injury && !form.health_consent) return 'Vous devez consentir au traitement de vos données de santé'
     return null
   }
 
@@ -386,6 +390,40 @@ export default function PlayerJoinPage() {
                   placeholder="Retape ton mot de passe" style={inp} />
               </Field>
             </>
+          )}
+
+          {/* Consentements RGPD */}
+          {step === 3 && (
+            <div style={{ marginTop: 16, display: 'grid', gap: 10 }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                <div onClick={() => set('terms_accepted', !form.terms_accepted)} style={{
+                  width: 20, height: 20, borderRadius: 6, flexShrink: 0, marginTop: 1,
+                  border: `1.5px solid ${form.terms_accepted ? C.accent : C.border}`,
+                  background: form.terms_accepted ? C.accent : 'transparent',
+                  display: 'grid', placeItems: 'center', cursor: 'pointer', transition: 'all 0.15s',
+                }}>
+                  {form.terms_accepted && <span style={{ color: '#080808', fontSize: 12, fontWeight: 700 }}>✓</span>}
+                </div>
+                <span style={{ fontSize: 12, color: C.sub, lineHeight: 1.5 }}>
+                  J'accepte les <a href="/politique-confidentialite" target="_blank" style={{ color: C.accent }}>conditions générales et la politique de confidentialité</a> d'Atlyo. <span style={{ color: C.accent }}>*</span>
+                </span>
+              </label>
+              {form.has_injury && (
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+                  <div onClick={() => set('health_consent', !form.health_consent)} style={{
+                    width: 20, height: 20, borderRadius: 6, flexShrink: 0, marginTop: 1,
+                    border: `1.5px solid ${form.health_consent ? C.accent : C.border}`,
+                    background: form.health_consent ? C.accent : 'transparent',
+                    display: 'grid', placeItems: 'center', cursor: 'pointer', transition: 'all 0.15s',
+                  }}>
+                    {form.health_consent && <span style={{ color: '#080808', fontSize: 12, fontWeight: 700 }}>✓</span>}
+                  </div>
+                  <span style={{ fontSize: 12, color: C.sub, lineHeight: 1.5 }}>
+                    Je consens explicitement au traitement de mes <strong style={{ color: C.text }}>données de santé</strong> (blessures, composition corporelle) par mon staff dans le cadre de mon suivi sportif, conformément à l'article 9 du RGPD. <span style={{ color: C.accent }}>*</span>
+                  </span>
+                </label>
+              )}
+            </div>
           )}
 
           {/* Boutons navigation */}
