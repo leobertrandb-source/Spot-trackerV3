@@ -49,6 +49,7 @@ import MedicalHubPage from './pages/MedicalHubPage'
 import CalendarPage from './pages/CalendarPage'
 import TrainingAttendancePage from './pages/TrainingAttendancePage'
 import MyAttendancePage from './pages/MyAttendancePage'
+import AthleteDashboardPage from './pages/AthleteDashboardPage'
 
 import { T } from './lib/data'
 import PrivacyPage from './pages/PrivacyPage'
@@ -106,7 +107,7 @@ function PrivateAppShell() {
   const isStaffMedical = profile?.role === 'staff_medical'
   const hasGoal        = !!profile?.goal_type
   const athleteHome    = hasGoal ? '/mon-espace' : '/objectif'
-  const defaultRoute   = isCoach ? '/coach' : isStaffMedical ? '/medical' : athleteHome
+  const defaultRoute   = isCoach ? '/coach' : isStaffMedical ? '/medical' : (canPrepPhysique ? '/mon-tableau-de-bord' : athleteHome)
 
   const canCoachingPerso = showCoachingPerso
   const canPrepPhysique  = showPrepPhysique
@@ -164,7 +165,8 @@ function PrivateAppShell() {
           <Route path="/nutrition/recette/:id"
             element={isCoach ? <Navigate to="/coach" replace /> : canCoachingPerso ? <RecipeDetailPage /> : <Navigate to={athleteHome} replace />}
           />
-          <Route path="/exercices" element={<ExercisesPage />} />
+          <Route path="/exercices" element={!canPrepPhysique ? <ExercisesPage /> : <Navigate to="/mon-tableau-de-bord" replace />} />
+          <Route path="/mon-tableau-de-bord" element={canPrepPhysique && !isCoach && !isStaffMedical ? <AthleteDashboardPage /> : <Navigate to={defaultRoute} replace />} />
 
           {/* ── PRÉPA PHYSIQUE ── */}
           <Route path="/prep/hooper"         element={canPrepPhysique ? <PrepHooperPage />       : <Navigate to={athleteHome} replace />} />
