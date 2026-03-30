@@ -51,6 +51,7 @@ import TrainingAttendancePage from './pages/TrainingAttendancePage'
 import MyAttendancePage from './pages/MyAttendancePage'
 
 import { T } from './lib/data'
+import PrivacyPage from './pages/PrivacyPage'
 
 function LoadingScreen() {
   return (
@@ -232,6 +233,7 @@ function RootRouter() {
   return (
     <Routes>
       <Route path="/invite/:token" element={<InviteRoute />} />
+      <Route path="/politique-confidentialite" element={<PrivacyPage />} />
       <Route path="/join/:token" element={<PlayerJoinPage />} />
       <Route path="/coach-kiosk" element={<ClubKioskPage />} />
       <Route path="/coach-kiosk/hooper/:playerId" element={<ClubKioskHooperPage />} />
