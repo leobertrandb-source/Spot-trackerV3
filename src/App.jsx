@@ -106,12 +106,13 @@ function PrivateAppShell() {
   const isCoach        = profile?.role === 'coach'
   const isStaffMedical = profile?.role === 'staff_medical'
   const hasGoal        = !!profile?.goal_type
-  const athleteHome    = hasGoal ? '/mon-espace' : '/objectif'
-  const defaultRoute   = isCoach ? '/coach' : isStaffMedical ? '/medical' : (canPrepPhysique ? '/mon-tableau-de-bord' : athleteHome)
 
   const canCoachingPerso = showCoachingPerso
   const canPrepPhysique  = showPrepPhysique
   const canMedical       = canPrepPhysique && (isCoach || isStaffMedical)
+
+  const athleteHome  = hasGoal ? '/mon-espace' : '/objectif'
+  const defaultRoute = isCoach ? '/coach' : isStaffMedical ? '/medical' : (canPrepPhysique ? '/mon-tableau-de-bord' : athleteHome)
 
   return (
     <DirtyProvider>
