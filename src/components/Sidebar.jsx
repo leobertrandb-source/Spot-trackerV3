@@ -17,14 +17,14 @@ const PS = {
 const NAV_ACCENTS = {
   '/coach': '#60a5fa',
   '/coach/clients': '#a78bfa',
-  '/programmes': '#22c55e',
+  '/programmes': '#3ecf8e',
   '/exercices': '#fb923c',
   '/mon-tableau-de-bord': '#3ecf8e',
   '/mon-espace': '#22d3ee',
   '/entrainement/aujourdhui': '#f43f5e',
-  '/entrainement/libre': '#22c55e',
+  '/entrainement/libre': '#3ecf8e',
   '/progression': '#f59e0b',
-  '/nutrition/macros': '#22c55e',
+  '/nutrition/macros': '#3ecf8e',
   '/nutrition/recettes': '#f59e0b',
   '/programme/bodybuilding': '#a78bfa',
   '/programme/perte-de-poids': '#fb923c',
@@ -32,7 +32,7 @@ const NAV_ACCENTS = {
   '/prep/hooper': '#f59e0b',
   '/prep/charge': '#60a5fa',
   '/prep/compo': '#a78bfa',
-  '/prep/topset': '#22c55e',
+  '/prep/topset': '#3ecf8e',
   '/prep/charge-externe': '#f59e0b',
   '/prep/dashboard': '#a78bfa',
   '/medical': '#f43f5e',
@@ -133,7 +133,7 @@ function SectionLabel({ children }) {
 
 function Avatar({ name, role }) {
   const initials = (name || '?').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
-  const color = role === 'coach' ? '#60a5fa' : '#22c55e'
+  const color = role === 'coach' ? '#60a5fa' : '#3ecf8e'
   return (
     <div
       style={{
@@ -175,7 +175,6 @@ function SidebarFrame({ children, isMobile }) {
       }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
         @keyframes navSlideIn { from { opacity: 0; transform: translateX(-8px) } to { opacity: 1; transform: translateX(0) } }
         .nav-logout:hover { background: rgba(244,63,94,0.08) !important; border-color: rgba(244,63,94,0.22) !important; color: #fda4af !important; }
       `}</style>

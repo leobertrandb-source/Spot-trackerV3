@@ -8,6 +8,11 @@
   <!-- PWA Manifest -->
   <link rel="manifest" href="/manifest.json" />
 
+  <!-- Fonts — centralisé ici pour toute l'appli -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=Syne:wght@700;800;900&display=swap" rel="stylesheet" />
+
   <!-- Theme color (barre navigateur Android) -->
   <meta name="theme-color" content="#3ecf8e" />
 
@@ -43,22 +48,24 @@
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     html { scroll-behavior: smooth; }
     body {
-      background: #050607;
-      color: #f5f7fa;
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: #080d14;
+      color: #f0f4f8;
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, Helvetica, Arial, sans-serif;
       -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
       overflow-x: hidden;
       padding-top: env(safe-area-inset-top);
       padding-bottom: env(safe-area-inset-bottom);
     }
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: #080a0d; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 6px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(57,224,122,0.35); }
-    ::selection { background: rgba(57,224,122,0.18); color: #39e07a; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(62,207,142,0.30); }
+    ::selection { background: rgba(62,207,142,0.18); color: #3ecf8e; }
     input[type="number"]::-webkit-inner-spin-button,
     input[type="number"]::-webkit-outer-spin-button { opacity: 0.4; }
-    select option { background: rgba(18, 22, 28, 0.95); color: #f5f7fa; }
+    select option { background: #0c1520; color: #f0f4f8; }
+    * { font-family: inherit; }
   </style>
 </head>
 <body>
