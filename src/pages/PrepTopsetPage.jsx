@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-import { PageWrap, Card, Btn } from '../components/UI'
-import { T } from '../lib/data'
+import { LIGHT as T } from '../lib/data'
+
+const _card = (accent = false) => ({ background: T.card, border: `1px solid ${accent ? T.accent + '30' : T.border}`, borderRadius: T.radiusLg, padding: 18, boxShadow: T.shadowSm })
+const _btn  = (disabled) => ({ height: 46, borderRadius: T.radius, background: T.accent, color: '#fff', border: 'none', fontWeight: 800, fontSize: 14, cursor: disabled ? 'wait' : 'pointer', opacity: disabled ? 0.7 : 1, width: '100%' })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function calc1RM(weight, reps) {
@@ -89,7 +91,7 @@ function Sparkline({ points, color = '#3ecf8e', h = 80, showDots = true, showGri
         </linearGradient>
       </defs>
       {showGrid && [0.25, 0.5, 0.75].map(r => (
-        <line key={r} x1={0} y1={h * r} x2={W} y2={h * r} stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
+        <line key={r} x1={0} y1={h * r} x2={W} y2={h * r} stroke={T.border} strokeWidth="0.5" />
       ))}
       <path d={areaD} fill={`url(#grad-${color.replace('#','')})`} />
       <path d={pathD} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -177,7 +179,7 @@ function TopsetForm({ exercises, onSaved }) {
           onChange={e => setEntryDate(e.target.value || today)}
           style={{
             width: '100%',
-            background: 'rgba(255,255,255,0.04)',
+            background: T.bgAlt,
             border: `1px solid ${T.border}`,
             borderRadius: 10,
             padding: '10px 14px',
@@ -187,7 +189,7 @@ function TopsetForm({ exercises, onSaved }) {
           }}
         />
         {entryDate !== today && (
-          <div style={{ fontSize: 12, color: T.accentLight, fontWeight: 700 }}>
+          <div style={{ fontSize: 12, color: T.accent, fontWeight: 700 }}>
             Saisie rétroactive pour la séance du {new Date(entryDate + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
           </div>
         )}
@@ -211,22 +213,22 @@ function TopsetForm({ exercises, onSaved }) {
         <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Exercice</div>
         {selectedPattern ? (
           <select value={exerciseName} onChange={e => setExerciseName(e.target.value)}
-            style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 14px', color: exerciseName ? T.text : T.textDim, fontSize: 14, outline: 'none', appearance: 'none', cursor: 'pointer' }}>
-            <option value="" style={{ background: '#1a1f2e' }}>— Choisir un exercice —</option>
-            {filteredEx.map(ex => <option key={ex} value={ex} style={{ background: '#1a1f2e' }}>{ex}</option>)}
+            style={{ width: '100%', background: T.bgAlt, border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 14px', color: exerciseName ? T.text : T.textDim, fontSize: 14, outline: 'none', appearance: 'none', cursor: 'pointer' }}>
+            <option value="" style={{ background: T.card }}>— Choisir un exercice —</option>
+            {filteredEx.map(ex => <option key={ex} value={ex} style={{ background: T.card }}>{ex}</option>)}
           </select>
         ) : (
           <>
             <input value={exerciseName} onChange={e => { setExerciseName(e.target.value); setShowExList(true) }}
               onFocus={() => setShowExList(true)}
               placeholder="Ou tape un exercice directement..."
-              style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 14px', color: T.text, fontSize: 14, outline: 'none' }} />
+              style={{ width: '100%', boxSizing: 'border-box', background: T.bgAlt, border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 14px', color: T.text, fontSize: 14, outline: 'none' }} />
             {showExList && filteredEx.length > 0 && exerciseName && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, background: '#1a1f2e', border: `1px solid ${T.border}`, borderRadius: 10, maxHeight: 180, overflowY: 'auto', marginTop: 4 }}>
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20, background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, maxHeight: 180, overflowY: 'auto', marginTop: 4 }}>
                 {filteredEx.slice(0, 8).map(ex => (
                   <div key={ex} onClick={() => { setExerciseName(ex); setShowExList(false) }}
                     style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 13, color: T.text, borderBottom: `1px solid ${T.border}22` }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                    onMouseEnter={e => e.currentTarget.style.background = T.bgAlt}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                     {ex}
                   </div>
@@ -253,13 +255,13 @@ function TopsetForm({ exercises, onSaved }) {
             const rm = calc1RM(s.weight, s.reps)
             return (
               <div key={i} style={{ display: 'grid', gridTemplateColumns: '28px 1fr 1fr 1fr 80px 28px', gap: 6, alignItems: 'center' }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: T.accentLight, textAlign: 'center' }}>{i + 1}</div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, textAlign: 'center' }}>{i + 1}</div>
                 {['weight', 'reps', 'rpe'].map(key => (
                   <input key={key} type="number" value={s[key]} onChange={e => updateSet(i, key, e.target.value)}
                     placeholder={key === 'weight' ? 'kg' : key === 'reps' ? 'reps' : 'RPE'}
-                    style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${s.rpe && key === 'rpe' ? RPE_COLORS[Math.round(s.rpe)] + '40' : T.border}`, borderRadius: 8, padding: '8px', color: T.text, fontSize: 14, outline: 'none', textAlign: 'center', width: '100%', boxSizing: 'border-box' }} />
+                    style={{ background: T.bgAlt, border: `1px solid ${s.rpe && key === 'rpe' ? RPE_COLORS[Math.round(s.rpe)] + '40' : T.border}`, borderRadius: 8, padding: '8px', color: T.text, fontSize: 14, outline: 'none', textAlign: 'center', width: '100%', boxSizing: 'border-box' }} />
                 ))}
-                <div style={{ fontSize: 13, fontWeight: 800, color: rm ? T.accentLight : T.textDim, textAlign: 'center' }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: rm ? T.accent : T.textDim, textAlign: 'center' }}>
                   {rm ? `${rm}` : '—'}
                 </div>
                 <button onClick={() => removeSet(i)} style={{ width: 28, height: 28, borderRadius: 7, background: 'none', border: `1px solid ${T.border}`, color: T.textDim, cursor: 'pointer', fontSize: 14, display: 'grid', placeItems: 'center' }}>×</button>
@@ -268,7 +270,7 @@ function TopsetForm({ exercises, onSaved }) {
           })}
         </div>
 
-        <button onClick={addSet} style={{ marginTop: 8, width: '100%', padding: '8px', borderRadius: 10, background: `${T.accent}10`, border: `1px dashed ${T.accent}30`, color: T.accentLight, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+        <button onClick={addSet} style={{ marginTop: 8, width: '100%', padding: '8px', borderRadius: 10, background: `${T.accent}10`, border: `1px dashed ${T.accent}30`, color: T.accent, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
           + Série
         </button>
       </div>
@@ -279,7 +281,7 @@ function TopsetForm({ exercises, onSaved }) {
           {best1RM && (
             <div style={{ padding: '10px 14px', background: 'rgba(62,207,142,0.08)', border: '1px solid rgba(62,207,142,0.2)', borderRadius: 10, textAlign: 'center' }}>
               <div style={{ fontSize: 10, color: T.textDim, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>Meilleur 1RM</div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: T.accentLight, fontFamily: T.fontDisplay }}>{best1RM} <span style={{ fontSize: 11 }}>kg</span></div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: T.accent, fontFamily: T.fontDisplay }}>{best1RM} <span style={{ fontSize: 11 }}>kg</span></div>
             </div>
           )}
           {totalVolume > 0 && (
@@ -294,11 +296,11 @@ function TopsetForm({ exercises, onSaved }) {
       <textarea value={notes} onChange={e => setNotes(e.target.value)}
         placeholder="Conditions, ressenti, technique..."
         rows={2}
-        style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 12px', color: T.text, fontSize: 14, outline: 'none', resize: 'none', boxSizing: 'border-box' }} />
+        style={{ width: '100%', background: T.bgAlt, border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 12px', color: T.text, fontSize: 14, outline: 'none', resize: 'none', boxSizing: 'border-box' }} />
 
-      <Btn onClick={handleSave} disabled={saving || !exerciseName || sets.every(s => !s.weight)}>
+      <button style={_btn(saving || !exerciseName || sets.every(s => !s.weight))} onClick={handleSave} disabled={saving || !exerciseName || sets.every(s => !s.weight)}>
         {saving ? 'Enregistrement...' : 'Enregistrer le TOPSET'}
-      </Btn>
+      </button>
     </div>
   )
 }
@@ -385,7 +387,7 @@ export default function PrepTopsetPage() {
   ]
 
   return (
-    <PageWrap>
+    <div style={{ minHeight: '100vh', background: T.bg, fontFamily: T.fontBody, padding: 'clamp(20px,3vw,36px) clamp(16px,3vw,28px) 48px' }}>
       <style>{`
         .topset-set-row { display: grid; grid-template-columns: 28px 1fr 1fr 1fr 80px 28px; gap: 6px; }
         @media (max-width: 480px) { .topset-set-row { grid-template-columns: 24px 1fr 1fr 1fr 24px; } }
@@ -395,7 +397,7 @@ export default function PrepTopsetPage() {
 
         {/* Header */}
         <div>
-          <div style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: 999, border: `1px solid ${T.accent}28`, background: T.accentGlowSm, color: T.accentLight, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
+          <div style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: 999, border: `1px solid ${T.accent}28`, background: T.accentGlowSm, color: T.accent, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
             Prépa physique
           </div>
           <div style={{ fontSize: 'clamp(22px,5vw,28px)', fontWeight: 900, color: T.text, fontFamily: T.fontDisplay }}>TOPSET</div>
@@ -406,7 +408,7 @@ export default function PrepTopsetPage() {
         <div style={{ display: 'flex', gap: 6 }}>
           {TABS.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              style={{ flex: 1, padding: '9px', borderRadius: 10, border: `1px solid ${tab === t.key ? T.accent + '40' : T.border}`, background: tab === t.key ? `${T.accent}12` : 'transparent', color: tab === t.key ? T.accentLight : T.textDim, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              style={{ flex: 1, padding: '9px', borderRadius: 10, border: `1px solid ${tab === t.key ? T.accent + '40' : T.border}`, background: tab === t.key ? `${T.accent}12` : 'transparent', color: tab === t.key ? T.accent : T.textDim, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
               {t.label}
             </button>
           ))}
@@ -414,9 +416,9 @@ export default function PrepTopsetPage() {
 
         {/* ── Saisie ── */}
         {tab === 'saisie' && (
-          <Card>
+          <div style={_card()}>
             <TopsetForm exercises={exercises} onSaved={load} />
-          </Card>
+          </div>
         )}
 
         {/* ── Records ── */}
@@ -442,7 +444,7 @@ export default function PrepTopsetPage() {
                       </div>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontSize: 24, fontWeight: 900, color: T.accentLight, fontFamily: T.fontDisplay, lineHeight: 1 }}>{pr.rm}</div>
+                      <div style={{ fontSize: 24, fontWeight: 900, color: T.accent, fontFamily: T.fontDisplay, lineHeight: 1 }}>{pr.rm}</div>
                       <div style={{ fontSize: 10, color: T.textDim }}>kg 1RM est.</div>
                     </div>
                   </div>
@@ -456,17 +458,17 @@ export default function PrepTopsetPage() {
         {tab === 'analyse' && (
           <>
             {/* Sélecteur exercice */}
-            <Card>
+            <div style={_card()}>
               <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 10 }}>Choisir un exercice</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {exerciseNames.map(ex => (
                   <button key={ex} onClick={() => setSelectedEx(ex)}
-                    style={{ padding: '7px 12px', borderRadius: 10, border: `1px solid ${selectedEx === ex ? T.accent + '50' : T.border}`, background: selectedEx === ex ? `${T.accent}15` : 'transparent', color: selectedEx === ex ? T.accentLight : T.textDim, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                    style={{ padding: '7px 12px', borderRadius: 10, border: `1px solid ${selectedEx === ex ? T.accent + '50' : T.border}`, background: selectedEx === ex ? `${T.accent}15` : 'transparent', color: selectedEx === ex ? T.accent : T.textDim, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                     {ex}
                   </button>
                 ))}
               </div>
-            </Card>
+            </div>
 
             {selectedEx && (
               <>
@@ -476,12 +478,12 @@ export default function PrepTopsetPage() {
                   return pr ? (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
                       {[
-                        { label: 'Meilleur 1RM', value: `${pr.rm} kg`, color: T.accentLight },
+                        { label: 'Meilleur 1RM', value: `${pr.rm} kg`, color: T.accent },
                         { label: 'Charge record', value: pr.weight_kg ? `${pr.weight_kg} kg` : '—', color: '#4d9fff' },
                         { label: 'Reps record', value: pr.reps ? `${pr.reps} reps` : '—', color: '#9d7dea' },
                         { label: 'Nb sessions', value: selectedLogs.length, color: '#fbbf24' },
                       ].map(({ label, value, color }) => (
-                        <div key={label} style={{ padding: '12px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: `1px solid ${T.border}` }}>
+                        <div key={label} style={{ padding: '12px 14px', background: T.bgAlt, borderRadius: 12, border: `1px solid ${T.border}` }}>
                           <div style={{ fontSize: 10, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>{label}</div>
                           <div style={{ fontSize: 20, fontWeight: 900, color, fontFamily: T.fontDisplay }}>{value}</div>
                         </div>
@@ -492,45 +494,45 @@ export default function PrepTopsetPage() {
 
                 {/* Graphique 1RM point par point */}
                 {chartPoints1RM.length >= 2 && (
-                  <Card>
+                  <div style={_card()}>
                     <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 4 }}>Progression 1RM estimé — tous les TOPSET</div>
                     <div style={{ fontSize: 11, color: T.textDim, marginBottom: 12 }}>Chaque point = une séance</div>
-                    <Sparkline points={chartPoints1RM} color={T.accentLight} h={100} />
+                    <Sparkline points={chartPoints1RM} color={T.accent} h={100} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: T.textDim, marginTop: 6 }}>
                       <span>{new Date(chartPoints1RM[0].date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
-                      <span style={{ color: T.accentLight, fontWeight: 700 }}>
+                      <span style={{ color: T.accent, fontWeight: 700 }}>
                         {chartPoints1RM[chartPoints1RM.length - 1].value} kg
                       </span>
                       <span>{new Date(chartPoints1RM[chartPoints1RM.length-1].date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
                     </div>
-                  </Card>
+                  </div>
                 )}
 
                 {/* Volumétrie hebdo */}
                 {weeklyVolume.length >= 2 && (
-                  <Card>
+                  <div style={_card()}>
                     <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>Volumétrie semaine par semaine</div>
                     <Sparkline points={weeklyVolume.map(([, v]) => ({ value: v }))} color="#4d9fff" h={70} />
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 12 }}>
                       {weeklyVolume.slice(-6).map(([wk, vol]) => (
-                        <div key={wk} style={{ flex: '1 1 80px', padding: '8px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: 8, textAlign: 'center', border: `1px solid ${T.border}` }}>
+                        <div key={wk} style={{ flex: '1 1 80px', padding: '8px 10px', background: T.bgAlt, borderRadius: 8, textAlign: 'center', border: `1px solid ${T.border}` }}>
                           <div style={{ fontSize: 10, color: T.textDim }}>{getWeekLabel(wk)}</div>
                           <div style={{ fontSize: 14, fontWeight: 800, color: '#4d9fff', fontFamily: T.fontDisplay }}>{Math.round(vol).toLocaleString('fr-FR')}</div>
                           <div style={{ fontSize: 9, color: T.textDim }}>kg</div>
                         </div>
                       ))}
                     </div>
-                  </Card>
+                  </div>
                 )}
 
                 {/* Historique détaillé */}
-                <Card>
+                <div style={_card()}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>Toutes les entrées — {selectedEx}</div>
                   <div style={{ display: 'grid', gap: 6 }}>
                     {selectedLogs.slice(0, 20).map(log => {
                       const rm = log.estimated_1rm || calc1RM(log.weight_kg, log.reps)
                       return (
-                        <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: `1px solid ${T.border}` }}>
+                        <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: T.bgAlt, borderRadius: 10, border: `1px solid ${T.border}` }}>
                           <div>
                             <div style={{ fontSize: 12, color: T.textMid }}>{new Date(log.date + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}</div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginTop: 2 }}>
@@ -540,14 +542,14 @@ export default function PrepTopsetPage() {
                             </div>
                           </div>
                           <div style={{ textAlign: 'right' }}>
-                            {rm && <div style={{ fontSize: 16, fontWeight: 900, color: T.accentLight, fontFamily: T.fontDisplay }}>~{rm} kg</div>}
+                            {rm && <div style={{ fontSize: 16, fontWeight: 900, color: T.accent, fontFamily: T.fontDisplay }}>~{rm} kg</div>}
                             <div style={{ fontSize: 10, color: T.textDim }}>1RM est.</div>
                           </div>
                         </div>
                       )
                     })}
                   </div>
-                </Card>
+                </div>
               </>
             )}
 
@@ -557,14 +559,14 @@ export default function PrepTopsetPage() {
           </>
         )}
       </div>
-    </PageWrap>
+    </div>
   )
 }
 
 const styles = {
   card: {
-    background: 'rgba(12,16,24,0.85)',
-    border: '1px solid rgba(255,255,255,0.07)',
+    background: T.card,
+    border: `1px solid ${T.border}`,
     borderRadius: 14,
     padding: '14px 16px',
   }
