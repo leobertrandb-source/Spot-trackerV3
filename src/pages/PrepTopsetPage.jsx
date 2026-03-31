@@ -91,7 +91,7 @@ function Sparkline({ points, color = '#3ecf8e', h = 80, showDots = true, showGri
         </linearGradient>
       </defs>
       {showGrid && [0.25, 0.5, 0.75].map(r => (
-        <line key={r} x1={0} y1={h * r} x2={W} y2={h * r} stroke={T.border} strokeWidth="0.5" />
+        <line key={r} x1={0} y1={h * r} x2={W} y2={h * r} stroke="rgba(0,0,0,0.06)" strokeWidth="0.5" />
       ))}
       <path d={areaD} fill={`url(#grad-${color.replace('#','')})`} />
       <path d={pathD} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
