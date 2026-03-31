@@ -687,9 +687,9 @@ export default function PrepHooperPage() {
               />
             </div>
 
-            <Btn onClick={handleSave} disabled={saving}>
+            <button onClick={handleSave} disabled={saving} style={_btn(saving)}>
               {saving ? 'Enregistrement...' : savedForDate ? '✓ Mettre à jour' : 'Enregistrer'}
-            </Btn>
+            </button>
           </>
         )}
 
@@ -705,7 +705,7 @@ export default function PrepHooperPage() {
             ))}
 
             {activeDoms.length > 0 && (
-              <Card style={{ borderColor: 'rgba(255,69,102,0.2)', background: 'rgba(255,69,102,0.04)' }}>
+              <div style={{ ...(_card()), borderColor: 'rgba(192,57,43,0.2)', background: T.dangerGlow }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: '#ff4566', marginBottom: 8 }}>Zones actives</div>
 
                 <div style={{ display: 'grid', gap: 6 }}>
