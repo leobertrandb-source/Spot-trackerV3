@@ -3,20 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import { createMedicalNotifications } from '../lib/medicalNotifications'
-
-const P = {
-  bg:     '#f5f3ef',
-  card:   '#ffffff',
-  border: '#e8e4dc',
-  text:   '#1a1a1a',
-  sub:    '#6b6b6b',
-  dim:    '#9e9e9e',
-  accent: '#1a3a2a',
-  green:  '#2d6a4f',
-  yellow: '#b5830a',
-  red:    '#c0392b',
-  blue:   '#1a3a5c',
-}
+import { LIGHT as P } from '../lib/data'
 
 const BODY_ZONES = [
   { key: 'tete',     label: 'Tête' },
@@ -340,8 +327,8 @@ export default function MedicalPage() {
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: P.sub, fontFamily: 'inherit' }}>Chargement...</div>
 
   return (
-    <div style={{ minHeight: '100vh', background: P.bg, fontFamily: "'DM Sans', sans-serif", padding: 'clamp(20px,3vw,36px)' }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap');`}</style>
+    <div style={{ minHeight: '100vh', background: P.bg, fontFamily: P.fontBody, padding: 'clamp(20px,3vw,36px)' }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&display=swap');`}</style>
 
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
 

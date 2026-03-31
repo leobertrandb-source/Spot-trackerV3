@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-import { PageWrap } from '../components/UI'
-import { T } from '../lib/data'
+import { LIGHT as T } from '../lib/data'
 import RtpGame from '../components/RtpGame'
+
+const _card = (accent = false) => ({ background: T.card, border: `1px solid ${accent ? T.accent + '30' : T.border}`, borderRadius: T.radiusLg, padding: 18, boxShadow: T.shadowSm })
 
 // ─── Config zones corporelles ─────────────────────────────────────────────────
 const ZONES = [
@@ -185,24 +186,24 @@ function BodySilhouette({ domsZones }) {
     <svg viewBox="0 0 100 100" style={{ width: '100%', height: 220, display: 'block' }}>
       {/* Silhouette simplifiée */}
       {/* Tête */}
-      <ellipse cx="50" cy="7" rx="7" ry="7" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.15)" strokeWidth="0.5" />
+      <ellipse cx="50" cy="7" rx="7" ry="7" fill="rgba(0,0,0,0.04)" stroke="rgba(0,0,0,0.1)" strokeWidth="0.5" />
       {/* Cou */}
-      <rect x="46" y="13" width="8" height="5" rx="2" fill="rgba(255,255,255,0.06)" />
+      <rect x="46" y="13" width="8" height="5" rx="2" fill="rgba(0,0,0,0.03)" />
       {/* Torse */}
-      <path d="M32 20 L32 48 Q32 50 34 50 L66 50 Q68 50 68 48 L68 20 Q68 18 66 17 L34 17 Q32 18 32 20Z" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" />
+      <path d="M32 20 L32 48 Q32 50 34 50 L66 50 Q68 50 68 48 L68 20 Q68 18 66 17 L34 17 Q32 18 32 20Z" fill="rgba(0,0,0,0.03)" stroke="rgba(0,0,0,0.08)" strokeWidth="0.5" />
       {/* Bras gauche */}
-      <path d="M32 20 Q22 25 20 40 L18 52 Q17 54 18 55 L22 55 Q23 54 23 52 L25 40 Q27 30 34 26" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
+      <path d="M32 20 Q22 25 20 40 L18 52 Q17 54 18 55 L22 55 Q23 54 23 52 L25 40 Q27 30 34 26" fill="rgba(0,0,0,0.03)" stroke="rgba(0,0,0,0.05)" strokeWidth="0.5" />
       {/* Bras droit */}
-      <path d="M68 20 Q78 25 80 40 L82 52 Q83 54 82 55 L78 55 Q77 54 77 52 L75 40 Q73 30 66 26" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
+      <path d="M68 20 Q78 25 80 40 L82 52 Q83 54 82 55 L78 55 Q77 54 77 52 L75 40 Q73 30 66 26" fill="rgba(0,0,0,0.03)" stroke="rgba(0,0,0,0.05)" strokeWidth="0.5" />
       {/* Bassin */}
-      <path d="M32 48 Q32 55 50 56 Q68 55 68 48" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
+      <path d="M32 48 Q32 55 50 56 Q68 55 68 48" fill="rgba(0,0,0,0.02)" stroke="rgba(0,0,0,0.05)" strokeWidth="0.5" />
       {/* Jambe gauche */}
-      <path d="M38 55 L36 72 L35 84 Q35 87 37 88 L41 88 Q43 87 43 84 L42 72 L42 55" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
+      <path d="M38 55 L36 72 L35 84 Q35 87 37 88 L41 88 Q43 87 43 84 L42 72 L42 55" fill="rgba(0,0,0,0.03)" stroke="rgba(0,0,0,0.05)" strokeWidth="0.5" />
       {/* Jambe droite */}
-      <path d="M62 55 L64 72 L65 84 Q65 87 63 88 L59 88 Q57 87 57 84 L58 72 L58 55" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
+      <path d="M62 55 L64 72 L65 84 Q65 87 63 88 L59 88 Q57 87 57 84 L58 72 L58 55" fill="rgba(0,0,0,0.03)" stroke="rgba(0,0,0,0.05)" strokeWidth="0.5" />
       {/* Pieds */}
-      <ellipse cx="38" cy="92" rx="5" ry="3" fill="rgba(255,255,255,0.06)" />
-      <ellipse cx="62" cy="92" rx="5" ry="3" fill="rgba(255,255,255,0.06)" />
+      <ellipse cx="38" cy="92" rx="5" ry="3" fill="rgba(0,0,0,0.03)" />
+      <ellipse cx="62" cy="92" rx="5" ry="3" fill="rgba(0,0,0,0.03)" />
 
       {/* Points de douleur */}
       {ZONES.map(zone => {
@@ -249,7 +250,7 @@ function DomsDetailPanel({ athlete, hooperHistory, onClose }) {
       padding: 16,
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: '#111a16', border: `1px solid ${T.border}`,
+        background: T.card, border: `1px solid ${T.border}`,
         borderRadius: 20, width: '100%', maxWidth: 480,
         maxHeight: '95vh', overflowY: 'auto',
         boxShadow: '-8px 0 40px rgba(0,0,0,0.3)',
@@ -284,7 +285,7 @@ function DomsDetailPanel({ athlete, hooperHistory, onClose }) {
                     <div style={{
                       width: 32, height: 32, borderRadius: '50%', margin: '0 auto 4px',
                       display: 'grid', placeItems: 'center', fontSize: 14,
-                      background: isActive ? color : isDone ? `${color}20` : 'rgba(255,255,255,0.05)',
+                      background: isActive ? color : isDone ? `${color}20` : T.bgAlt,
                       border: `2px solid ${isActive ? color : isDone ? `${color}40` : T.border}`,
                       boxShadow: isActive ? `0 0 12px ${color}40` : 'none',
                     }}>
@@ -313,7 +314,7 @@ function DomsDetailPanel({ athlete, hooperHistory, onClose }) {
                   { key: 'contact', label: '🏉 Contact',       icon: '🏉' },
                 ].map(({ key, label }) => (
                   <div key={key} style={{ display: 'grid', gridTemplateColumns: '110px 1fr', borderBottom: `1px solid ${T.border}22` }}>
-                    <div style={{ padding: '8px 10px', fontSize: 11, fontWeight: 700, color: T.textDim, borderRight: `1px solid ${T.border}22`, background: 'rgba(255,255,255,0.02)' }}>
+                    <div style={{ padding: '8px 10px', fontSize: 11, fontWeight: 700, color: T.textDim, borderRight: `1px solid ${T.border}22`, background: T.bgAlt }}>
                       {label}
                     </div>
                     <div style={{ padding: '8px 10px', fontSize: 12, color: rtpInfo.domaines[key] === '—' ? T.textDim : T.text, fontStyle: rtpInfo.domaines[key] === '—' ? 'italic' : 'normal', lineHeight: 1.4 }}>
@@ -322,11 +323,11 @@ function DomsDetailPanel({ athlete, hooperHistory, onClose }) {
                   </div>
                 ))}
                 {/* Critères de passage */}
-                <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.02)' }}>
+                <div style={{ padding: '10px 14px', background: T.bgAlt }}>
                   <div style={{ fontSize: 10, fontWeight: 700, color: T.textDim, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>
                     Critères de passage
                   </div>
-                  <div style={{ fontSize: 12, color: T.accentLight, fontWeight: 600, lineHeight: 1.4 }}>
+                  <div style={{ fontSize: 12, color: T.accent, fontWeight: 600, lineHeight: 1.4 }}>
                     {rtpInfo.criteres}
                   </div>
                 </div>
@@ -357,7 +358,7 @@ function DomsDetailPanel({ athlete, hooperHistory, onClose }) {
                       </div>
                       <div style={{ display: 'flex', gap: 4 }}>
                         {Array.from({ length: 10 }, (_, i) => (
-                          <div key={i} style={{ width: 5, height: 14, borderRadius: 2, background: i < level ? domsLevelColor(level) : 'rgba(255,255,255,0.08)' }} />
+                          <div key={i} style={{ width: 5, height: 14, borderRadius: 2, background: i < level ? domsLevelColor(level) : 'rgba(0,0,0,0.05)' }} />
                         ))}
                         <div style={{ fontSize: 11, fontWeight: 700, color: domsLevelColor(level), marginLeft: 4, minWidth: 20, textAlign: 'right' }}>{level}/10</div>
                       </div>
@@ -388,7 +389,7 @@ function DomsDetailPanel({ athlete, hooperHistory, onClose }) {
                 const maxLevel = Math.max(...activeDz.map(z => dz[z.key]?.level || 0), 0)
                 const rtpH = calcRtpStep(dz, hLog.fatigue + hLog.sommeil + hLog.stress + hLog.courbatures)
                 return (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}` }}>
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: 10, background: T.bgAlt, border: `1px solid ${T.border}` }}>
                     <div>
                       <div style={{ fontSize: 12, fontWeight: 600, color: T.text }}>
                         {new Date(hLog.date + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}
@@ -519,12 +520,12 @@ export default function PrepDashboardPage() {
   const hooperMissing = sorted.filter(a => !a.hooper || a.hooper.date !== today).length
 
   return (
-    <PageWrap>
+    <div style={{ minHeight: '100vh', background: T.bg, fontFamily: T.fontBody, padding: 'clamp(20px,3vw,36px) clamp(16px,3vw,28px) 48px' }}>
       <div style={{ maxWidth: 900, margin: '0 auto', display: 'grid', gap: 16 }}>
 
         {/* Header */}
         <div>
-          <div style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: 999, border: `1px solid ${T.accent}28`, background: T.accentGlowSm, color: T.accentLight, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
+          <div style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: 999, border: `1px solid ${T.accent}28`, background: T.accentGlowSm, color: T.accent, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
             Prépa physique
           </div>
           <div style={{ fontSize: 'clamp(22px,5vw,28px)', fontWeight: 900, color: T.text, fontFamily: T.fontDisplay }}>
@@ -544,7 +545,7 @@ export default function PrepDashboardPage() {
             { label: '🚨 Alertes',     value: alerts.length,   unit: 'fatigue imp.',          color: alerts.length > 0 ? '#ff4566' : T.textDim,  glow: alerts.length > 0 },
             { label: '🩹 DOMS actifs', value: domsAlerts.length, unit: 'athlètes',            color: domsAlerts.length > 0 ? '#ff7043' : T.textDim },
           ].map(({ label, value, unit, color, glow }) => (
-            <div key={label} style={{ padding: 14, background: glow ? 'rgba(255,69,102,0.06)' : 'rgba(255,255,255,0.03)', borderRadius: 14, border: `1px solid ${glow ? 'rgba(255,69,102,0.2)' : T.border}` }}>
+            <div key={label} style={{ padding: 14, background: glow ? 'rgba(255,69,102,0.06)' : T.bgAlt, borderRadius: 14, border: `1px solid ${glow ? 'rgba(255,69,102,0.2)' : T.border}` }}>
               <div style={{ fontSize: 10, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>{label}</div>
               <div style={{ fontSize: 28, fontWeight: 900, color, fontFamily: T.fontDisplay, lineHeight: 1 }}>{value}</div>
               <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>{unit}</div>
@@ -564,7 +565,7 @@ export default function PrepDashboardPage() {
               padding: '7px 14px', borderRadius: 10,
               border: `1px solid ${filter === f.key ? T.accent + '40' : T.border}`,
               background: filter === f.key ? `${T.accent}12` : 'transparent',
-              color: filter === f.key ? T.accentLight : T.textDim,
+              color: filter === f.key ? T.accent : T.textDim,
               fontSize: 12, fontWeight: 700, cursor: 'pointer',
             }}>{f.label}</button>
           ))}
@@ -600,13 +601,13 @@ export default function PrepDashboardPage() {
                   key={athlete.id}
                   onClick={() => navigate(`/prep/analyse/${athlete.id}`)}
                   style={{
-                    background: isAlert ? 'rgba(255,69,102,0.04)' : 'rgba(255,255,255,0.025)',
+                    background: isAlert ? 'rgba(255,69,102,0.04)' : T.bgAlt,
                     border: `1px solid ${isAlert ? 'rgba(255,69,102,0.25)' : T.border}`,
                     borderRadius: 16, padding: '14px 16px',
                     cursor: 'pointer', transition: 'all 0.15s',
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = isAlert ? 'rgba(255,69,102,0.07)' : 'rgba(255,255,255,0.04)'}
-                  onMouseLeave={e => e.currentTarget.style.background = isAlert ? 'rgba(255,69,102,0.04)' : 'rgba(255,255,255,0.025)'}
+                  onMouseEnter={e => e.currentTarget.style.background = isAlert ? 'rgba(255,69,102,0.07)' : T.border}
+                  onMouseLeave={e => e.currentTarget.style.background = isAlert ? 'rgba(255,69,102,0.04)' : T.bgAlt}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -626,7 +627,7 @@ export default function PrepDashboardPage() {
                               HOOPER {score}/40 — {si.text}
                             </div>
                             {daysH !== null && daysH > 0 && <div style={{ fontSize: 11, color: T.textDim }}>il y a {daysH}j</div>}
-                            {daysH === 0 && <div style={{ fontSize: 11, color: T.accentLight }}>✓ Aujourd'hui</div>}
+                            {daysH === 0 && <div style={{ fontSize: 11, color: T.accent }}>✓ Aujourd'hui</div>}
                           </>
                         ) : (
                           <div style={{ fontSize: 12, color: T.textDim, fontStyle: 'italic' }}>HOOPER non rempli</div>
@@ -660,7 +661,7 @@ export default function PrepDashboardPage() {
                         style={{
                           padding: '5px 12px', borderRadius: 20,
                           border: `1px solid ${T.accent}40`,
-                          background: `${T.accent}10`, color: T.accentLight,
+                          background: `${T.accent}10`, color: T.accent,
                           fontSize: 12, fontWeight: 700, cursor: 'pointer',
                           display: 'inline-flex', alignItems: 'center', gap: 5,
                         }}
@@ -717,6 +718,6 @@ export default function PrepDashboardPage() {
           onClose={() => setRtpAthlete(null)}
         />
       )}
-    </PageWrap>
+    </div>
   )
 }

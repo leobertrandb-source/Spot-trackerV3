@@ -66,6 +66,60 @@ export const T = {
   radiusFull:   999,
 }
 
+// ─── Design system CLAIR — côté prépa physique ────────────────────────────────
+// Mêmes clés que T pour permettre un import interchangeable : import { LIGHT as T }
+export const LIGHT = {
+  bg:           '#f5f3ef',
+  bgAlt:        '#faf8f4',
+  surface:      'rgba(255,255,255,0.97)',
+  card:         '#ffffff',
+  cardHover:    '#f5f3ef',
+  border:       '#e8e4dc',
+  borderHi:     '#d4cfc6',
+  borderFocus:  'rgba(45,106,79,0.40)',
+  accent:       '#2d6a4f',
+  accentDim:    '#1e4d38',
+  accentLight:  '#e8f5ee',
+  accentGlow:   'rgba(45,106,79,0.08)',
+  accentGlowMd: 'rgba(45,106,79,0.14)',
+  accentGlowSm: 'rgba(45,106,79,0.04)',
+  blue:         '#1a3a5c',
+  blueGlow:     'rgba(26,58,92,0.08)',
+  orange:       '#b85c00',
+  orangeGlow:   'rgba(184,92,0,0.08)',
+  purple:       '#5c2d91',
+  purpleGlow:   'rgba(92,45,145,0.08)',
+  cyan:         '#0891b2',
+  cyanGlow:     'rgba(8,145,178,0.08)',
+  text:         '#1a1a1a',
+  textMid:      '#6b6b6b',
+  textDim:      '#9e9e9e',
+  textSub:      '#c0bab0',
+  danger:       '#c0392b',
+  dangerGlow:   'rgba(192,57,43,0.08)',
+  warn:         '#b5830a',
+  warnGlow:     'rgba(181,131,10,0.08)',
+  success:      '#2d6a4f',
+  fontDisplay:  "'DM Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Display', Inter, Helvetica, Arial, sans-serif",
+  fontBody:     "'DM Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, Helvetica, Arial, sans-serif",
+  shadowSm:     '0 2px 12px rgba(26,20,10,0.06)',
+  shadowMd:     '0 8px 28px rgba(26,20,10,0.10)',
+  shadowLg:     '0 18px 56px rgba(26,20,10,0.14)',
+  shadowGlow:   '0 0 24px rgba(45,106,79,0.10)',
+  shadowGlowMd: '0 0 40px rgba(45,106,79,0.16)',
+  radiusSm:     10,
+  radius:       14,
+  radiusLg:     20,
+  radiusXl:     26,
+  radiusFull:   999,
+  // Aliases pour les pages utilisant les noms historiques P.green / P.red / etc.
+  green:        '#2d6a4f',
+  red:          '#c0392b',
+  yellow:       '#b5830a',
+  sub:          '#6b6b6b',
+  dim:          '#9e9e9e',
+}
+
 export const CHART_COLORS = ['#4f8cff','#3ecf8e','#fb923c','#f59e0b','#a78bfa','#22d3ee']
 
 export const SEANCE_ICONS = {

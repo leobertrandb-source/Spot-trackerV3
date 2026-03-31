@@ -3,20 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import ImportICSModal from '../components/ImportICSModal'
-
-const P = {
-  bg:     '#f5f3ef',
-  card:   '#ffffff',
-  border: '#e8e4dc',
-  text:   '#1a1a1a',
-  sub:    '#6b6b6b',
-  dim:    '#9e9e9e',
-  accent: '#1a3a2a',
-  green:  '#2d6a4f',
-  yellow: '#b5830a',
-  red:    '#c0392b',
-  blue:   '#1a3a5c',
-}
+import { LIGHT as P } from '../lib/data'
 
 const BODY_ZONES = {
   tete: 'Tête', epaule: 'Épaule', poignet: 'Poignet / Main',
@@ -245,21 +232,35 @@ export default function MedicalHubPage() {
 
     let coachId = user.id
     if (profile?.role === 'staff_medical') {
-      const { data: link } = await supabase.from('club_staff').select('coach_id').eq('staff_id', user.id).maybeSingle()
+      const { data: link, error: staffErr } = await supabase
+        .from('club_staff').select('coach_id').eq('staff_id', user.id).maybeSingle()
+      if (staffErr) console.error('[MedicalHub] club_staff lookup:', staffErr)
       if (link?.coach_id) coachId = link.coach_id
     }
 
-    const { data: links } = await supabase.from('coach_clients').select('client_id').eq('coach_id', coachId)
+    const { data: links, error: clientsErr } = await supabase
+      .from('coach_clients').select('client_id').eq('coach_id', coachId)
+    if (clientsErr) console.error('[MedicalHub] coach_clients:', clientsErr)
     if (!links?.length) { setLoading(false); return }
     const ids = links.map(l => l.client_id)
 
-    const [{ data: profiles }, { data: inj }, { data: appts }, { data: mtch }] = await Promise.all([
+    const [
+      { data: profiles, error: profErr },
+      { data: inj,      error: injErr  },
+      { data: appts,    error: apptErr },
+      { data: mtch,     error: mtchErr },
+    ] = await Promise.all([
       supabase.from('profiles').select('id, full_name, email, poste, avatar_url').in('id', ids),
       supabase.from('medical_injuries').select('*').in('athlete_id', ids).order('date_injury', { ascending: false }),
       supabase.from('medical_appointments').select('*').in('athlete_id', ids)
         .order('date_appointment', { ascending: false }),
       supabase.from('match_history').select('*, match_injuries(*)').eq('coach_id', coachId).order('match_date', { ascending: false }),
     ])
+
+    if (profErr) console.error('[MedicalHub] profiles:', profErr)
+    if (injErr)  console.error('[MedicalHub] medical_injuries:', injErr)
+    if (apptErr) console.error('[MedicalHub] medical_appointments:', apptErr)
+    if (mtchErr) console.error('[MedicalHub] match_history:', mtchErr)
 
     setAthletes(profiles || [])
     setInjuries(inj || [])
@@ -353,8 +354,8 @@ export default function MedicalHubPage() {
     .map(i => ({ ...i, athlete: athletes.find(a => a.id === i.athlete_id) }))
 
   return (
-    <div style={{ minHeight: '100vh', background: P.bg, fontFamily: "'DM Sans', sans-serif", padding: 'clamp(20px,3vw,36px)' }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap');`}</style>
+    <div style={{ minHeight: '100vh', background: P.bg, fontFamily: P.fontBody, padding: 'clamp(20px,3vw,36px)' }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&display=swap');`}</style>
 
       <div style={{ maxWidth: 1040, margin: '0 auto' }}>
 

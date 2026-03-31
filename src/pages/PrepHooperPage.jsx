@@ -1,8 +1,10 @@
 import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-import { PageWrap, Card, Btn } from '../components/UI'
-import { T } from '../lib/data'
+import { LIGHT as T } from '../lib/data'
+
+const _card = (accent = false) => ({ background: T.card, border: `1px solid ${accent ? T.accent + '30' : T.border}`, borderRadius: T.radiusLg, padding: 18, boxShadow: T.shadowSm })
+const _btn  = (disabled) => ({ height: 46, borderRadius: T.radius, background: T.accent, color: '#fff', border: 'none', fontWeight: 800, fontSize: 14, cursor: disabled ? 'wait' : 'pointer', opacity: disabled ? 0.7 : 1, width: '100%' })
 import PushNotifToggle from '../components/PushNotifToggle'
 import DomsPanelClickable from '../components/DomsPanelClickable'
 
@@ -148,7 +150,7 @@ function SliderField({ field, value, onChange }) {
   const { label, color, levels } = field
 
   return (
-    <Card>
+    <div style={_card()}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 800, color: T.text }}>{label}</div>
@@ -182,7 +184,7 @@ function SliderField({ field, value, onChange }) {
           />
         ))}
       </div>
-    </Card>
+    </div>
   )
 }
 
@@ -434,7 +436,8 @@ export default function PrepHooperPage() {
   ]
 
   return (
-    <PageWrap>
+    <div style={{ minHeight: '100vh', background: T.bg, fontFamily: T.fontBody, padding: 'clamp(20px,3vw,36px) clamp(16px,3vw,28px) 48px' }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&display=swap');`}</style>
       <div style={{ maxWidth: 720, margin: '0 auto', display: 'grid', gap: 16 }}>
         {/* Header */}
         <div>
@@ -445,7 +448,7 @@ export default function PrepHooperPage() {
               borderRadius: 999,
               border: `1px solid ${T.accent}28`,
               background: T.accentGlowSm,
-              color: T.accentLight,
+              color: T.accent,
               fontSize: 11,
               fontWeight: 800,
               letterSpacing: 1,
@@ -463,7 +466,7 @@ export default function PrepHooperPage() {
           <div style={{ color: T.textMid, fontSize: 14, marginTop: 4 }}>
             {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
             {savedForDate && (
-              <span style={{ marginLeft: 10, color: T.accentLight, fontSize: 12, fontWeight: 700 }}>
+              <span style={{ marginLeft: 10, color: T.accent, fontSize: 12, fontWeight: 700 }}>
                 ✓ Déjà enregistré pour cette date
               </span>
             )}
@@ -473,7 +476,7 @@ export default function PrepHooperPage() {
         {/* Notifications push */}
         <PushNotifToggle user={user} />
 
-        <Card>
+        <div style={_card()}>
           <div style={{ display: 'grid', gap: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
               <div>
@@ -488,7 +491,7 @@ export default function PrepHooperPage() {
                 max={today}
                 onChange={(e) => setEntryDate(e.target.value || today)}
                 style={{
-                  background: 'rgba(255,255,255,0.04)',
+                  background: T.bgAlt,
                   border: `1px solid ${T.border}`,
                   borderRadius: 10,
                   padding: '10px 12px',
@@ -499,15 +502,15 @@ export default function PrepHooperPage() {
               />
             </div>
             {entryDate !== today && (
-              <div style={{ fontSize: 12, color: T.accentLight, fontWeight: 700 }}>
+              <div style={{ fontSize: 12, color: T.accent, fontWeight: 700 }}>
                 Saisie rétroactive pour le {new Date(entryDate + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
               </div>
             )}
           </div>
-        </Card>
+        </div>
 
         {/* Score du jour */}
-        <Card glow>
+        <div style={_card(true)}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
             <div>
               <div style={{ fontSize: 11, color: T.textDim, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
@@ -549,7 +552,7 @@ export default function PrepHooperPage() {
               position: 'relative',
               height: 10,
               borderRadius: 5,
-              background: 'rgba(255,255,255,0.06)',
+              background: T.border,
               overflow: 'hidden',
             }}
           >
@@ -578,7 +581,7 @@ export default function PrepHooperPage() {
             <span>21</span>
             <span>40 Fatigue</span>
           </div>
-        </Card>
+        </div>
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 6 }}>
@@ -616,7 +619,7 @@ export default function PrepHooperPage() {
             ))}
 
             {isCoach && sampleSize && (
-              <Card>
+              <div style={_card()}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: T.text, marginBottom: 12 }}>
                   Z-scores par item <span style={{ fontSize: 11, color: T.textDim, fontWeight: 400 }}>(n={sampleSize})</span>
                 </div>
@@ -633,7 +636,7 @@ export default function PrepHooperPage() {
                           justifyContent: 'space-between',
                           alignItems: 'center',
                           padding: '8px 12px',
-                          background: 'rgba(255,255,255,0.03)',
+                          background: T.bgAlt,
                           borderRadius: 10,
                         }}
                       >
@@ -658,10 +661,10 @@ export default function PrepHooperPage() {
                     )
                   })}
                 </div>
-              </Card>
+              </div>
             )}
 
-            <Card>
+            <div style={_card()}>
               <div style={{ fontSize: 13, fontWeight: 700, color: T.text, marginBottom: 8 }}>Notes (optionnel)</div>
               <textarea
                 value={notes}
@@ -670,7 +673,7 @@ export default function PrepHooperPage() {
                 rows={2}
                 style={{
                   width: '100%',
-                  background: 'rgba(255,255,255,0.04)',
+                  background: T.bgAlt,
                   border: `1px solid ${T.border}`,
                   borderRadius: 10,
                   padding: '10px 12px',
@@ -682,7 +685,7 @@ export default function PrepHooperPage() {
                   lineHeight: 1.5,
                 }}
               />
-            </Card>
+            </div>
 
             <Btn onClick={handleSave} disabled={saving}>
               {saving ? 'Enregistrement...' : savedForDate ? '✓ Mettre à jour' : 'Enregistrer'}
@@ -728,14 +731,14 @@ export default function PrepHooperPage() {
                     )
                   })}
                 </div>
-              </Card>
+              </div>
             )}
 
             <DomsPanelClickable zones={DOMS_ZONES} doms={domsZones} compact title="Synthèse DOMS cliquable" />
 
-            <Btn onClick={handleSave} disabled={saving}>
+            <button onClick={handleSave} disabled={saving} style={_btn(saving)}>
               {saving ? 'Enregistrement...' : 'Enregistrer'}
-            </Btn>
+            </button>
           </>
         )}
 
@@ -743,7 +746,7 @@ export default function PrepHooperPage() {
         {tab === 'historique' && (
           <>
             {trendData.length >= 3 && (
-              <Card>
+              <div style={_card()}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>
                   Score total — 14 derniers jours
                 </div>
@@ -752,10 +755,10 @@ export default function PrepHooperPage() {
                   <span>Il y a {trendData.length - 1}j</span>
                   <span>Aujourd&apos;hui</span>
                 </div>
-              </Card>
+              </div>
             )}
 
-            <Card>
+            <div style={_card()}>
               <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>Évolution par item</div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -770,9 +773,9 @@ export default function PrepHooperPage() {
                   )
                 })}
               </div>
-            </Card>
+            </div>
 
-            <Card>
+            <div style={_card()}>
               <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>Historique détaillé</div>
 
               <div style={{ display: 'grid', gap: 6 }}>
@@ -789,7 +792,7 @@ export default function PrepHooperPage() {
                         justifyContent: 'space-between',
                         alignItems: 'center',
                         padding: '8px 12px',
-                        background: 'rgba(255,255,255,0.03)',
+                        background: T.bgAlt,
                         borderRadius: 10,
                         border: `1px solid ${T.border}`,
                       }}
@@ -841,10 +844,10 @@ export default function PrepHooperPage() {
                   )
                 })}
               </div>
-            </Card>
+            </div>
           </>
         )}
       </div>
-    </PageWrap>
+    </div>
   )
 }

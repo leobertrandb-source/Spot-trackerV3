@@ -8,12 +8,12 @@ import ImportGpsCSV from '../components/ImportGpsCSV'
 import GpsDashboard from '../components/GpsDashboard'
 import TrainingAttendancePanel from '../components/TrainingAttendancePanel'
 import ImportICSModal from '../components/ImportICSModal'
-import { T } from '../lib/data'
+import { LIGHT as T } from '../lib/data'
 
 function statusFromScore(score) {
-  if (score === null) return { label: 'Non rempli', color: T.textDim, dot: T.textSub, bg: 'rgba(148,163,184,0.08)' }
-  if (score <= 7)  return { label: 'Très bon',         color: T.accent,  dot: T.accent,  bg: T.accentGlowSm }
-  if (score <= 13) return { label: 'Correct',          color: T.accent,  dot: T.accent,  bg: T.accentGlow }
+  if (score === null) return { label: 'Non rempli', color: T.textDim, dot: T.textSub, bg: 'rgba(192,186,176,0.12)' }
+  if (score <= 7)  return { label: 'Très bon',         color: T.accent,  dot: T.accent,  bg: T.accentGlow }
+  if (score <= 13) return { label: 'Correct',          color: T.accent,  dot: T.accent,  bg: T.accentGlowSm }
   if (score <= 20) return { label: 'Vigilance',        color: T.warn,    dot: T.warn,    bg: T.warnGlow }
   return               { label: 'Fatigue importante', color: T.danger,  dot: T.danger,  bg: T.dangerGlow }
 }
@@ -21,7 +21,7 @@ function statusFromScore(score) {
 function Avatar({ name }) {
   const initials = (name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
   return (
-    <div style={{ width: 42, height: 42, borderRadius: 12, background: `${T.accent}20`, border: `1px solid ${T.accent}35`, display: 'grid', placeItems: 'center', color: T.accent, fontSize: 14, fontWeight: 800, flexShrink: 0, fontFamily: T.fontDisplay }}>
+    <div style={{ width: 42, height: 42, borderRadius: '50%', background: T.accent, display: 'grid', placeItems: 'center', color: '#fff', fontSize: 14, fontWeight: 700, flexShrink: 0, fontFamily: T.fontDisplay }}>
       {initials}
     </div>
   )
@@ -160,10 +160,10 @@ export default function CoachPageProSport() {
     <div style={{ minHeight: '100vh', background: T.bg, fontFamily: T.fontBody, padding: 'clamp(20px,3vw,36px) clamp(16px,3vw,28px)' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&display=swap');
-        .client-row:hover { background: rgba(255,255,255,0.03) !important; }
+        .client-row:hover { background: ${T.bgAlt} !important; }
         .filter-btn { transition: all 0.15s; }
         .filter-btn:hover { opacity: 0.8; }
-        .more-menu-btn:hover { background: rgba(255,255,255,0.05) !important; }
+        .more-menu-btn:hover { background: ${T.bgAlt} !important; }
       `}</style>
 
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
@@ -338,7 +338,7 @@ export default function CoachPageProSport() {
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: '20px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
               <button onClick={() => setShowGpsImport(true)}
-                style={{ padding: '8px 16px', borderRadius: 20, border: `1px solid ${T.accent}`, background: T.accent, color: '#080d14', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                style={{ padding: '8px 16px', borderRadius: 20, border: `1px solid ${T.accent}`, background: T.accent, color: '#ffffff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 + Importer un CSV GPS
               </button>
             </div>
@@ -359,7 +359,7 @@ export default function CoachPageProSport() {
                   placeholder="email@athlete.com"
                   style={{ flex: 1, minWidth: 200, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 14px', color: T.text, fontSize: 14, outline: 'none' }} />
                 <button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}
-                  style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: T.accent, color: '#080d14', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: inviting || !inviteEmail.trim() ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+                  style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: T.accent, color: '#ffffff', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: inviting || !inviteEmail.trim() ? 0.6 : 1, whiteSpace: 'nowrap' }}>
                   {inviting ? 'Génération...' : 'Générer & copier'}
                 </button>
               </div>
