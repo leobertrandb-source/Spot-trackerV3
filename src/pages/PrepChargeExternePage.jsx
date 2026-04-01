@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-import { PageWrap, Card, Btn } from '../components/UI'
-import { T } from '../lib/data'
+import { LIGHT as T } from '../lib/data'
+
+const _card = (accent = false) => ({ background: T.card, border: `1px solid ${accent ? T.accent + '30' : T.border}`, borderRadius: T.radiusLg, padding: 18, boxShadow: T.shadowSm })
+const _btn  = (disabled) => ({ height: 46, borderRadius: T.radius, background: T.accent, color: '#fff', border: 'none', fontWeight: 800, fontSize: 14, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.6 : 1, width: '100%' })
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const SESSION_TYPES = [
@@ -130,7 +132,7 @@ export function ChargeExterneForm({ sessionId = null, onSaved = null, compact = 
   if (saved) return (
     <div style={{ padding: '12px 16px', background: 'rgba(62,207,142,0.08)', border: `1px solid ${T.accent}30`, borderRadius: 12, display: 'flex', gap: 10, alignItems: 'center' }}>
       <span>✅</span>
-      <div style={{ fontSize: 13, color: T.accentLight, fontWeight: 700 }}>
+      <div style={{ fontSize: 13, color: T.accent, fontWeight: 700 }}>
         Charge enregistrée — {charge} UA (RPE {rpe} × {duree} min)
       </div>
     </div>
@@ -150,7 +152,7 @@ export function ChargeExterneForm({ sessionId = null, onSaved = null, compact = 
           style={{ width: '100%', accentColor: RPE_COLORS[rpe], cursor: 'pointer' }} />
         <div style={{ display: 'flex', gap: 3, marginTop: 6 }}>
           {Array.from({ length: 10 }, (_, i) => (
-            <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i < rpe ? RPE_COLORS[rpe] : 'rgba(255,255,255,0.07)', transition: 'background 0.15s' }} />
+            <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i < rpe ? RPE_COLORS[rpe] : T.border, transition: 'background 0.15s' }} />
           ))}
         </div>
       </div>
@@ -161,13 +163,13 @@ export function ChargeExterneForm({ sessionId = null, onSaved = null, compact = 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {[30, 45, 60, 75, 90].map(d => (
             <button key={d} onClick={() => setDuree(String(d))}
-              style={{ padding: '8px 14px', borderRadius: 10, border: `1px solid ${duree === String(d) ? T.accent + '50' : T.border}`, background: duree === String(d) ? `${T.accent}15` : 'transparent', color: duree === String(d) ? T.accentLight : T.textDim, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              style={{ padding: '8px 14px', borderRadius: 10, border: `1px solid ${duree === String(d) ? T.accent + '50' : T.border}`, background: duree === String(d) ? `${T.accent}15` : 'transparent', color: duree === String(d) ? T.accent : T.textDim, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
               {d}'
             </button>
           ))}
           <input type="number" value={duree} onChange={e => setDuree(e.target.value)}
             placeholder="Autre"
-            style={{ width: 70, background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '8px 10px', color: T.text, fontSize: 13, outline: 'none', textAlign: 'center' }} />
+            style={{ width: 70, background: T.bgAlt, border: `1px solid ${T.border}`, borderRadius: 10, padding: '8px 10px', color: T.text, fontSize: 13, outline: 'none', textAlign: 'center' }} />
         </div>
       </div>
 
@@ -191,12 +193,12 @@ export function ChargeExterneForm({ sessionId = null, onSaved = null, compact = 
           <div>
             <div style={{ fontSize: 11, color: T.textDim, marginBottom: 4 }}>Distance totale (km)</div>
             <input type="number" step="0.1" value={km} onChange={e => setKm(e.target.value)} placeholder="ex: 8.5"
-              style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '9px 12px', color: T.text, fontSize: 14, outline: 'none' }} />
+              style={{ width: '100%', boxSizing: 'border-box', background: T.bgAlt, border: `1px solid ${T.border}`, borderRadius: 10, padding: '9px 12px', color: T.text, fontSize: 14, outline: 'none' }} />
           </div>
           <div>
             <div style={{ fontSize: 11, color: T.textDim, marginBottom: 4 }}>Vitesse moyenne (km/h)</div>
             <input type="number" step="0.1" value={vitesseMoy} onChange={e => setVitesseMoy(e.target.value)} placeholder="ex: 12"
-              style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '9px 12px', color: T.text, fontSize: 14, outline: 'none' }} />
+              style={{ width: '100%', boxSizing: 'border-box', background: T.bgAlt, border: `1px solid ${T.border}`, borderRadius: 10, padding: '9px 12px', color: T.text, fontSize: 14, outline: 'none' }} />
           </div>
         </div>
 
@@ -241,12 +243,12 @@ export function ChargeExterneForm({ sessionId = null, onSaved = null, compact = 
         <textarea value={notes} onChange={e => setNotes(e.target.value)}
           placeholder="Notes sur la séance..."
           rows={2}
-          style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 12px', color: T.text, fontSize: 14, outline: 'none', resize: 'none', boxSizing: 'border-box' }} />
+          style={{ width: '100%', background: T.bgAlt, border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 12px', color: T.text, fontSize: 14, outline: 'none', resize: 'none', boxSizing: 'border-box' }} />
       )}
 
-      <Btn onClick={handleSave} disabled={saving || !duree}>
+      <button onClick={handleSave} disabled={saving || !duree} style={_btn(saving || !duree)}>
         {saving ? 'Enregistrement...' : `Enregistrer la charge${charge ? ` (${charge} UA)` : ''}`}
-      </Btn>
+      </button>
     </div>
   )
 }
@@ -338,12 +340,12 @@ export default function PrepChargeExternePage() {
   ]
 
   return (
-    <PageWrap>
+    <div style={{ minHeight: '100vh', background: T.bg, fontFamily: T.fontBody, padding: 'clamp(20px,3vw,36px) clamp(16px,3vw,28px) 48px' }}>
       <div style={{ maxWidth: 720, margin: '0 auto', display: 'grid', gap: 16 }}>
 
         {/* Header */}
         <div>
-          <div style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: 999, border: `1px solid ${T.accent}28`, background: T.accentGlowSm, color: T.accentLight, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
+          <div style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: 999, border: `1px solid ${T.accent}28`, background: T.accentGlowSm, color: T.accent, fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 }}>
             Prépa physique
           </div>
           <div style={{ fontSize: 'clamp(22px,5vw,28px)', fontWeight: 900, color: T.text, fontFamily: T.fontDisplay }}>Charge externe</div>
@@ -354,7 +356,7 @@ export default function PrepChargeExternePage() {
         <div style={{ display: 'flex', gap: 6 }}>
           {TABS.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              style={{ flex: 1, padding: '9px', borderRadius: 10, border: `1px solid ${tab === t.key ? T.accent + '40' : T.border}`, background: tab === t.key ? `${T.accent}12` : 'transparent', color: tab === t.key ? T.accentLight : T.textDim, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              style={{ flex: 1, padding: '9px', borderRadius: 10, border: `1px solid ${tab === t.key ? T.accent + '40' : T.border}`, background: tab === t.key ? `${T.accent}12` : 'transparent', color: tab === t.key ? T.accent : T.textDim, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
               {t.label}
             </button>
           ))}
@@ -363,37 +365,37 @@ export default function PrepChargeExternePage() {
         {/* ── Tab Saisie ── */}
         {tab === 'saisie' && (
           <>
-            <Card>
+            <div style={_card()}>
               {alreadyToday && (
-                <div style={{ marginBottom: 14, padding: '8px 12px', background: `${T.accent}10`, borderRadius: 10, fontSize: 12, color: T.accentLight, fontWeight: 700 }}>
+                <div style={{ marginBottom: 14, padding: '8px 12px', background: `${T.accent}10`, borderRadius: 10, fontSize: 12, color: T.accent, fontWeight: 700 }}>
                   ✓ Une charge a déjà été saisie aujourd'hui — tu peux en ajouter une autre (double séance)
                 </div>
               )}
               <ChargeExterneForm onSaved={load} />
-            </Card>
+            </div>
 
             {kmLogs.length > 0 && (
-              <Card>
+              <div style={_card()}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>
                   Suivi course
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 14 }}>
-                  <div style={{ padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: 14, border: `1px solid ${T.border}` }}>
+                  <div style={{ padding: '14px', background: T.bgAlt, borderRadius: 14, border: `1px solid ${T.border}` }}>
                     <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Dernière distance</div>
                     <div style={{ fontSize: 22, fontWeight: 900, color: '#4d9fff', fontFamily: T.fontDisplay }}>
                       {lastKmLog?.km_total ?? '—'} <span style={{ fontSize: 11, color: T.textDim }}>km</span>
                     </div>
                   </div>
 
-                  <div style={{ padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: 14, border: `1px solid ${T.border}` }}>
+                  <div style={{ padding: '14px', background: T.bgAlt, borderRadius: 14, border: `1px solid ${T.border}` }}>
                     <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Vitesse moyenne</div>
                     <div style={{ fontSize: 22, fontWeight: 900, color: '#fbbf24', fontFamily: T.fontDisplay }}>
                       {lastKmLog?.vitesse_moy ?? '—'} <span style={{ fontSize: 11, color: T.textDim }}>km/h</span>
                     </div>
                   </div>
 
-                  <div style={{ padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: 14, border: `1px solid ${T.border}` }}>
+                  <div style={{ padding: '14px', background: T.bgAlt, borderRadius: 14, border: `1px solid ${T.border}` }}>
                     <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Kilométrage cumulé</div>
                     <div style={{ fontSize: 22, fontWeight: 900, color: '#3ecf8e', fontFamily: T.fontDisplay }}>
                       {Math.round(kmLogs.reduce((s, l) => s + (l.km_total || 0), 0) * 10) / 10} <span style={{ fontSize: 11, color: T.textDim }}>km</span>
@@ -445,7 +447,7 @@ export default function PrepChargeExternePage() {
                     const typeInfo = SESSION_TYPES.find(t => t.key === log.type_seance) || SESSION_TYPES[4]
                     const kmData = extractKmData(log.notes)
                     return (
-                      <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: `1px solid ${T.border}` }}>
+                      <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px', background: T.bgAlt, borderRadius: 10, border: `1px solid ${T.border}` }}>
                         <div>
                           <div style={{ fontSize: 13, color: T.text, fontWeight: 600, display: 'flex', gap: 8, alignItems: 'center' }}>
                             <span>{typeInfo.emoji}</span>
@@ -466,7 +468,7 @@ export default function PrepChargeExternePage() {
                     )
                   })}
                 </div>
-              </Card>
+              </div>
             )}
           </>
         )}
@@ -479,7 +481,7 @@ export default function PrepChargeExternePage() {
             ) : (
               <>
                 {/* ACWR */}
-                <Card glow>
+                <div style={_card(true)}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
                     <div>
                       <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>ACWR — Ratio charge aiguë / chronique</div>
@@ -490,7 +492,7 @@ export default function PrepChargeExternePage() {
                       <div style={{ fontSize: 12, color: acwrColor(acwr), fontWeight: 700, marginTop: 4 }}>{acwrLabel(acwr)}</div>
                     </div>
                   </div>
-                  <div style={{ position: 'relative', height: 10, borderRadius: 5, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: 4 }}>
+                  <div style={{ position: 'relative', height: 10, borderRadius: 5, background: T.border, overflow: 'hidden', marginBottom: 4 }}>
                     <div style={{ position: 'absolute', left: 0, width: '40%', height: '100%', background: 'rgba(77,159,255,0.3)' }} />
                     <div style={{ position: 'absolute', left: '40%', width: '25%', height: '100%', background: 'rgba(62,207,142,0.3)' }} />
                     <div style={{ position: 'absolute', left: '65%', width: '10%', height: '100%', background: 'rgba(251,191,36,0.3)' }} />
@@ -500,7 +502,7 @@ export default function PrepChargeExternePage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: T.textDim }}>
                     <span>0</span><span>0.8 Sous</span><span>1.3 Optimal</span><span>1.5</span><span>2+ Surcharge</span>
                   </div>
-                </Card>
+                </div>
 
                 {/* Stats semaine */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
@@ -509,7 +511,7 @@ export default function PrepChargeExternePage() {
                     { label: 'Séances', value: thisWeek.seances, unit: '', color: '#4d9fff' },
                     { label: 'RPE moyen', value: avgRpe ?? '—', unit: '/10', color: avgRpe ? RPE_COLORS[Math.round(avgRpe)] : T.textDim },
                   ].map(({ label, value, unit, color }) => (
-                    <div key={label} style={{ padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: 14, border: `1px solid ${T.border}` }}>
+                    <div key={label} style={{ padding: '14px', background: T.bgAlt, borderRadius: 14, border: `1px solid ${T.border}` }}>
                       <div style={{ fontSize: 11, color: T.textDim, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>{label}</div>
                       <div style={{ fontSize: 22, fontWeight: 900, color, fontFamily: T.fontDisplay }}>
                         {value} <span style={{ fontSize: 11, color: T.textDim }}>{unit}</span>
@@ -520,7 +522,7 @@ export default function PrepChargeExternePage() {
 
                 {/* Graphiques */}
                 {chartData.length >= 2 && (
-                  <Card>
+                  <div style={_card()}>
                     <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 14 }}>Évolution 8 semaines</div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                       <div>
@@ -532,12 +534,12 @@ export default function PrepChargeExternePage() {
                         <Sparkline data={seancesData} color="#4d9fff" h={60} />
                       </div>
                     </div>
-                  </Card>
+                  </div>
                 )}
 
                 {/* Tableau hebdo */}
                 {weekKeys.length > 0 && (
-                  <Card>
+                  <div style={_card()}>
                     <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>Détail par semaine</div>
                     <div style={{ overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -557,7 +559,7 @@ export default function PrepChargeExternePage() {
                             const avgR = w.rpes.length ? (w.rpes.reduce((a, b) => a + b, 0) / w.rpes.length).toFixed(1) : '—'
                             return (
                               <tr key={wk} style={{ background: isCurrent ? 'rgba(62,207,142,0.03)' : 'transparent' }}>
-                                <td style={{ padding: '8px 10px', color: isCurrent ? T.accentLight : T.textMid, fontWeight: isCurrent ? 700 : 400, borderBottom: `1px solid ${T.border}22`, whiteSpace: 'nowrap', fontSize: 12 }}>
+                                <td style={{ padding: '8px 10px', color: isCurrent ? T.accent : T.textMid, fontWeight: isCurrent ? 700 : 400, borderBottom: `1px solid ${T.border}22`, whiteSpace: 'nowrap', fontSize: 12 }}>
                                   {getWeekLabel(wk)}{isCurrent ? ' ←' : ''}
                                 </td>
                                 <td style={{ padding: '8px 10px', color: '#3ecf8e', fontWeight: 700, borderBottom: `1px solid ${T.border}22` }}>{Math.round(w.charge)}</td>
@@ -570,19 +572,19 @@ export default function PrepChargeExternePage() {
                         </tbody>
                       </table>
                     </div>
-                  </Card>
+                  </div>
                 )}
 
                 {/* Historique séances */}
                 {logs.length > 0 && (
-                  <Card>
+                  <div style={_card()}>
                     <div style={{ fontSize: 14, fontWeight: 800, color: T.text, marginBottom: 12 }}>Dernières séances</div>
                     <div style={{ display: 'grid', gap: 6 }}>
                       {logs.slice(0, 10).map(log => {
                         const typeInfo = SESSION_TYPES.find(t => t.key === log.type_seance) || SESSION_TYPES[4]
                         const ua = log.charge_ua || log.rpe * log.duree_min
                         return (
-                          <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: `1px solid ${T.border}` }}>
+                          <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 12px', background: T.bgAlt, borderRadius: 10, border: `1px solid ${T.border}` }}>
                             <div>
                               <div style={{ fontSize: 13, color: T.text, fontWeight: 600, display: 'flex', gap: 8, alignItems: 'center' }}>
                                 <span>{typeInfo.emoji}</span>
@@ -599,7 +601,7 @@ export default function PrepChargeExternePage() {
                         )
                       })}
                     </div>
-                  </Card>
+                  </div>
                 )}
 
                 {logs.length === 0 && (
@@ -612,6 +614,6 @@ export default function PrepChargeExternePage() {
           </>
         )}
       </div>
-    </PageWrap>
+    </div>
   )
 }
