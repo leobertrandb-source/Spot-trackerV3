@@ -213,7 +213,7 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
   const athleteMainLinks = [
     ...(showPrepPhysique
       ? [
-          { to: '/prep/dashboard', label: 'Dashboard' },
+          { to: '/mon-tableau-de-bord', label: 'Dashboard' },
           { to: '/prep/hooper', label: 'HOOPER' },
           { to: '/prep/charge', label: 'Charge interne' },
           { to: '/prep/charge-externe', label: 'Charge externe' },

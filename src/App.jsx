@@ -175,7 +175,7 @@ function PrivateAppShell() {
           <Route path="/prep/compo"          element={canPrepPhysique ? <PrepCompoPage />         : <Navigate to={athleteHome} replace />} />
           <Route path="/prep/topset"         element={canPrepPhysique ? <PrepTopsetPage />        : <Navigate to={athleteHome} replace />} />
           <Route path="/prep/charge-externe" element={canPrepPhysique ? <PrepChargeExternePage /> : <Navigate to={athleteHome} replace />} />
-          <Route path="/prep/dashboard"      element={canPrepPhysique ? <PrepDashboardPage /> : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/dashboard"      element={canPrepPhysique && isCoach ? <PrepDashboardPage /> : <Navigate to={athleteHome} replace />} />
           <Route path="/prep/analyse/:id"    element={canPrepPhysique && isCoach ? <PrepAnalysePage />   : <Navigate to={athleteHome} replace />} />
 
           {/* ── MODULE MÉDICAL ── */}
