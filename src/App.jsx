@@ -27,6 +27,7 @@ import CoachPage from './pages/CoachPage'
 import CoachClientsPage from './pages/CoachClientsPage'
 import CoachClientDetailPage from './pages/CoachClientDetailPage'
 import ProgramBuilderPage from './pages/ProgramBuilderPage'
+import CoachPlanningPage from './pages/CoachPlanningPage'
 
 import ProgrammeBodybuildingPage from './pages/ProgrammeBodybuildingPage'
 import ProgrammePerteDePoidsPage from './pages/ProgrammePerteDePoidsPage'
@@ -194,6 +195,9 @@ function PrivateAppShell() {
           />
           <Route path="/coach/client/:id"
             element={isCoach ? <CoachClientDetailPage /> : <Navigate to={athleteHome} replace />}
+          />
+          <Route path="/planning"
+            element={isCoach && !showPrepPhysique ? <CoachPlanningPage /> : <Navigate to={athleteHome} replace />}
           />
           <Route path="/programmes"
             element={isCoach ? <ProgramBuilderPage /> : <Navigate to={athleteHome} replace />}
