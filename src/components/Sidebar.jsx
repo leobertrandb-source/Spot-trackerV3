@@ -230,6 +230,7 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
   const coachPrepLinks = [
     { to: '/coach',       label: 'Dashboard' },
     { to: '/coach/clients', label: 'Effectif' },
+    { to: '/planning',    label: 'Planning' },
     { to: '/calendrier',  label: 'Calendrier' },
     { to: '/medical',     label: 'Médical' },
     { to: '/programmes',  label: 'Programmes' },

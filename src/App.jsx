@@ -197,7 +197,7 @@ function PrivateAppShell() {
             element={isCoach ? <CoachClientDetailPage /> : <Navigate to={athleteHome} replace />}
           />
           <Route path="/planning"
-            element={isCoach && !showPrepPhysique ? <CoachPlanningPage /> : <Navigate to={athleteHome} replace />}
+            element={isCoach ? <CoachPlanningPage /> : <Navigate to={athleteHome} replace />}
           />
           <Route path="/programmes"
             element={isCoach ? <ProgramBuilderPage /> : <Navigate to={athleteHome} replace />}
