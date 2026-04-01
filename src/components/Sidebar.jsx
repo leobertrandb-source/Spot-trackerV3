@@ -211,22 +211,23 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
   }[profile?.goal_type] || '/objectif'
 
   const athleteMainLinks = [
-    { to: '/mon-espace', label: 'Mon espace' },
-    { to: '/entrainement/aujourdhui', label: 'Séance du jour' },
-    { to: '/entrainement/libre', label: 'Séance libre' },
-    { to: '/progression', label: 'Progression' },
-    { to: '/exercices', label: 'Exercices' },
-    ...(showMethodeSpot ? [{ to: progRoute, label: 'Méthode & objectif' }] : []),
     ...(showPrepPhysique
       ? [
+          { to: '/prep/dashboard', label: 'Dashboard' },
           { to: '/prep/hooper', label: 'HOOPER' },
           { to: '/prep/charge', label: 'Charge interne' },
           { to: '/prep/charge-externe', label: 'Charge externe' },
-          { to: '/prep/compo', label: 'Composition corporelle' },
           { to: '/prep/topset', label: 'TOPSET' },
           { to: '/calendrier', label: 'Calendrier' },
         ]
-      : []),
+      : [
+          { to: '/mon-espace', label: 'Mon espace' },
+          { to: '/entrainement/aujourdhui', label: 'Séance du jour' },
+          { to: '/entrainement/libre', label: 'Séance libre' },
+          { to: '/progression', label: 'Progression' },
+          { to: '/exercices', label: 'Exercices' },
+          ...(showMethodeSpot ? [{ to: progRoute, label: 'Méthode & objectif' }] : []),
+        ]),
   ]
 
   const athleteNutritionLinks = [
