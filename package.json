@@ -13,13 +13,15 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build"
+    "build": "react-scripts build",
+    "postinstall": "node scripts/fix-lodash-template.js"
   },
   "engines": {
     "node": "20.x"
   },
   "overrides": {
-    "html-webpack-plugin": "5.5.4"
+    "html-webpack-plugin": "5.5.4",
+    "lodash": "4.17.21"
   },
   "browserslist": {
     "production": [
