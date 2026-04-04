@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, Dumbbell, CalendarDays, Stethoscope,
   ClipboardList, Activity, Zap, BarChart2, TrendingUp,
   Apple, BookOpen, ChevronRight, LogOut, User, Shield,
-  Heart, Timer, Flame, Target, Calendar
+  Heart, Timer, Flame, Target, Calendar, Scale, CheckSquare
 } from 'lucide-react'
 
 // ─── Icônes par route ──────────────────────────────────────────────────────────
@@ -28,9 +28,11 @@ const NAV_ICONS = {
   '/prep/charge':            Activity,
   '/prep/charge-externe':    Timer,
   '/prep/topset':            BarChart2,
+  '/prep/compo':             Scale,
   '/prep/dashboard':         LayoutDashboard,
   '/prep/analyse':           Target,
   '/planning':               Calendar,
+  '/ma-presence':            CheckSquare,
 }
 
 // ─── Couleurs accent par route ─────────────────────────────────────────────────
@@ -52,7 +54,9 @@ const NAV_ACCENTS = {
   '/prep/charge':            '#60a5fa',
   '/prep/charge-externe':    '#f59e0b',
   '/prep/topset':            '#3ecf8e',
+  '/prep/compo':             '#f59e0b',
   '/prep/dashboard':         '#a78bfa',
+  '/ma-presence':            '#3ecf8e',
   '/planning':               '#22d3ee',
 }
 
@@ -255,7 +259,9 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
     { to: '/prep/charge',          label: 'Charge interne' },
     { to: '/prep/charge-externe',  label: 'Charge externe' },
     { to: '/prep/topset',          label: 'Topset' },
+    { to: '/prep/compo',           label: 'Composition' },
     { to: '/calendrier',           label: 'Calendrier' },
+    { to: '/ma-presence',          label: 'Ma présence' },
   ]
 
   const athleteTrainLinks = [

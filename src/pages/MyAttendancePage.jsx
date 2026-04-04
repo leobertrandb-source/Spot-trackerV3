@@ -2,57 +2,44 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-
-const C = {
-  bg:      '#080808',
-  card:    'rgba(12,16,24,0.85)',
-  border:  'rgba(255,255,255,0.08)',
-  borderHi:'rgba(255,255,255,0.14)',
-  text:    '#edf2f7',
-  sub:     '#7a8fa6',
-  dim:     '#3d4f61',
-  accent:  '#3ecf8e',
-  green:   '#3ecf8e',
-  yellow:  '#fbbf24',
-  red:     '#f87171',
-}
+import { LIGHT as T } from '../lib/data'
 
 const STATUSES = [
   {
     key: 'present',
     label: 'Présent',
-    sublabel: 'Je serai à l\'entraînement',
+    sublabel: "Je serai à l'entraînement",
     icon: '✓',
-    color: C.green,
-    bg: 'rgba(62,207,142,0.12)',
-    border: 'rgba(62,207,142,0.3)',
+    color: '#2d6a4f',
+    bg: '#e8f5ee',
+    border: '#2d6a4f30',
   },
   {
     key: 'present_blesse',
     label: 'Présent — blessé',
     sublabel: 'Je viens mais avec une blessure',
     icon: '🩹',
-    color: C.yellow,
-    bg: 'rgba(251,191,36,0.12)',
-    border: 'rgba(251,191,36,0.3)',
+    color: '#b5830a',
+    bg: '#fdf6e3',
+    border: '#b5830a30',
   },
   {
     key: 'absent_blesse',
     label: 'Absent — blessé',
     sublabel: 'Je ne peux pas venir, blessure',
     icon: '🔴',
-    color: C.red,
-    bg: 'rgba(248,113,113,0.12)',
-    border: 'rgba(248,113,113,0.3)',
+    color: '#c0392b',
+    bg: '#fdecea',
+    border: '#c0392b30',
   },
   {
     key: 'absent',
     label: 'Absent',
     sublabel: 'Je ne serai pas là',
     icon: '✗',
-    color: C.sub,
-    bg: 'rgba(122,143,166,0.08)',
-    border: 'rgba(122,143,166,0.2)',
+    color: T.sub,
+    bg: T.bgAlt,
+    border: T.border,
   },
 ]
 
@@ -104,7 +91,7 @@ export default function MyAttendancePage() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: C.bg,
+      background: T.bg,
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -115,30 +102,29 @@ export default function MyAttendancePage() {
 
       {/* Logo */}
       <div style={{ marginBottom: 32, textAlign: 'center' }}>
-        <div style={{ fontSize: 22, fontWeight: 700, color: C.text, letterSpacing: -0.5 }}>
-          atl<span style={{ color: C.accent }}>yo</span>
+        <div style={{ fontSize: 22, fontWeight: 700, color: T.text, letterSpacing: -0.5 }}>
+          atl<span style={{ color: T.accent }}>yo</span>
         </div>
       </div>
 
       {/* Card principale */}
       <div style={{
         width: '100%', maxWidth: 420,
-        background: C.card,
-        border: `1px solid ${C.border}`,
+        background: T.card,
+        border: `1px solid ${T.border}`,
         borderRadius: 24,
         padding: '28px 24px',
-        backdropFilter: 'blur(24px)',
       }}>
         {/* Header */}
         <div style={{ marginBottom: 24, textAlign: 'center' }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: C.sub, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: T.sub, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>
             Présence entraînement
           </div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: C.text, marginBottom: 4, textTransform: 'capitalize' }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: T.text, marginBottom: 4, textTransform: 'capitalize' }}>
             {dateLabel}
           </div>
           {profile?.full_name && (
-            <div style={{ fontSize: 14, color: C.sub }}>{profile.full_name}</div>
+            <div style={{ fontSize: 14, color: T.sub }}>{profile.full_name}</div>
           )}
           {coachInfo && (
             <div style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>
@@ -152,7 +138,7 @@ export default function MyAttendancePage() {
           <div style={{
             marginBottom: 16, padding: '10px 14px', borderRadius: 12,
             background: 'rgba(62,207,142,0.12)', border: '1px solid rgba(62,207,142,0.3)',
-            fontSize: 13, fontWeight: 600, color: C.accent, textAlign: 'center',
+            fontSize: 13, fontWeight: 600, color: T.accent, textAlign: 'center',
           }}>
             ✓ Réponse enregistrée
           </div>
@@ -160,7 +146,7 @@ export default function MyAttendancePage() {
 
         {/* Boutons statut */}
         {loading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: C.sub, fontSize: 13 }}>Chargement...</div>
+          <div style={{ padding: 40, textAlign: 'center', color: T.sub, fontSize: 13 }}>Chargement...</div>
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
             {STATUSES.map(s => {
@@ -174,7 +160,7 @@ export default function MyAttendancePage() {
                     width: '100%', padding: '16px 18px',
                     borderRadius: 14, cursor: saving ? 'default' : 'pointer',
                     fontFamily: 'inherit', textAlign: 'left',
-                    border: `1.5px solid ${isSelected ? s.border : C.border}`,
+                    border: `1.5px solid ${isSelected ? s.border : T.border}`,
                     background: isSelected ? s.bg : 'transparent',
                     transition: 'all 0.15s',
                     display: 'flex', alignItems: 'center', gap: 14,
@@ -182,8 +168,8 @@ export default function MyAttendancePage() {
                 >
                   <div style={{
                     width: 40, height: 40, borderRadius: '50%',
-                    background: isSelected ? s.bg : 'rgba(255,255,255,0.04)',
-                    border: `1px solid ${isSelected ? s.border : C.border}`,
+                    background: isSelected ? s.bg : T.bgAlt,
+                    border: `1px solid ${isSelected ? s.border : T.border}`,
                     display: 'grid', placeItems: 'center',
                     fontSize: 16, flexShrink: 0,
                     transition: 'all 0.15s',
@@ -191,10 +177,10 @@ export default function MyAttendancePage() {
                     {s.icon}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: isSelected ? s.color : C.text, marginBottom: 2 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: isSelected ? s.color : T.text, marginBottom: 2 }}>
                       {s.label}
                     </div>
-                    <div style={{ fontSize: 12, color: C.sub }}>{s.sublabel}</div>
+                    <div style={{ fontSize: 12, color: T.sub }}>{s.sublabel}</div>
                   </div>
                   {isSelected && (
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
@@ -211,8 +197,8 @@ export default function MyAttendancePage() {
           style={{
             width: '100%', marginTop: 20, padding: '12px',
             borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
-            border: `1px solid ${C.border}`, background: 'transparent',
-            color: C.sub, fontSize: 13, fontWeight: 600,
+            border: `1px solid ${T.border}`, background: 'transparent',
+            color: T.sub, fontSize: 13, fontWeight: 600,
           }}
         >
           Retour à l'app
