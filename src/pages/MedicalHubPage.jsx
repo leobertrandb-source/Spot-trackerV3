@@ -299,7 +299,7 @@ export default function MedicalHubPage() {
       { data: appts,    error: apptErr },
       { data: mtch,     error: mtchErr },
     ] = await Promise.all([
-      supabase.from('profiles').select('id, full_name, email, poste, avatar_url').in('id', ids),
+      supabase.from('profiles').select('id, full_name, email, poste').in('id', ids),
       supabase.from('medical_injuries').select('*').in('athlete_id', ids).order('date_injury', { ascending: false }),
       supabase.from('medical_appointments').select('*').in('athlete_id', ids)
         .order('date_appointment', { ascending: false }),
@@ -712,7 +712,7 @@ export default function MedicalHubPage() {
                     {group.athletes.map(athlete => (
                       <MedicalRosterTile
                         key={athlete.id}
-                        athlete={athlete}
+                        athlete={{ ...athlete, avatar_url: null }}
                         onClick={() => navigate(`/medical/${athlete.id}`)}
                       />
                     ))}
