@@ -255,6 +255,19 @@ export default function MedicalHubPage() {
   const [loading, setLoading]           = useState(true)
   const [tab, setTab]                   = useState('effectif')
 
+  // Nouvelle blessure modal
+  const today = new Date().toISOString().split('T')[0]
+  const [showInjuryModal, setShowInjuryModal] = useState(false)
+  const [injForm, setInjForm] = useState({ athlete_id: '', body_zone: 'genou', description: '', date_injury: today, date_return: '', status: 'active' })
+  const [savingInj, setSavingInj] = useState(false)
+
+  // Lier un joueur modal
+  const [showLinkModal, setShowLinkModal] = useState(false)
+  const [linkEmail, setLinkEmail] = useState('')
+  const [linkResult, setLinkResult] = useState(null) // profile found
+  const [linkError, setLinkError] = useState('')
+  const [savingLink, setSavingLink] = useState(false)
+
   // Match modal state
   const [showMatchModal, setShowMatchModal] = useState(false)
   const [showICSModal, setShowICSModal]     = useState(false)
@@ -266,7 +279,7 @@ export default function MedicalHubPage() {
   const load = useCallback(async () => {
     setLoading(true)
 
-    let coachId = user.id
+    let coachId = profile?.id || user?.id
     if (profile?.role === 'staff_medical') {
       const { data: link, error: staffErr } = await supabase
         .from('club_staff').select('coach_id').eq('staff_id', user.id).maybeSingle()
@@ -392,6 +405,53 @@ export default function MedicalHubPage() {
     ),
   }))
 
+  // ── Ajouter une blessure ───────────────────────────────────────────────────
+  async function saveInjury() {
+    if (!injForm.athlete_id || !injForm.body_zone) return
+    setSavingInj(true)
+    const { error } = await supabase.from('medical_injuries').insert({
+      athlete_id: injForm.athlete_id,
+      body_zone: injForm.body_zone,
+      description: injForm.description || null,
+      date_injury: injForm.date_injury,
+      date_return: injForm.date_return || null,
+      status: injForm.status,
+    })
+    setSavingInj(false)
+    if (!error) {
+      setShowInjuryModal(false)
+      setInjForm({ athlete_id: '', body_zone: 'genou', description: '', date_injury: today, date_return: '', status: 'active' })
+      load()
+    }
+  }
+
+  // ── Lier un joueur par email ────────────────────────────────────────────────
+  async function searchByEmail() {
+    setLinkError('')
+    setLinkResult(null)
+    const { data } = await supabase.from('profiles').select('id, full_name, email, poste').eq('email', linkEmail.trim().toLowerCase()).maybeSingle()
+    if (!data) { setLinkError('Aucun compte trouvé pour cet email.'); return }
+    const already = athletes.find(a => a.id === data.id)
+    if (already) { setLinkError('Ce joueur est déjà dans votre effectif.'); return }
+    setLinkResult(data)
+  }
+
+  async function linkAthlete() {
+    if (!linkResult) return
+    setSavingLink(true)
+    const coachId = profile?.id || user?.id
+    const { error } = await supabase.from('coach_clients').insert({ coach_id: coachId, client_id: linkResult.id })
+    setSavingLink(false)
+    if (!error) {
+      setShowLinkModal(false)
+      setLinkEmail('')
+      setLinkResult(null)
+      load()
+    } else {
+      setLinkError('Erreur lors du lien : ' + error.message)
+    }
+  }
+
   const returns = active
     .filter(i => i.date_return)
     .sort((a, b) => new Date(a.date_return) - new Date(b.date_return))
@@ -399,6 +459,7 @@ export default function MedicalHubPage() {
     .map(i => ({ ...i, athlete: athletes.find(a => a.id === i.athlete_id) }))
 
   return (
+    <>
     <div style={{ minHeight: '100vh', background: P.bg, fontFamily: P.fontBody, padding: 'clamp(20px,3vw,36px)' }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&display=swap');`}</style>
 
@@ -431,14 +492,22 @@ export default function MedicalHubPage() {
           ))}
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+        {/* Tabs + actions */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
           <Tab label="👥 Effectif"     active={tab === 'effectif'}   onClick={() => setTab('effectif')}   count={athletes.length} />
           <Tab label="🏥 Infirmerie"   active={tab === 'infirmerie'} onClick={() => setTab('infirmerie')} count={blesseActif.length} color={P.red} />
           <Tab label="📅 RDV"          active={tab === 'rdv'}        onClick={() => setTab('rdv')}         count={appointments.length} color={P.blue} />
           <Tab label="🏉 Matchs"       active={tab === 'matchs'}     onClick={() => setTab('matchs')}      count={matches.length} />
           <Tab label="📊 Statistiques" active={tab === 'stats'}      onClick={() => setTab('stats')}       count={injuries.length} />
-          <button onClick={load} style={{ marginLeft: 'auto', padding: '7px 12px', borderRadius: 20, border: `1px solid ${P.border}`, background: 'transparent', color: P.sub, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <button onClick={() => setShowInjuryModal(true)} style={{ padding: '7px 14px', borderRadius: 20, border: `1px solid ${P.accent}`, background: P.accent, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              + Nouvelle blessure
+            </button>
+            <button onClick={() => setShowLinkModal(true)} style={{ padding: '7px 12px', borderRadius: 20, border: `1px solid ${P.border}`, background: 'transparent', color: P.sub, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+              + Joueur
+            </button>
+            <button onClick={load} style={{ padding: '7px 12px', borderRadius: 20, border: `1px solid ${P.border}`, background: 'transparent', color: P.sub, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
+          </div>
         </div>
 
         {/* ── TAB INFIRMERIE ── */}
@@ -598,8 +667,13 @@ export default function MedicalHubPage() {
                 Chargement...
               </div>
             ) : athletes.length === 0 ? (
-              <div style={{ padding: 40, textAlign: 'center', color: P.sub, background: P.card, border: `1px solid ${P.border}`, borderRadius: 16 }}>
-                Aucun athlète
+              <div style={{ padding: 40, textAlign: 'center', background: P.card, border: `1px solid ${P.border}`, borderRadius: 16 }}>
+                <div style={{ fontSize: 28, marginBottom: 12 }}>👥</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: P.text, marginBottom: 6 }}>Aucun joueur dans l'effectif</div>
+                <div style={{ fontSize: 13, color: P.sub, marginBottom: 20 }}>Liez vos joueurs pour voir leur statut médical ici.</div>
+                <button onClick={() => setShowLinkModal(true)} style={{ padding: '10px 20px', borderRadius: 10, border: `1px solid ${P.accent}`, background: P.accent, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  + Lier un joueur
+                </button>
               </div>
             ) : (
               rosterGroups.map(group => (
@@ -985,5 +1059,118 @@ export default function MedicalHubPage() {
 
       </div>
     </div>
+
+    {/* ── Modal Nouvelle blessure ─────────────────────────────────────────── */}
+    {showInjuryModal && (
+      <div onClick={() => setShowInjuryModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+        <div onClick={e => e.stopPropagation()} style={{ background: P.card, borderRadius: 16, padding: 24, width: '100%', maxWidth: 460, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', border: `1px solid ${P.border}` }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: P.text }}>Nouvelle blessure</div>
+            <button onClick={() => setShowInjuryModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: P.sub }}>×</button>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: P.sub, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Joueur</label>
+            <select value={injForm.athlete_id} onChange={e => setInjForm(f => ({ ...f, athlete_id: e.target.value }))}
+              style={{ width: '100%', padding: '10px 12px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, color: P.text, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}>
+              <option value="">— Sélectionner un joueur —</option>
+              {athletes.map(a => <option key={a.id} value={a.id}>{a.full_name || a.email}{a.poste ? ` (${a.poste})` : ''}</option>)}
+            </select>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: P.sub, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Zone corporelle</label>
+            <select value={injForm.body_zone} onChange={e => setInjForm(f => ({ ...f, body_zone: e.target.value }))}
+              style={{ width: '100%', padding: '10px 12px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, color: P.text, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}>
+              {Object.entries(BODY_ZONES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            </select>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: P.sub, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Description</label>
+            <textarea value={injForm.description} onChange={e => setInjForm(f => ({ ...f, description: e.target.value }))}
+              placeholder="Ex: Entorse ligament externe, 2ème degré..." rows={2}
+              style={{ width: '100%', padding: '10px 12px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, color: P.text, fontSize: 14, outline: 'none', fontFamily: 'inherit', resize: 'none', boxSizing: 'border-box' }} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: P.sub, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Date blessure</label>
+              <input type="date" value={injForm.date_injury} onChange={e => setInjForm(f => ({ ...f, date_injury: e.target.value }))}
+                style={{ width: '100%', padding: '10px 12px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, color: P.text, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: P.sub, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Retour prévu</label>
+              <input type="date" value={injForm.date_return} onChange={e => setInjForm(f => ({ ...f, date_return: e.target.value }))}
+                style={{ width: '100%', padding: '10px 12px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, color: P.text, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: P.sub, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Statut</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[{ v: 'active', l: 'Blessé · examen' }, { v: 'surveillance', l: 'Sous protocole' }].map(({ v, l }) => (
+                <button key={v} onClick={() => setInjForm(f => ({ ...f, status: v }))}
+                  style={{ flex: 1, padding: '9px', borderRadius: 10, border: `1px solid ${injForm.status === v ? P.accent : P.border}`, background: injForm.status === v ? `${P.accent}15` : 'transparent', color: injForm.status === v ? P.accent : P.sub, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => setShowInjuryModal(false)} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${P.border}`, background: 'transparent', color: P.sub, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Annuler</button>
+            <button onClick={saveInjury} disabled={savingInj || !injForm.athlete_id}
+              style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: P.accent, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', opacity: savingInj || !injForm.athlete_id ? 0.6 : 1 }}>
+              {savingInj ? 'Enregistrement...' : 'Enregistrer la blessure'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ── Modal Lier un joueur ─────────────────────────────────────────────── */}
+    {showLinkModal && (
+      <div onClick={() => { setShowLinkModal(false); setLinkEmail(''); setLinkResult(null); setLinkError('') }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+        <div onClick={e => e.stopPropagation()} style={{ background: P.card, borderRadius: 16, padding: 24, width: '100%', maxWidth: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', border: `1px solid ${P.border}` }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: P.text }}>Lier un joueur</div>
+            <button onClick={() => { setShowLinkModal(false); setLinkEmail(''); setLinkResult(null); setLinkError('') }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: P.sub }}>×</button>
+          </div>
+          <div style={{ fontSize: 13, color: P.sub, marginBottom: 16 }}>Entrez l'adresse email du compte joueur pour le rattacher à votre effectif.</div>
+
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <input value={linkEmail} onChange={e => { setLinkEmail(e.target.value); setLinkResult(null); setLinkError('') }}
+              onKeyDown={e => e.key === 'Enter' && searchByEmail()}
+              placeholder="email@joueur.fr" type="email"
+              style={{ flex: 1, padding: '10px 12px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, color: P.text, fontSize: 14, outline: 'none', fontFamily: 'inherit' }} />
+            <button onClick={searchByEmail} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: P.accent, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Chercher
+            </button>
+          </div>
+
+          {linkError && <div style={{ fontSize: 13, color: P.red, marginBottom: 12, padding: '8px 12px', background: '#fdecea', borderRadius: 8 }}>{linkError}</div>}
+
+          {linkResult && (
+            <div style={{ padding: '14px 16px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 12, marginBottom: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: P.text }}>{linkResult.full_name || linkResult.email}</div>
+              <div style={{ fontSize: 12, color: P.sub, marginTop: 2 }}>{linkResult.email}{linkResult.poste ? ` · ${linkResult.poste}` : ''}</div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => { setShowLinkModal(false); setLinkEmail(''); setLinkResult(null); setLinkError('') }}
+              style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${P.border}`, background: 'transparent', color: P.sub, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Annuler</button>
+            {linkResult && (
+              <button onClick={linkAthlete} disabled={savingLink}
+                style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: P.accent, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', opacity: savingLink ? 0.6 : 1 }}>
+                {savingLink ? 'Ajout...' : `Lier ${linkResult.full_name || 'ce joueur'}`}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
