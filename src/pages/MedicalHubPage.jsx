@@ -80,86 +80,122 @@ function RosterAvatar({ name, avatarUrl, size = 86 }) {
   )
 }
 
+// ─── Groupes de postes rugby ───────────────────────────────────────────────────
+const RUGBY_GROUPS = [
+  { key: '1ère ligne',   keywords: ['pilier', 'talonneur', '1ère ligne', 'premiere ligne', '1ere ligne', 'front row'] },
+  { key: '2ème ligne',   keywords: ['2ème ligne', 'deuxième ligne', '2eme ligne', 'lock', 'second row'] },
+  { key: '3ème ligne',   keywords: ['3ème ligne', 'troisième ligne', '3eme ligne', 'flanker', 'n°8', 'no 8', 'numéro 8', 'back row'] },
+  { key: 'Demis',        keywords: ['demi de mêlée', 'demi d\'ouverture', 'demi', 'scrum half', 'fly half', 'ouvreur', 'mêlée', 'half'] },
+  { key: 'Trois-quarts', keywords: ['centre', 'ailier', 'trois-quart', 'trois quart', '3/4', 'wing', 'winger'] },
+  { key: 'Arrière',      keywords: ['arrière', 'fullback'] },
+]
+
+function getPositionGroup(poste) {
+  const p = (poste || '').toLowerCase().trim()
+  if (!p) return 'Poste non renseigné'
+  for (const group of RUGBY_GROUPS) {
+    if (group.keywords.some(kw => p.includes(kw))) return group.key
+  }
+  return poste.trim()
+}
+
 function normalizePoste(poste) {
   return (poste || '').trim() || 'Poste non renseigné'
 }
 
 function MedicalRosterTile({ athlete, onClick }) {
-  const isFit = athlete.activeInjuries.length === 0
-  const hasSurveillance = athlete.surveillance.length > 0
-  const statusLabel = isFit ? 'Apte' : 'Inapte'
-  const statusColor = isFit ? P.green : P.red
-  const statusBg = isFit ? '#e8f5ee' : '#fdecea'
-  const subStatus = isFit
-    ? hasSurveillance
-      ? 'Sous surveillance'
-      : 'Disponible'
-    : athlete.activeInjuries[0]
-      ? BODY_ZONES[athlete.activeInjuries[0].body_zone] || 'Blessure en cours'
-      : 'Blessure en cours'
+  const isInjured    = athlete.activeInjuries.length > 0
+  const isProtocol   = !isInjured && athlete.surveillance.length > 0
+  const isFit        = !isInjured && !isProtocol
+
+  // Status config
+  const STATUS = isFit
+    ? { label: 'Apte à jouer',          color: P.green,  bg: '#e8f5ee',  border: P.green,  shadow: 'rgba(45,106,79,0.13)' }
+    : isProtocol
+      ? { label: 'Blessé · protocole',  color: '#d97706', bg: '#fdf6e3', border: '#d97706', shadow: 'rgba(217,119,6,0.13)' }
+      : { label: 'Blessé · examen',     color: P.red,     bg: '#fdecea', border: P.red,     shadow: 'rgba(192,57,43,0.13)' }
+
+  // First return date across all current injuries
+  const returnDate = [...athlete.activeInjuries, ...athlete.surveillance]
+    .filter(i => i.date_return)
+    .sort((a, b) => new Date(a.date_return) - new Date(b.date_return))[0]?.date_return
+
+  const daysLeft = returnDate
+    ? Math.ceil((new Date(returnDate) - Date.now()) / 86400000)
+    : null
+
+  const injZone = isInjured && athlete.activeInjuries[0]
+    ? BODY_ZONES[athlete.activeInjuries[0].body_zone] || 'Blessure'
+    : isProtocol && athlete.surveillance[0]
+      ? BODY_ZONES[athlete.surveillance[0].body_zone] || 'Protocole'
+      : null
 
   return (
-    <button
-      onClick={onClick}
+    <button onClick={onClick}
       style={{
-        border: `2px solid ${statusColor}`,
+        border: `2px solid ${STATUS.border}22`,
         background: '#ffffff',
-        borderRadius: 24,
-        padding: 18,
+        borderRadius: 20,
+        padding: '16px 12px',
         cursor: 'pointer',
-        minHeight: 214,
+        minHeight: 200,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: 14,
-        boxShadow: isFit ? '0 12px 28px rgba(45,106,79,0.12)' : '0 12px 28px rgba(192,57,43,0.12)',
+        gap: 10,
+        boxShadow: `0 8px 24px ${STATUS.shadow}`,
         transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+        textAlign: 'center',
+        width: '100%',
+        boxSizing: 'border-box',
       }}
-      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)' }}
-      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)' }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 14px 32px ${STATUS.shadow}` }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 8px 24px ${STATUS.shadow}` }}
     >
-      <RosterAvatar
-        name={athlete.full_name || athlete.email}
-        avatarUrl={athlete.avatar_url}
-      />
-
-      <div style={{ textAlign: 'center', width: '100%' }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: P.text, lineHeight: 1.2 }}>
-          {athlete.full_name || athlete.email}
-        </div>
-        <div style={{ marginTop: 6, fontSize: 12, color: P.sub, fontWeight: 600 }}>
-          {normalizePoste(athlete.poste)}
-        </div>
-        <div
-          style={{
-            marginTop: 12,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '7px 12px',
-            borderRadius: 999,
-            fontSize: 12,
-            fontWeight: 800,
-            background: statusBg,
-            color: statusColor,
-          }}
-        >
-          <span
-            style={{
-              width: 10,
-              height: 10,
-              borderRadius: '50%',
-              background: statusColor,
-              display: 'inline-block',
-            }}
-          />
-          {statusLabel}
-        </div>
-        <div style={{ marginTop: 10, minHeight: 18, fontSize: 12, color: isFit && hasSurveillance ? P.yellow : P.sub, fontWeight: 600 }}>
-          {subStatus}
-        </div>
+      {/* Avatar with status ring */}
+      <div style={{ position: 'relative' }}>
+        <RosterAvatar name={athlete.full_name || athlete.email} avatarUrl={athlete.avatar_url} size={72} />
+        <span style={{
+          position: 'absolute', bottom: 0, right: 0,
+          width: 16, height: 16, borderRadius: '50%',
+          background: STATUS.color, border: '2px solid #fff',
+          display: 'inline-block',
+        }} />
       </div>
+
+      {/* Name */}
+      <div style={{ fontSize: 14, fontWeight: 800, color: P.text, lineHeight: 1.25, width: '100%' }}>
+        {athlete.full_name || athlete.email}
+      </div>
+
+      {/* Position */}
+      <div style={{ fontSize: 11, color: P.sub, fontWeight: 600, marginTop: -4 }}>
+        {normalizePoste(athlete.poste)}
+      </div>
+
+      {/* Status badge */}
+      <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        padding: '5px 10px', borderRadius: 999,
+        fontSize: 11, fontWeight: 800,
+        background: STATUS.bg, color: STATUS.color,
+        width: '100%', justifyContent: 'center', boxSizing: 'border-box',
+      }}>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS.color, flexShrink: 0 }} />
+        {STATUS.label}
+      </div>
+
+      {/* Zone blessure ou date retour */}
+      {(injZone || returnDate) && (
+        <div style={{ fontSize: 11, color: P.sub, lineHeight: 1.4 }}>
+          {injZone && <div style={{ fontWeight: 600 }}>{injZone}</div>}
+          {returnDate && (
+            <div style={{ color: daysLeft !== null && daysLeft <= 7 ? P.green : '#d97706', fontWeight: 700, marginTop: 2 }}>
+              Retour {daysLeft !== null && daysLeft <= 0 ? 'prévu' : `J-${daysLeft}`} · {new Date(returnDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+            </div>
+          )}
+        </div>
+      )}
     </button>
   )
 }
@@ -217,7 +253,7 @@ export default function MedicalHubPage() {
   const [appointments, setAppointments] = useState([])
   const [matches, setMatches]           = useState([])
   const [loading, setLoading]           = useState(true)
-  const [tab, setTab]                   = useState('infirmerie')
+  const [tab, setTab]                   = useState('effectif')
 
   // Match modal state
   const [showMatchModal, setShowMatchModal] = useState(false)
@@ -327,18 +363,27 @@ export default function MedicalHubPage() {
   const aptes           = athletesWithData.filter(a => a.activeInjuries.length === 0 && a.surveillance.length === 0)
 
   const groupedAthletes = athletesWithData.reduce((acc, athlete) => {
-    const posteKey = normalizePoste(athlete.poste)
+    const posteKey = getPositionGroup(athlete.poste)
     if (!acc[posteKey]) acc[posteKey] = []
     acc[posteKey].push(athlete)
     return acc
   }, {})
 
-  const orderedPostes = Object.keys(groupedAthletes)
-    .sort((a, b) => {
+  // Ordre rugby canonique : 1ère ligne → 2ème → 3ème → Demis → 3-quarts → Arrière → reste
+  const RUGBY_GROUP_ORDER = RUGBY_GROUPS.map(g => g.key)
+
+  const orderedPostes = Object.keys(groupedAthletes).sort((a, b) => {
+    const ia = RUGBY_GROUP_ORDER.indexOf(a)
+    const ib = RUGBY_GROUP_ORDER.indexOf(b)
+    if (ia === -1 && ib === -1) {
       if (a === 'Poste non renseigné') return 1
       if (b === 'Poste non renseigné') return -1
       return a.localeCompare(b, 'fr')
-    })
+    }
+    if (ia === -1) return 1
+    if (ib === -1) return -1
+    return ia - ib
+  })
 
   const rosterGroups = orderedPostes.map(poste => ({
     poste,
@@ -388,8 +433,8 @@ export default function MedicalHubPage() {
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-          <Tab label="🏥 Infirmerie"   active={tab === 'infirmerie'} onClick={() => setTab('infirmerie')} count={blesseActif.length} color={P.red} />
           <Tab label="👥 Effectif"     active={tab === 'effectif'}   onClick={() => setTab('effectif')}   count={athletes.length} />
+          <Tab label="🏥 Infirmerie"   active={tab === 'infirmerie'} onClick={() => setTab('infirmerie')} count={blesseActif.length} color={P.red} />
           <Tab label="📅 RDV"          active={tab === 'rdv'}        onClick={() => setTab('rdv')}         count={appointments.length} color={P.blue} />
           <Tab label="🏉 Matchs"       active={tab === 'matchs'}     onClick={() => setTab('matchs')}      count={matches.length} />
           <Tab label="📊 Statistiques" active={tab === 'stats'}      onClick={() => setTab('stats')}       count={injuries.length} />
@@ -569,13 +614,17 @@ export default function MedicalHubPage() {
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: P.green, background: '#e8f5ee', borderRadius: 999, padding: '6px 10px' }}>
-                        {group.athletes.filter(a => a.activeInjuries.length === 0).length} aptes
-                      </div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: P.red, background: '#fdecea', borderRadius: 999, padding: '6px 10px' }}>
-                        {group.athletes.filter(a => a.activeInjuries.length > 0).length} inaptes
-                      </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {(() => {
+                        const fit      = group.athletes.filter(a => a.activeInjuries.length === 0 && a.surveillance.length === 0).length
+                        const protocol = group.athletes.filter(a => a.activeInjuries.length === 0 && a.surveillance.length > 0).length
+                        const injured  = group.athletes.filter(a => a.activeInjuries.length > 0).length
+                        return (<>
+                          {fit > 0      && <div style={{ fontSize: 11, fontWeight: 700, color: P.green,   background: '#e8f5ee', borderRadius: 999, padding: '5px 9px' }}>{fit} aptes</div>}
+                          {protocol > 0 && <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', background: '#fdf6e3', borderRadius: 999, padding: '5px 9px' }}>{protocol} protocole</div>}
+                          {injured > 0  && <div style={{ fontSize: 11, fontWeight: 700, color: P.red,     background: '#fdecea', borderRadius: 999, padding: '5px 9px' }}>{injured} inaptes</div>}
+                        </>)
+                      })()}
                     </div>
                   </div>
 
