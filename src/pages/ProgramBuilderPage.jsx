@@ -110,21 +110,19 @@ function AssignModal({ program, clients, onConfirm, onClose }) {
   )
 }
 
-// ─── Éditeur de programme ─────────────────────────────────────────────────────
+// ─── Éditeur de programme (Everfit-style) ────────────────────────────────────
 function ProgramEditor({ program, exercises, onSave, onClose }) {
   const [name, setName] = useState(program?.name || '')
   const [weeksCount, setWeeksCount] = useState(program?.weeks_count || 1)
-  const [days, setDays] = useState([]) // [{week, dayOfWeek, name, exercises:[]}]
+  const [days, setDays] = useState([])
   const [activeDay, setActiveDay] = useState(null)
   const [showExPicker, setShowExPicker] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  // Init days structure
   useEffect(() => {
     if (program?.id) {
       loadDays()
     } else {
-      // Nouveau programme — structure vide
       setDays([])
     }
   }, [program?.id])
@@ -156,21 +154,16 @@ function ProgramEditor({ program, exercises, onSave, onClose }) {
     return days.find(d => d.week_number === week && d.day_of_week === dayOfWeek)
   }
 
-  function toggleDay(week, dayOfWeek) {
-    const existing = getDay(week, dayOfWeek)
-    if (existing) {
-      // Supprimer ce jour
-      setDays(prev => prev.filter(d => !(d.week_number === week && d.day_of_week === dayOfWeek)))
-    } else {
-      // Créer ce jour
-      const newDay = { _new: true, week_number: week, day_of_week: dayOfWeek, name: DAYS[dayOfWeek - 1], program_day_exercises: [] }
-      setDays(prev => [...prev, newDay])
-    }
+  function addDay(week, dayOfWeek) {
+    if (getDay(week, dayOfWeek)) { setActiveDay({ week, dayOfWeek }); return }
+    const newDay = { _new: true, week_number: week, day_of_week: dayOfWeek, name: DAYS[dayOfWeek - 1], program_day_exercises: [] }
+    setDays(prev => [...prev, newDay])
+    setActiveDay({ week, dayOfWeek })
   }
 
-  function setActiveWeekDay(week, dayOfWeek) {
-    const d = getDay(week, dayOfWeek)
-    if (d) setActiveDay({ week, dayOfWeek })
+  function removeDay(week, dayOfWeek) {
+    setDays(prev => prev.filter(d => !(d.week_number === week && d.day_of_week === dayOfWeek)))
+    if (activeDay?.week === week && activeDay?.dayOfWeek === dayOfWeek) setActiveDay(null)
   }
 
   function addExToDay(week, dayOfWeek, ex) {
@@ -207,10 +200,10 @@ function ProgramEditor({ program, exercises, onSave, onClose }) {
 
       // Créer ou mettre à jour le programme
       if (!progId) {
-        const { data } = await supabase.from('programs').insert({ coach_id: (await supabase.auth.getUser()).data.user.id, name: name.trim(), weeks_count: 1 }).select().single()
+        const { data } = await supabase.from('programs').insert({ coach_id: (await supabase.auth.getUser()).data.user.id, name: name.trim(), weeks_count: weeksCount }).select().single()
         progId = data.id
       } else {
-        await supabase.from('programs').update({ name: name.trim(), weeks_count: 1 }).eq('id', progId)
+        await supabase.from('programs').update({ name: name.trim(), weeks_count: weeksCount }).eq('id', progId)
         // Supprimer les anciens jours
         await supabase.from('program_days').delete().eq('program_id', progId)
       }
@@ -242,135 +235,165 @@ function ProgramEditor({ program, exercises, onSave, onClose }) {
   const activeDayData = activeDay ? getDay(activeDay.week, activeDay.dayOfWeek) : null
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 150, background: C.bg, overflowY: 'auto' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 150, background: C.bg, display: 'flex', flexDirection: 'column', fontFamily: "'DM Sans',sans-serif" }}>
       <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Sans:wght@400;500;700;800&display=swap');
-      .prog-set-row { grid-template-columns: 24px 1fr 1fr 70px 1fr 24px; }
-      @media (max-width: 600px) { .prog-set-row { grid-template-columns: 24px 1fr 1fr 24px; } .prog-set-row .prog-hide-mobile { display: none !important; } }
+      .prog-set-row { grid-template-columns: 22px 1fr 1fr 64px 1fr 22px; }
+      @media (max-width: 700px) { .prog-set-row { grid-template-columns: 22px 1fr 1fr 22px; } .prog-hide-mobile { display: none !important; } }
+      .day-cell:hover { opacity: .85; }
+      .day-empty:hover { border-color: rgba(255,255,255,0.18) !important; background: rgba(255,255,255,0.03) !important; }
     `}</style>
 
-      {/* Header */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 10, background: C.bg, borderBottom: `1px solid ${C.border}`, padding: '14px 20px', display: 'flex', gap: 12, alignItems: 'center' }}>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', color: C.sub, cursor: 'pointer', fontSize: 18 }}>←</button>
+      {/* ── Header ── */}
+      <div style={{ flexShrink: 0, background: C.bg, borderBottom: `1px solid ${C.border}`, padding: '13px 20px', display: 'flex', gap: 12, alignItems: 'center' }}>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: C.sub, cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: '2px 6px' }}>←</button>
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Nom du programme..."
           style={{ flex: 1, background: 'transparent', border: 'none', color: C.text, fontSize: 18, fontWeight: 800, outline: 'none', fontFamily: "'Syne',sans-serif" }} />
-        <button onClick={handleSave} disabled={saving || !name.trim()} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: `linear-gradient(135deg,${C.accent},#2ab377)`, color: '#000', fontWeight: 800, fontSize: 13, cursor: 'pointer', opacity: saving || !name.trim() ? 0.5 : 1 }}>
-          {saving ? '...' : 'Enregistrer'}
+        <button onClick={handleSave} disabled={saving || !name.trim()}
+          style={{ padding: '9px 20px', borderRadius: 10, border: 'none', background: `linear-gradient(135deg,${C.accent},#2ab377)`, color: '#000', fontWeight: 800, fontSize: 13, cursor: 'pointer', opacity: saving || !name.trim() ? 0.5 : 1 }}>
+          {saving ? 'Sauvegarde...' : 'Enregistrer'}
         </button>
       </div>
 
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '20px 16px', display: 'grid', gap: 20 }}>
+      {/* ── Body ── */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
-        {/* Explication semaine type */}
-        <div style={{ ...GLASS, padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'center', borderColor: `${C.accent}30` }}>
-          <span style={{ fontSize: 18 }}>💡</span>
-          <div style={{ fontSize: 13, color: C.sub, lineHeight: 1.5 }}>
-            <span style={{ color: C.text, fontWeight: 700 }}>Semaine type</span> — Configure les jours d'entraînement une seule fois. Tu choisiras sur combien de semaines la répéter lors de l'assignation.
-          </div>
-        </div>
+        {/* Left — multi-week grid */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 40px' }}>
 
-        {/* Grille semaine type — 1 seule semaine */}
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 800, color: C.accent, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
-            Jours d'entraînement
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(36px, 1fr))', gap: 4 }}>
-            {DAYS.map((dayName, di) => {
-              const week = 1
-              const dayOfWeek = di + 1
-              const dayData = getDay(week, dayOfWeek)
-              const active = activeDay?.week === week && activeDay?.dayOfWeek === dayOfWeek
-              const c = DAY_COLORS[di]
-              return (
-                <div key={di}>
-                  <button onClick={() => toggleDay(week, dayOfWeek)}
-                    style={{ width: '100%', padding: '8px 4px', borderRadius: 10, border: `1px solid ${dayData ? c + '50' : C.border}`, background: dayData ? `${c}12` : 'transparent', color: dayData ? c : C.sub, fontSize: 11, fontWeight: 700, cursor: 'pointer', textAlign: 'center', lineHeight: 1.3 }}>
-                    <div>{dayName.slice(0, 3)}</div>
-                    {dayData && <div style={{ fontSize: 10, marginTop: 2 }}>{(dayData.program_day_exercises || []).length} exo{(dayData.program_day_exercises || []).length !== 1 ? 's' : ''}</div>}
-                    {!dayData && <div style={{ fontSize: 14 }}>+</div>}
-                  </button>
-                  {dayData && (
-                    <button onClick={() => setActiveWeekDay(week, dayOfWeek)}
-                      style={{ width: '100%', marginTop: 4, padding: '4px', borderRadius: 6, border: `1px solid ${active ? c + '60' : 'transparent'}`, background: active ? `${c}10` : 'transparent', color: active ? c : C.sub, fontSize: 10, cursor: 'pointer', fontWeight: 700 }}>
-                      {active ? '▼ éditer' : '✏️ éditer'}
+          {Array.from({ length: weeksCount }, (_, wi) => {
+            const week = wi + 1
+            return (
+              <div key={week} style={{ marginBottom: 20 }}>
+                {/* Week label row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: C.accent, textTransform: 'uppercase', letterSpacing: 1 }}>Semaine {week}</div>
+                  {weeksCount > 1 && wi === weeksCount - 1 && (
+                    <button onClick={() => { setWeeksCount(w => w - 1); if (activeDay?.week === week) setActiveDay(null) }}
+                      style={{ marginLeft: 'auto', fontSize: 11, color: C.red, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px' }}>
+                      Supprimer
                     </button>
                   )}
                 </div>
-              )
-            })}
-          </div>
+
+                {/* Day cells grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
+                  {DAYS.map((dayName, di) => {
+                    const dayOfWeek = di + 1
+                    const dayData = getDay(week, dayOfWeek)
+                    const isActive = activeDay?.week === week && activeDay?.dayOfWeek === dayOfWeek
+                    const c = DAY_COLORS[di]
+                    const exCount = (dayData?.program_day_exercises || []).length
+
+                    if (dayData) {
+                      return (
+                        <div key={di} className="day-cell" onClick={() => setActiveDay({ week, dayOfWeek })}
+                          style={{ borderRadius: 10, border: `1.5px solid ${isActive ? c : c + '40'}`, background: isActive ? `${c}1e` : `${c}0a`, padding: '8px 7px', cursor: 'pointer', minHeight: 76, display: 'flex', flexDirection: 'column', transition: 'border-color .15s,background .15s', position: 'relative' }}>
+                          <div style={{ fontSize: 10, fontWeight: 800, color: c, letterSpacing: .5, marginBottom: 4 }}>{dayName.slice(0, 3).toUpperCase()}</div>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: C.text, flex: 1, lineHeight: 1.35, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                            {dayData.name || dayName}
+                          </div>
+                          <div style={{ fontSize: 10, color: C.sub, marginTop: 4 }}>{exCount} exo{exCount !== 1 ? 's' : ''}</div>
+                          {isActive && <div style={{ position: 'absolute', top: 5, right: 6, width: 6, height: 6, borderRadius: '50%', background: c }} />}
+                        </div>
+                      )
+                    }
+
+                    return (
+                      <div key={di} className="day-empty" onClick={() => addDay(week, dayOfWeek)}
+                        style={{ borderRadius: 10, border: `1px dashed rgba(255,255,255,0.08)`, background: 'transparent', padding: '8px 7px', cursor: 'pointer', minHeight: 76, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, transition: 'border-color .15s,background .15s' }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: .5 }}>{dayName.slice(0, 3).toUpperCase()}</div>
+                        <div style={{ fontSize: 20, color: 'rgba(255,255,255,0.15)', lineHeight: 1 }}>+</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+
+          <button onClick={() => setWeeksCount(w => w + 1)}
+            style={{ padding: '9px 18px', borderRadius: 10, border: `1px dashed ${C.accent}40`, background: `${C.accent}08`, color: C.accent, fontSize: 13, fontWeight: 700, cursor: 'pointer', marginTop: 4 }}>
+            + Ajouter une semaine
+          </button>
         </div>
 
-        {/* Éditeur du jour actif */}
+        {/* Right — exercise panel */}
         {activeDay && activeDayData && (
-          <div style={{ ...GLASS, overflow: 'hidden' }}>
-            <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ width: 360, flexShrink: 0, borderLeft: `1px solid ${C.border}`, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+            {/* Panel header */}
+            <div style={{ padding: '13px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', gap: 10, alignItems: 'flex-start', position: 'sticky', top: 0, background: C.bg, zIndex: 2 }}>
               <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: DAY_COLORS[activeDay.dayOfWeek - 1], letterSpacing: .5, textTransform: 'uppercase', marginBottom: 4 }}>
+                  Sem. {activeDay.week} — {DAYS[activeDay.dayOfWeek - 1]}
+                </div>
                 <input value={activeDayData.name || ''} onChange={e => setDays(prev => prev.map(d => d.week_number === activeDay.week && d.day_of_week === activeDay.dayOfWeek ? { ...d, name: e.target.value } : d))}
                   style={{ background: 'transparent', border: 'none', color: C.text, fontSize: 15, fontWeight: 800, outline: 'none', width: '100%' }}
                   placeholder={`Séance ${DAYS[activeDay.dayOfWeek - 1]}`} />
-                <div style={{ fontSize: 11, color: C.sub }}>Semaine {activeDay.week} — {DAYS[activeDay.dayOfWeek - 1]}</div>
               </div>
-              <button onClick={() => setActiveDay(null)} style={{ background: 'none', border: 'none', color: C.sub, cursor: 'pointer' }}>✕</button>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                <button onClick={() => removeDay(activeDay.week, activeDay.dayOfWeek)}
+                  style={{ background: 'none', border: 'none', color: C.red, cursor: 'pointer', fontSize: 14, padding: '2px 4px' }} title="Supprimer cette séance">🗑️</button>
+                <button onClick={() => setActiveDay(null)} style={{ background: 'none', border: 'none', color: C.sub, cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>✕</button>
+              </div>
             </div>
 
-            <div style={{ padding: '14px 16px', display: 'grid', gap: 8 }}>
+            {/* Exercises list */}
+            <div style={{ flex: 1, padding: '12px 14px', display: 'grid', gap: 8, alignContent: 'start' }}>
               {(activeDayData.program_day_exercises || []).map((ex, i) => (
-                <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, borderRadius: 12, padding: '10px 14px' }}>
-                  {/* Header exercice */}
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+                <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, borderRadius: 12, padding: '10px 12px' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
                     <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: C.text }}>{ex.exercise_name}</div>
                     <button onClick={() => removeExFromDay(activeDay.week, activeDay.dayOfWeek, i)} style={{ background: 'none', border: 'none', color: C.red, cursor: 'pointer', fontSize: 16 }}>×</button>
                   </div>
 
-                  {/* Header colonnes */}
-                  <div className="prog-set-row" style={{ display: 'grid', gap: 6, marginBottom: 4 }}>
+                  {/* Column headers */}
+                  <div className="prog-set-row" style={{ display: 'grid', gap: 5, marginBottom: 4 }}>
                     <div style={{ fontSize: 10, color: C.sub, textAlign: 'center' }}>#</div>
-                    <div style={{ fontSize: 10, color: C.sub }}>Reps / intensité</div>
-                    <div style={{ fontSize: 10, color: C.sub }}>Charge cible</div>
-                    <div style={{ fontSize: 10, color: C.sub }}>Repos (s)</div>
-                    <div style={{ fontSize: 10, color: C.sub }}>Note série</div>
+                    <div style={{ fontSize: 10, color: C.sub }}>Reps</div>
+                    <div style={{ fontSize: 10, color: C.sub }}>Charge</div>
+                    <div style={{ fontSize: 10, color: C.sub }}>Repos</div>
+                    <div style={{ fontSize: 10, color: C.sub }}>Note</div>
                     <div />
                   </div>
 
-                  {/* Séries individuelles */}
-                  <div style={{ display: 'grid', gap: 4, marginBottom: 8 }}>
+                  {/* Set rows */}
+                  <div style={{ display: 'grid', gap: 4, marginBottom: 6 }}>
                     {(Array.isArray(ex.sets) ? ex.sets : []).map((set, si) => (
-                      <div key={si} className="prog-set-row" style={{ display: 'grid', gap: 6, alignItems: 'center' }}>
+                      <div key={si} className="prog-set-row" style={{ display: 'grid', gap: 5, alignItems: 'center' }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, textAlign: 'center' }}>{si + 1}</div>
                         <input value={set.reps || ''} onChange={e => updateExField(activeDay.week, activeDay.dayOfWeek, i, 'sets', ex.sets.map((s, idx) => idx === si ? { ...s, reps: e.target.value } : s))}
-                          placeholder="ex: 8-12 ou 6 @RPE8"
-                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`, borderRadius: 7, padding: '6px 8px', color: C.text, fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                          placeholder="8-12"
+                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`, borderRadius: 6, padding: '5px 6px', color: C.text, fontSize: 11, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
                         <input value={set.load || ''} onChange={e => updateExField(activeDay.week, activeDay.dayOfWeek, i, 'sets', ex.sets.map((s, idx) => idx === si ? { ...s, load: e.target.value } : s))}
-                          placeholder="ex: 80kg ou 70%"
-                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`, borderRadius: 7, padding: '6px 8px', color: C.text, fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                          placeholder="80kg"
+                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`, borderRadius: 6, padding: '5px 6px', color: C.text, fontSize: 11, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
                         <input type="number" value={set.rest || ''} onChange={e => updateExField(activeDay.week, activeDay.dayOfWeek, i, 'sets', ex.sets.map((s, idx) => idx === si ? { ...s, rest: Number(e.target.value) } : s))}
                           placeholder="90" className="prog-hide-mobile"
-                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`, borderRadius: 7, padding: '6px 8px', color: C.text, fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`, borderRadius: 6, padding: '5px 6px', color: C.text, fontSize: 11, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
                         <input value={set.note || ''} onChange={e => updateExField(activeDay.week, activeDay.dayOfWeek, i, 'sets', ex.sets.map((s, idx) => idx === si ? { ...s, note: e.target.value } : s))}
-                          placeholder="ex: excentrique 3s" className="prog-hide-mobile"
-                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`, borderRadius: 7, padding: '6px 8px', color: C.text, fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                          placeholder="tempo..." className="prog-hide-mobile"
+                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`, borderRadius: 6, padding: '5px 6px', color: C.text, fontSize: 11, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
                         <button onClick={() => updateExField(activeDay.week, activeDay.dayOfWeek, i, 'sets', ex.sets.filter((_, idx) => idx !== si))}
-                          style={{ background: 'none', border: 'none', color: C.sub, cursor: 'pointer', fontSize: 14, display: 'grid', placeItems: 'center' }}>×</button>
+                          style={{ background: 'none', border: 'none', color: C.sub, cursor: 'pointer', fontSize: 14 }}>×</button>
                       </div>
                     ))}
                   </div>
 
-                  {/* Ajouter une série */}
-                  <button onClick={() => updateExField(activeDay.week, activeDay.dayOfWeek, i, 'sets', [...(Array.isArray(ex.sets) ? ex.sets : []), { reps: '8-12', rest: 90 }])}
-                    style={{ padding: '5px 10px', borderRadius: 7, background: `${C.accent}10`, border: `1px dashed ${C.accent}30`, color: C.accent, fontSize: 11, fontWeight: 700, cursor: 'pointer', marginBottom: 8 }}>
-                    + Série
-                  </button>
-
-                  {/* Commentaire */}
-                  <textarea value={ex.notes || ''} onChange={e => updateExField(activeDay.week, activeDay.dayOfWeek, i, 'notes', e.target.value)}
-                    placeholder="Commentaire, consignes techniques, tempo..."
-                    rows={2}
-                    style={{ width: '100%', background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, borderRadius: 8, padding: '7px 10px', color: C.text, fontSize: 12, outline: 'none', resize: 'none', boxSizing: 'border-box', lineHeight: 1.5, color: C.sub }} />
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button onClick={() => updateExField(activeDay.week, activeDay.dayOfWeek, i, 'sets', [...(Array.isArray(ex.sets) ? ex.sets : []), { reps: '8-12', rest: 90 }])}
+                      style={{ padding: '4px 9px', borderRadius: 6, background: `${C.accent}10`, border: `1px dashed ${C.accent}30`, color: C.accent, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                      + Série
+                    </button>
+                    <textarea value={ex.notes || ''} onChange={e => updateExField(activeDay.week, activeDay.dayOfWeek, i, 'notes', e.target.value)}
+                      placeholder="Consignes..." rows={1}
+                      style={{ flex: 1, minWidth: 80, background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, borderRadius: 6, padding: '5px 8px', color: C.sub, fontSize: 11, outline: 'none', resize: 'none', boxSizing: 'border-box' }} />
+                  </div>
                 </div>
               ))}
 
-              <button onClick={() => setShowExPicker(true)} style={{ padding: '10px', borderRadius: 10, background: `${C.accent}10`, border: `1px dashed ${C.accent}40`, color: C.accent, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              <button onClick={() => setShowExPicker(true)}
+                style={{ padding: '10px', borderRadius: 10, background: `${C.accent}10`, border: `1px dashed ${C.accent}40`, color: C.accent, fontSize: 13, fontWeight: 700, cursor: 'pointer', marginTop: 4 }}>
                 + Ajouter un exercice
               </button>
             </div>
@@ -378,7 +401,7 @@ function ProgramEditor({ program, exercises, onSave, onClose }) {
         )}
       </div>
 
-      {showExPicker && (
+      {showExPicker && activeDay && (
         <ExPicker exercises={exercises} onSelect={ex => addExToDay(activeDay.week, activeDay.dayOfWeek, ex)} onClose={() => setShowExPicker(false)} />
       )}
     </div>
@@ -521,8 +544,8 @@ export default function ProgramBuilderPage() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 16, fontWeight: 800, color: C.text, fontFamily: "'Syne',sans-serif" }}>{prog.name}</div>
                       <div style={{ fontSize: 12, color: C.sub, marginTop: 4, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                        <span>📅 Semaine type · {totalDays} jour{totalDays !== 1 ? 's' : ''}</span>
-                        <span>🏋️ {totalDays} jour{totalDays !== 1 ? 's' : ''} · {totalExos} exercice{totalExos !== 1 ? 's' : ''}</span>
+                        <span>📅 {prog.weeks_count || 1} semaine{(prog.weeks_count || 1) > 1 ? 's' : ''}</span>
+                        <span>🏋️ {totalDays} séance{totalDays !== 1 ? 's' : ''} · {totalExos} exercice{totalExos !== 1 ? 's' : ''}</span>
                       </div>
 
                       {/* Aperçu des jours */}

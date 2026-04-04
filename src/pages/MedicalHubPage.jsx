@@ -80,86 +80,122 @@ function RosterAvatar({ name, avatarUrl, size = 86 }) {
   )
 }
 
+// ─── Groupes de postes rugby ───────────────────────────────────────────────────
+const RUGBY_GROUPS = [
+  { key: '1ère ligne',   keywords: ['pilier', 'talonneur', '1ère ligne', 'premiere ligne', '1ere ligne', 'front row'] },
+  { key: '2ème ligne',   keywords: ['2ème ligne', 'deuxième ligne', '2eme ligne', 'lock', 'second row'] },
+  { key: '3ème ligne',   keywords: ['3ème ligne', 'troisième ligne', '3eme ligne', 'flanker', 'n°8', 'no 8', 'numéro 8', 'back row'] },
+  { key: 'Demis',        keywords: ['demi de mêlée', 'demi d\'ouverture', 'demi', 'scrum half', 'fly half', 'ouvreur', 'mêlée', 'half'] },
+  { key: 'Trois-quarts', keywords: ['centre', 'ailier', 'trois-quart', 'trois quart', '3/4', 'wing', 'winger'] },
+  { key: 'Arrière',      keywords: ['arrière', 'fullback'] },
+]
+
+function getPositionGroup(poste) {
+  const p = (poste || '').toLowerCase().trim()
+  if (!p) return 'Poste non renseigné'
+  for (const group of RUGBY_GROUPS) {
+    if (group.keywords.some(kw => p.includes(kw))) return group.key
+  }
+  return poste.trim()
+}
+
 function normalizePoste(poste) {
   return (poste || '').trim() || 'Poste non renseigné'
 }
 
 function MedicalRosterTile({ athlete, onClick }) {
-  const isFit = athlete.activeInjuries.length === 0
-  const hasSurveillance = athlete.surveillance.length > 0
-  const statusLabel = isFit ? 'Apte' : 'Inapte'
-  const statusColor = isFit ? P.green : P.red
-  const statusBg = isFit ? '#e8f5ee' : '#fdecea'
-  const subStatus = isFit
-    ? hasSurveillance
-      ? 'Sous surveillance'
-      : 'Disponible'
-    : athlete.activeInjuries[0]
-      ? BODY_ZONES[athlete.activeInjuries[0].body_zone] || 'Blessure en cours'
-      : 'Blessure en cours'
+  const isInjured    = athlete.activeInjuries.length > 0
+  const isProtocol   = !isInjured && athlete.surveillance.length > 0
+  const isFit        = !isInjured && !isProtocol
+
+  // Status config
+  const STATUS = isFit
+    ? { label: 'Apte à jouer',          color: P.green,  bg: '#e8f5ee',  border: P.green,  shadow: 'rgba(45,106,79,0.13)' }
+    : isProtocol
+      ? { label: 'Blessé · protocole',  color: '#d97706', bg: '#fdf6e3', border: '#d97706', shadow: 'rgba(217,119,6,0.13)' }
+      : { label: 'Blessé · examen',     color: P.red,     bg: '#fdecea', border: P.red,     shadow: 'rgba(192,57,43,0.13)' }
+
+  // First return date across all current injuries
+  const returnDate = [...athlete.activeInjuries, ...athlete.surveillance]
+    .filter(i => i.date_return)
+    .sort((a, b) => new Date(a.date_return) - new Date(b.date_return))[0]?.date_return
+
+  const daysLeft = returnDate
+    ? Math.ceil((new Date(returnDate) - Date.now()) / 86400000)
+    : null
+
+  const injZone = isInjured && athlete.activeInjuries[0]
+    ? BODY_ZONES[athlete.activeInjuries[0].body_zone] || 'Blessure'
+    : isProtocol && athlete.surveillance[0]
+      ? BODY_ZONES[athlete.surveillance[0].body_zone] || 'Protocole'
+      : null
 
   return (
-    <button
-      onClick={onClick}
+    <button onClick={onClick}
       style={{
-        border: `2px solid ${statusColor}`,
+        border: `2px solid ${STATUS.border}22`,
         background: '#ffffff',
-        borderRadius: 24,
-        padding: 18,
+        borderRadius: 20,
+        padding: '16px 12px',
         cursor: 'pointer',
-        minHeight: 214,
+        minHeight: 200,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: 14,
-        boxShadow: isFit ? '0 12px 28px rgba(45,106,79,0.12)' : '0 12px 28px rgba(192,57,43,0.12)',
+        gap: 10,
+        boxShadow: `0 8px 24px ${STATUS.shadow}`,
         transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+        textAlign: 'center',
+        width: '100%',
+        boxSizing: 'border-box',
       }}
-      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)' }}
-      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)' }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 14px 32px ${STATUS.shadow}` }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 8px 24px ${STATUS.shadow}` }}
     >
-      <RosterAvatar
-        name={athlete.full_name || athlete.email}
-        avatarUrl={athlete.avatar_url}
-      />
-
-      <div style={{ textAlign: 'center', width: '100%' }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: P.text, lineHeight: 1.2 }}>
-          {athlete.full_name || athlete.email}
-        </div>
-        <div style={{ marginTop: 6, fontSize: 12, color: P.sub, fontWeight: 600 }}>
-          {normalizePoste(athlete.poste)}
-        </div>
-        <div
-          style={{
-            marginTop: 12,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '7px 12px',
-            borderRadius: 999,
-            fontSize: 12,
-            fontWeight: 800,
-            background: statusBg,
-            color: statusColor,
-          }}
-        >
-          <span
-            style={{
-              width: 10,
-              height: 10,
-              borderRadius: '50%',
-              background: statusColor,
-              display: 'inline-block',
-            }}
-          />
-          {statusLabel}
-        </div>
-        <div style={{ marginTop: 10, minHeight: 18, fontSize: 12, color: isFit && hasSurveillance ? P.yellow : P.sub, fontWeight: 600 }}>
-          {subStatus}
-        </div>
+      {/* Avatar with status ring */}
+      <div style={{ position: 'relative' }}>
+        <RosterAvatar name={athlete.full_name || athlete.email} avatarUrl={athlete.avatar_url} size={72} />
+        <span style={{
+          position: 'absolute', bottom: 0, right: 0,
+          width: 16, height: 16, borderRadius: '50%',
+          background: STATUS.color, border: '2px solid #fff',
+          display: 'inline-block',
+        }} />
       </div>
+
+      {/* Name */}
+      <div style={{ fontSize: 14, fontWeight: 800, color: P.text, lineHeight: 1.25, width: '100%' }}>
+        {athlete.full_name || athlete.email}
+      </div>
+
+      {/* Position */}
+      <div style={{ fontSize: 11, color: P.sub, fontWeight: 600, marginTop: -4 }}>
+        {normalizePoste(athlete.poste)}
+      </div>
+
+      {/* Status badge */}
+      <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        padding: '5px 10px', borderRadius: 999,
+        fontSize: 11, fontWeight: 800,
+        background: STATUS.bg, color: STATUS.color,
+        width: '100%', justifyContent: 'center', boxSizing: 'border-box',
+      }}>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS.color, flexShrink: 0 }} />
+        {STATUS.label}
+      </div>
+
+      {/* Zone blessure ou date retour */}
+      {(injZone || returnDate) && (
+        <div style={{ fontSize: 11, color: P.sub, lineHeight: 1.4 }}>
+          {injZone && <div style={{ fontWeight: 600 }}>{injZone}</div>}
+          {returnDate && (
+            <div style={{ color: daysLeft !== null && daysLeft <= 7 ? P.green : '#d97706', fontWeight: 700, marginTop: 2 }}>
+              Retour {daysLeft !== null && daysLeft <= 0 ? 'prévu' : `J-${daysLeft}`} · {new Date(returnDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+            </div>
+          )}
+        </div>
+      )}
     </button>
   )
 }
@@ -217,7 +253,20 @@ export default function MedicalHubPage() {
   const [appointments, setAppointments] = useState([])
   const [matches, setMatches]           = useState([])
   const [loading, setLoading]           = useState(true)
-  const [tab, setTab]                   = useState('infirmerie')
+  const [tab, setTab]                   = useState('effectif')
+
+  // Nouvelle blessure modal
+  const today = new Date().toISOString().split('T')[0]
+  const [showInjuryModal, setShowInjuryModal] = useState(false)
+  const [injForm, setInjForm] = useState({ athlete_id: '', body_zone: 'genou', description: '', date_injury: today, date_return: '', status: 'active' })
+  const [savingInj, setSavingInj] = useState(false)
+
+  // Lier un joueur modal
+  const [showLinkModal, setShowLinkModal] = useState(false)
+  const [linkEmail, setLinkEmail] = useState('')
+  const [linkResult, setLinkResult] = useState(null) // profile found
+  const [linkError, setLinkError] = useState('')
+  const [savingLink, setSavingLink] = useState(false)
 
   // Match modal state
   const [showMatchModal, setShowMatchModal] = useState(false)
@@ -230,7 +279,7 @@ export default function MedicalHubPage() {
   const load = useCallback(async () => {
     setLoading(true)
 
-    let coachId = user.id
+    let coachId = profile?.id || user?.id
     if (profile?.role === 'staff_medical') {
       const { data: link, error: staffErr } = await supabase
         .from('club_staff').select('coach_id').eq('staff_id', user.id).maybeSingle()
@@ -250,7 +299,7 @@ export default function MedicalHubPage() {
       { data: appts,    error: apptErr },
       { data: mtch,     error: mtchErr },
     ] = await Promise.all([
-      supabase.from('profiles').select('id, full_name, email, poste, avatar_url').in('id', ids),
+      supabase.from('profiles').select('id, full_name, email, poste').in('id', ids),
       supabase.from('medical_injuries').select('*').in('athlete_id', ids).order('date_injury', { ascending: false }),
       supabase.from('medical_appointments').select('*').in('athlete_id', ids)
         .order('date_appointment', { ascending: false }),
@@ -327,18 +376,27 @@ export default function MedicalHubPage() {
   const aptes           = athletesWithData.filter(a => a.activeInjuries.length === 0 && a.surveillance.length === 0)
 
   const groupedAthletes = athletesWithData.reduce((acc, athlete) => {
-    const posteKey = normalizePoste(athlete.poste)
+    const posteKey = getPositionGroup(athlete.poste)
     if (!acc[posteKey]) acc[posteKey] = []
     acc[posteKey].push(athlete)
     return acc
   }, {})
 
-  const orderedPostes = Object.keys(groupedAthletes)
-    .sort((a, b) => {
+  // Ordre rugby canonique : 1ère ligne → 2ème → 3ème → Demis → 3-quarts → Arrière → reste
+  const RUGBY_GROUP_ORDER = RUGBY_GROUPS.map(g => g.key)
+
+  const orderedPostes = Object.keys(groupedAthletes).sort((a, b) => {
+    const ia = RUGBY_GROUP_ORDER.indexOf(a)
+    const ib = RUGBY_GROUP_ORDER.indexOf(b)
+    if (ia === -1 && ib === -1) {
       if (a === 'Poste non renseigné') return 1
       if (b === 'Poste non renseigné') return -1
       return a.localeCompare(b, 'fr')
-    })
+    }
+    if (ia === -1) return 1
+    if (ib === -1) return -1
+    return ia - ib
+  })
 
   const rosterGroups = orderedPostes.map(poste => ({
     poste,
@@ -347,6 +405,53 @@ export default function MedicalHubPage() {
     ),
   }))
 
+  // ── Ajouter une blessure ───────────────────────────────────────────────────
+  async function saveInjury() {
+    if (!injForm.athlete_id || !injForm.body_zone) return
+    setSavingInj(true)
+    const { error } = await supabase.from('medical_injuries').insert({
+      athlete_id: injForm.athlete_id,
+      body_zone: injForm.body_zone,
+      description: injForm.description || null,
+      date_injury: injForm.date_injury,
+      date_return: injForm.date_return || null,
+      status: injForm.status,
+    })
+    setSavingInj(false)
+    if (!error) {
+      setShowInjuryModal(false)
+      setInjForm({ athlete_id: '', body_zone: 'genou', description: '', date_injury: today, date_return: '', status: 'active' })
+      load()
+    }
+  }
+
+  // ── Lier un joueur par email ────────────────────────────────────────────────
+  async function searchByEmail() {
+    setLinkError('')
+    setLinkResult(null)
+    const { data } = await supabase.from('profiles').select('id, full_name, email, poste').eq('email', linkEmail.trim().toLowerCase()).maybeSingle()
+    if (!data) { setLinkError('Aucun compte trouvé pour cet email.'); return }
+    const already = athletes.find(a => a.id === data.id)
+    if (already) { setLinkError('Ce joueur est déjà dans votre effectif.'); return }
+    setLinkResult(data)
+  }
+
+  async function linkAthlete() {
+    if (!linkResult) return
+    setSavingLink(true)
+    const coachId = profile?.id || user?.id
+    const { error } = await supabase.from('coach_clients').insert({ coach_id: coachId, client_id: linkResult.id })
+    setSavingLink(false)
+    if (!error) {
+      setShowLinkModal(false)
+      setLinkEmail('')
+      setLinkResult(null)
+      load()
+    } else {
+      setLinkError('Erreur lors du lien : ' + error.message)
+    }
+  }
+
   const returns = active
     .filter(i => i.date_return)
     .sort((a, b) => new Date(a.date_return) - new Date(b.date_return))
@@ -354,6 +459,7 @@ export default function MedicalHubPage() {
     .map(i => ({ ...i, athlete: athletes.find(a => a.id === i.athlete_id) }))
 
   return (
+    <>
     <div style={{ minHeight: '100vh', background: P.bg, fontFamily: P.fontBody, padding: 'clamp(20px,3vw,36px)' }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&display=swap');`}</style>
 
@@ -386,14 +492,22 @@ export default function MedicalHubPage() {
           ))}
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-          <Tab label="🏥 Infirmerie"   active={tab === 'infirmerie'} onClick={() => setTab('infirmerie')} count={blesseActif.length} color={P.red} />
+        {/* Tabs + actions */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
           <Tab label="👥 Effectif"     active={tab === 'effectif'}   onClick={() => setTab('effectif')}   count={athletes.length} />
+          <Tab label="🏥 Infirmerie"   active={tab === 'infirmerie'} onClick={() => setTab('infirmerie')} count={blesseActif.length} color={P.red} />
           <Tab label="📅 RDV"          active={tab === 'rdv'}        onClick={() => setTab('rdv')}         count={appointments.length} color={P.blue} />
           <Tab label="🏉 Matchs"       active={tab === 'matchs'}     onClick={() => setTab('matchs')}      count={matches.length} />
           <Tab label="📊 Statistiques" active={tab === 'stats'}      onClick={() => setTab('stats')}       count={injuries.length} />
-          <button onClick={load} style={{ marginLeft: 'auto', padding: '7px 12px', borderRadius: 20, border: `1px solid ${P.border}`, background: 'transparent', color: P.sub, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <button onClick={() => setShowInjuryModal(true)} style={{ padding: '7px 14px', borderRadius: 20, border: `1px solid ${P.accent}`, background: P.accent, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              + Nouvelle blessure
+            </button>
+            <button onClick={() => setShowLinkModal(true)} style={{ padding: '7px 12px', borderRadius: 20, border: `1px solid ${P.border}`, background: 'transparent', color: P.sub, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+              + Joueur
+            </button>
+            <button onClick={load} style={{ padding: '7px 12px', borderRadius: 20, border: `1px solid ${P.border}`, background: 'transparent', color: P.sub, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
+          </div>
         </div>
 
         {/* ── TAB INFIRMERIE ── */}
@@ -553,8 +667,13 @@ export default function MedicalHubPage() {
                 Chargement...
               </div>
             ) : athletes.length === 0 ? (
-              <div style={{ padding: 40, textAlign: 'center', color: P.sub, background: P.card, border: `1px solid ${P.border}`, borderRadius: 16 }}>
-                Aucun athlète
+              <div style={{ padding: 40, textAlign: 'center', background: P.card, border: `1px solid ${P.border}`, borderRadius: 16 }}>
+                <div style={{ fontSize: 28, marginBottom: 12 }}>👥</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: P.text, marginBottom: 6 }}>Aucun joueur dans l'effectif</div>
+                <div style={{ fontSize: 13, color: P.sub, marginBottom: 20 }}>Liez vos joueurs pour voir leur statut médical ici.</div>
+                <button onClick={() => setShowLinkModal(true)} style={{ padding: '10px 20px', borderRadius: 10, border: `1px solid ${P.accent}`, background: P.accent, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  + Lier un joueur
+                </button>
               </div>
             ) : (
               rosterGroups.map(group => (
@@ -569,13 +688,17 @@ export default function MedicalHubPage() {
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: P.green, background: '#e8f5ee', borderRadius: 999, padding: '6px 10px' }}>
-                        {group.athletes.filter(a => a.activeInjuries.length === 0).length} aptes
-                      </div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: P.red, background: '#fdecea', borderRadius: 999, padding: '6px 10px' }}>
-                        {group.athletes.filter(a => a.activeInjuries.length > 0).length} inaptes
-                      </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {(() => {
+                        const fit      = group.athletes.filter(a => a.activeInjuries.length === 0 && a.surveillance.length === 0).length
+                        const protocol = group.athletes.filter(a => a.activeInjuries.length === 0 && a.surveillance.length > 0).length
+                        const injured  = group.athletes.filter(a => a.activeInjuries.length > 0).length
+                        return (<>
+                          {fit > 0      && <div style={{ fontSize: 11, fontWeight: 700, color: P.green,   background: '#e8f5ee', borderRadius: 999, padding: '5px 9px' }}>{fit} aptes</div>}
+                          {protocol > 0 && <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', background: '#fdf6e3', borderRadius: 999, padding: '5px 9px' }}>{protocol} protocole</div>}
+                          {injured > 0  && <div style={{ fontSize: 11, fontWeight: 700, color: P.red,     background: '#fdecea', borderRadius: 999, padding: '5px 9px' }}>{injured} inaptes</div>}
+                        </>)
+                      })()}
                     </div>
                   </div>
 
@@ -589,7 +712,7 @@ export default function MedicalHubPage() {
                     {group.athletes.map(athlete => (
                       <MedicalRosterTile
                         key={athlete.id}
-                        athlete={athlete}
+                        athlete={{ ...athlete, avatar_url: null }}
                         onClick={() => navigate(`/medical/${athlete.id}`)}
                       />
                     ))}
@@ -936,5 +1059,118 @@ export default function MedicalHubPage() {
 
       </div>
     </div>
+
+    {/* ── Modal Nouvelle blessure ─────────────────────────────────────────── */}
+    {showInjuryModal && (
+      <div onClick={() => setShowInjuryModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+        <div onClick={e => e.stopPropagation()} style={{ background: P.card, borderRadius: 16, padding: 24, width: '100%', maxWidth: 460, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', border: `1px solid ${P.border}` }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: P.text }}>Nouvelle blessure</div>
+            <button onClick={() => setShowInjuryModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: P.sub }}>×</button>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: P.sub, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Joueur</label>
+            <select value={injForm.athlete_id} onChange={e => setInjForm(f => ({ ...f, athlete_id: e.target.value }))}
+              style={{ width: '100%', padding: '10px 12px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, color: P.text, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}>
+              <option value="">— Sélectionner un joueur —</option>
+              {athletes.map(a => <option key={a.id} value={a.id}>{a.full_name || a.email}{a.poste ? ` (${a.poste})` : ''}</option>)}
+            </select>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: P.sub, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Zone corporelle</label>
+            <select value={injForm.body_zone} onChange={e => setInjForm(f => ({ ...f, body_zone: e.target.value }))}
+              style={{ width: '100%', padding: '10px 12px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, color: P.text, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}>
+              {Object.entries(BODY_ZONES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            </select>
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: P.sub, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Description</label>
+            <textarea value={injForm.description} onChange={e => setInjForm(f => ({ ...f, description: e.target.value }))}
+              placeholder="Ex: Entorse ligament externe, 2ème degré..." rows={2}
+              style={{ width: '100%', padding: '10px 12px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, color: P.text, fontSize: 14, outline: 'none', fontFamily: 'inherit', resize: 'none', boxSizing: 'border-box' }} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: P.sub, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Date blessure</label>
+              <input type="date" value={injForm.date_injury} onChange={e => setInjForm(f => ({ ...f, date_injury: e.target.value }))}
+                style={{ width: '100%', padding: '10px 12px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, color: P.text, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: P.sub, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Retour prévu</label>
+              <input type="date" value={injForm.date_return} onChange={e => setInjForm(f => ({ ...f, date_return: e.target.value }))}
+                style={{ width: '100%', padding: '10px 12px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, color: P.text, fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: P.sub, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>Statut</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[{ v: 'active', l: 'Blessé · examen' }, { v: 'surveillance', l: 'Sous protocole' }].map(({ v, l }) => (
+                <button key={v} onClick={() => setInjForm(f => ({ ...f, status: v }))}
+                  style={{ flex: 1, padding: '9px', borderRadius: 10, border: `1px solid ${injForm.status === v ? P.accent : P.border}`, background: injForm.status === v ? `${P.accent}15` : 'transparent', color: injForm.status === v ? P.accent : P.sub, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => setShowInjuryModal(false)} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${P.border}`, background: 'transparent', color: P.sub, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Annuler</button>
+            <button onClick={saveInjury} disabled={savingInj || !injForm.athlete_id}
+              style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: P.accent, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', opacity: savingInj || !injForm.athlete_id ? 0.6 : 1 }}>
+              {savingInj ? 'Enregistrement...' : 'Enregistrer la blessure'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* ── Modal Lier un joueur ─────────────────────────────────────────────── */}
+    {showLinkModal && (
+      <div onClick={() => { setShowLinkModal(false); setLinkEmail(''); setLinkResult(null); setLinkError('') }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+        <div onClick={e => e.stopPropagation()} style={{ background: P.card, borderRadius: 16, padding: 24, width: '100%', maxWidth: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', border: `1px solid ${P.border}` }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div style={{ fontSize: 17, fontWeight: 700, color: P.text }}>Lier un joueur</div>
+            <button onClick={() => { setShowLinkModal(false); setLinkEmail(''); setLinkResult(null); setLinkError('') }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: P.sub }}>×</button>
+          </div>
+          <div style={{ fontSize: 13, color: P.sub, marginBottom: 16 }}>Entrez l'adresse email du compte joueur pour le rattacher à votre effectif.</div>
+
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            <input value={linkEmail} onChange={e => { setLinkEmail(e.target.value); setLinkResult(null); setLinkError('') }}
+              onKeyDown={e => e.key === 'Enter' && searchByEmail()}
+              placeholder="email@joueur.fr" type="email"
+              style={{ flex: 1, padding: '10px 12px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, color: P.text, fontSize: 14, outline: 'none', fontFamily: 'inherit' }} />
+            <button onClick={searchByEmail} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: P.accent, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Chercher
+            </button>
+          </div>
+
+          {linkError && <div style={{ fontSize: 13, color: P.red, marginBottom: 12, padding: '8px 12px', background: '#fdecea', borderRadius: 8 }}>{linkError}</div>}
+
+          {linkResult && (
+            <div style={{ padding: '14px 16px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 12, marginBottom: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: P.text }}>{linkResult.full_name || linkResult.email}</div>
+              <div style={{ fontSize: 12, color: P.sub, marginTop: 2 }}>{linkResult.email}{linkResult.poste ? ` · ${linkResult.poste}` : ''}</div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => { setShowLinkModal(false); setLinkEmail(''); setLinkResult(null); setLinkError('') }}
+              style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${P.border}`, background: 'transparent', color: P.sub, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Annuler</button>
+            {linkResult && (
+              <button onClick={linkAthlete} disabled={savingLink}
+                style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: P.accent, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', opacity: savingLink ? 0.6 : 1 }}>
+                {savingLink ? 'Ajout...' : `Lier ${linkResult.full_name || 'ce joueur'}`}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }
