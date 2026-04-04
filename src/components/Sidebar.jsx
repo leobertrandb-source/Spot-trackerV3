@@ -230,8 +230,8 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
   // ── Navigation sets ────────────────────────────────────────────────────────
   const coachPrepLinks = [
     { to: '/coach',      label: 'Dashboard' },
+    { to: '/medical',    label: 'Médical & Effectif' },
     { to: '/calendrier', label: 'Calendrier' },
-    { to: '/medical',    label: 'Médical' },
   ]
 
   const coachPersoLinks = [
