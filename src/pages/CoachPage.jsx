@@ -39,7 +39,7 @@ function Hero({ name, clientCount, weekSessions }) {
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', marginBottom: 8, fontFamily: "'DM Sans',sans-serif" }}>
             {todayLabel()}
           </div>
-          <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 'clamp(36px,6vw,64px)', fontWeight: 900, color: '#fff', lineHeight: 0.95, letterSpacing: '-2px' }}>
+          <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 'clamp(32px,5vw,54px)', fontWeight: 800, color: '#fff', lineHeight: 1, letterSpacing: '-0.5px' }}>
             {firstName}
           </div>
         </div>
@@ -47,13 +47,13 @@ function Hero({ name, clientCount, weekSessions }) {
         {/* Right — métriques clés */}
         <div style={{ display: 'flex', gap: 'clamp(20px,4vw,48px)', alignItems: 'flex-end' }}>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 'clamp(28px,4vw,44px)', fontWeight: 900, color: '#fff', lineHeight: 1, letterSpacing: '-1.5px' }}>{clientCount}</div>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginTop: 4, fontFamily: "'DM Sans',sans-serif" }}>clients</div>
+            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(26px,3.5vw,38px)', fontWeight: 800, color: '#fff', lineHeight: 1, letterSpacing: '-0.5px' }}>{clientCount}</div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginTop: 5, fontFamily: "'DM Sans',sans-serif" }}>clients</div>
           </div>
-          <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.15)', flexShrink: 0 }} />
+          <div style={{ width: 1, height: 36, background: 'rgba(255,255,255,0.15)', flexShrink: 0 }} />
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 'clamp(28px,4vw,44px)', fontWeight: 900, color: T.accent, lineHeight: 1, letterSpacing: '-1.5px' }}>{weekSessions}</div>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginTop: 4, fontFamily: "'DM Sans',sans-serif" }}>séances / sem.</div>
+            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(26px,3.5vw,38px)', fontWeight: 800, color: T.accent, lineHeight: 1, letterSpacing: '-0.5px' }}>{weekSessions}</div>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginTop: 5, fontFamily: "'DM Sans',sans-serif" }}>séances / sem.</div>
           </div>
         </div>
       </div>
@@ -255,8 +255,8 @@ export default function CoachPage() {
             { value: progCount,      label: 'Programmes créés' },
           ].map((s, i) => (
             <div key={i} style={{ padding: '20px 24px', borderRight: i < 2 ? `1px solid ${T.border}` : 'none', background: 'rgba(255,255,255,0.015)' }}>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 30, fontWeight: 900, color: T.text, letterSpacing: '-1px', lineHeight: 1 }}>{s.value}</div>
-              <div style={{ fontSize: 12, color: T.textDim, marginTop: 7, fontWeight: 500 }}>{s.label}</div>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 28, fontWeight: 800, color: T.text, letterSpacing: '-0.3px', lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: 12, color: T.textDim, marginTop: 8, fontWeight: 500 }}>{s.label}</div>
             </div>
           ))}
         </div>
@@ -277,7 +277,7 @@ export default function CoachPage() {
           {/* Colonne droite — effectif */}
           <div style={{ border: `1px solid ${T.border}`, borderRadius: 14, padding: '22px 24px', background: 'rgba(255,255,255,0.012)', animation: 'fadeUp 0.4s ease both', animationDelay: '200ms' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 16, color: T.text, letterSpacing: '-0.3px' }}>Mes athlètes</div>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontWeight: 800, fontSize: 16, color: T.text, letterSpacing: '-0.2px' }}>Mes athlètes</div>
               <Link to="/coach/clients" style={{ fontSize: 11, fontWeight: 700, color: T.textDim, textDecoration: 'none', letterSpacing: 0.3 }}>
                 Voir tout →
               </Link>
