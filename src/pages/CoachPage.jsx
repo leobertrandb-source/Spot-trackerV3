@@ -67,32 +67,32 @@ function ClientRow({ client, index }) {
   return (
     <Link to={`/coach/client/${client.id}`}
       style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '10px 0', borderBottom: `1px solid ${T.border}`,
+        display: 'flex', alignItems: 'center', gap: 14,
+        padding: '13px 0', borderBottom: `1px solid ${T.border}`,
         textDecoration: 'none',
         animation: 'fadeUp 0.35s ease both',
         animationDelay: `${index * 40 + 150}ms`,
       }}
-      onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
+      onMouseEnter={e => e.currentTarget.style.opacity = '0.65'}
       onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
       <div style={{
-        width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+        width: 38, height: 38, borderRadius: 11, flexShrink: 0,
         background: 'rgba(255,255,255,0.06)', border: `1px solid ${T.border}`,
         display: 'grid', placeItems: 'center',
-        fontSize: 11, fontWeight: 800, color: T.textMid, fontFamily: "'Syne',sans-serif",
+        fontSize: 12, fontWeight: 800, color: T.textMid, fontFamily: "'Syne',sans-serif",
         letterSpacing: 0.5,
       }}>
         {initials(client.full_name)}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: "'DM Sans',sans-serif" }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: "'DM Sans',sans-serif", lineHeight: 1.3 }}>
           {client.full_name || 'Client'}
         </div>
-        <div style={{ fontSize: 11, color: T.textDim, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: 12, color: T.textDim, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {client.email}
         </div>
       </div>
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={T.textDim} strokeWidth="2.5" strokeLinecap="round" style={{ flexShrink: 0, opacity: 0.4 }}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.textDim} strokeWidth="2.5" strokeLinecap="round" style={{ flexShrink: 0, opacity: 0.35 }}>
         <path d="M9 18l6-6-6-6"/>
       </svg>
     </Link>
@@ -182,7 +182,7 @@ function ActionTile({ to, label, imgKey, delay }) {
     <Link to={to} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{
         position: 'relative', overflow: 'hidden', borderRadius: 12,
-        minHeight: 72, display: 'flex', alignItems: 'flex-end',
+        minHeight: 84, display: 'flex', alignItems: 'flex-end',
         textDecoration: 'none',
         border: `1px solid ${hov ? 'rgba(255,255,255,0.12)' : T.border}`,
         transition: 'border-color 0.15s',
@@ -190,8 +190,8 @@ function ActionTile({ to, label, imgKey, delay }) {
       }}>
       {img && <img src={img} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transform: hov ? 'scale(1.04)' : 'scale(1)', transition: 'transform 0.4s ease' }} />}
       <div style={{ position: 'absolute', inset: 0, background: hov ? 'rgba(7,9,14,0.72)' : 'rgba(7,9,14,0.82)', transition: 'background 0.2s' }} />
-      <div style={{ position: 'relative', padding: '10px 12px', width: '100%' }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: '#fff', fontFamily: "'DM Sans',sans-serif", letterSpacing: 0.2 }}>{label}</div>
+      <div style={{ position: 'relative', padding: '12px 14px', width: '100%' }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: '#fff', fontFamily: "'DM Sans',sans-serif", letterSpacing: 0.2 }}>{label}</div>
       </div>
     </Link>
   )
@@ -243,7 +243,7 @@ export default function CoachPage() {
         @media(min-width:800px){ .cg-main { grid-template-columns:280px 1fr; } }
       `}</style>
 
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '8px 0 60px', display: 'grid', gap: 14, fontFamily: "'DM Sans',sans-serif" }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '8px 0 60px', display: 'grid', gap: 16, fontFamily: "'DM Sans',sans-serif" }}>
 
         <Hero name={name} clientCount={clients.length} weekSessions={weekSessions} />
 
@@ -251,19 +251,19 @@ export default function CoachPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', border: `1px solid ${T.border}`, borderRadius: 14, overflow: 'hidden', animation: 'fadeUp 0.4s ease both', animationDelay: '80ms' }}>
           {[
             { value: clients.length, label: 'Clients' },
-            { value: weekSessions,   label: 'Séances sem.' },
-            { value: progCount,      label: 'Programmes' },
+            { value: weekSessions,   label: 'Séances cette semaine' },
+            { value: progCount,      label: 'Programmes créés' },
           ].map((s, i) => (
-            <div key={i} style={{ padding: '16px 20px', borderRight: i < 2 ? `1px solid ${T.border}` : 'none', background: 'rgba(255,255,255,0.015)' }}>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 26, fontWeight: 900, color: T.text, letterSpacing: '-0.5px', lineHeight: 1 }}>{s.value}</div>
-              <div style={{ fontSize: 11, color: T.textDim, marginTop: 5, fontWeight: 500, letterSpacing: 0.3 }}>{s.label}</div>
+            <div key={i} style={{ padding: '20px 24px', borderRight: i < 2 ? `1px solid ${T.border}` : 'none', background: 'rgba(255,255,255,0.015)' }}>
+              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 30, fontWeight: 900, color: T.text, letterSpacing: '-1px', lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontSize: 12, color: T.textDim, marginTop: 7, fontWeight: 500 }}>{s.label}</div>
             </div>
           ))}
         </div>
 
         <div className="cg-main">
           {/* Colonne gauche */}
-          <div style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
+          <div style={{ display: 'grid', gap: 12, alignContent: 'start' }}>
             {/* Actions rapides */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {ACTIONS.map((a, i) => (
@@ -274,10 +274,10 @@ export default function CoachPage() {
             <InviteCard userId={user?.id} />
           </div>
 
-          {/* Colonne droite — roster */}
-          <div style={{ border: `1px solid ${T.border}`, borderRadius: 14, padding: '18px 20px', background: 'rgba(255,255,255,0.012)', animation: 'fadeUp 0.4s ease both', animationDelay: '200ms' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 15, color: T.text, letterSpacing: '-0.3px' }}>Roster</div>
+          {/* Colonne droite — effectif */}
+          <div style={{ border: `1px solid ${T.border}`, borderRadius: 14, padding: '22px 24px', background: 'rgba(255,255,255,0.012)', animation: 'fadeUp 0.4s ease both', animationDelay: '200ms' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+              <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 16, color: T.text, letterSpacing: '-0.3px' }}>Mes athlètes</div>
               <Link to="/coach/clients" style={{ fontSize: 11, fontWeight: 700, color: T.textDim, textDecoration: 'none', letterSpacing: 0.3 }}>
                 Voir tout →
               </Link>
