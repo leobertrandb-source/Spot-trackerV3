@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import { PageWrap } from '../components/UI'
 import { T } from '../lib/data'
+import { computeSmartProgression } from '../lib/smartProgressionEngine'
+import SmartCoachCard from '../components/SmartCoachCard'
 
 const today = new Date().toISOString().split('T')[0]
 const todayLabel = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -14,9 +16,27 @@ function extractYoutubeId(url) {
 }
 
 // ─── Bloc exercice ────────────────────────────────────────────────────────────
-function ExerciseBlock({ ex, exIndex, onChange }) {
+function ExerciseBlock({ ex, exIndex, onChange, userId }) {
   const [videoOpen, setVideoOpen] = useState(false)
   const [playing, setPlaying] = useState(false)
+  const [suggestion, setSuggestion] = useState(null)
+  const [suggLoading, setSuggLoading] = useState(true)
+
+  useEffect(() => {
+    if (!userId || !ex.exercise_name) { setSuggLoading(false); return }
+    supabase
+      .from('sets')
+      .select('weight, reps, rpe, set_order, sessions(date)')
+      .eq('exercise', ex.exercise_name)
+      .eq('sessions.user_id', userId)
+      .order('set_order')
+      .limit(120)
+      .then(({ data }) => {
+        const history = (data || []).filter(s => s.sessions)
+        setSuggestion(computeSmartProgression(history))
+        setSuggLoading(false)
+      })
+  }, [userId, ex.exercise_name])
   const ytId = extractYoutubeId(ex.youtube_url)
   const thumb = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null
 
@@ -77,6 +97,17 @@ function ExerciseBlock({ ex, exIndex, onChange }) {
           <span style={{ fontSize: 12, color: T.textMid, lineHeight: 1.5 }}>{ex.notes}</span>
         </div>
       )}
+
+      {/* Suggestion coach intelligent */}
+      <div style={{ padding: '0 16px' }}>
+        <SmartCoachCard
+          suggestion={suggestion}
+          loading={suggLoading}
+          onApply={suggestion ? () => {
+            onChange(exIndex, 'applyAll', { weight: suggestion.weight, reps: suggestion.reps })
+          } : null}
+        />
+      </div>
 
       {/* Tableau séries */}
       <div style={{ padding: '10px 16px' }}>
@@ -188,6 +219,15 @@ export default function AujourdhuiPage() {
   function handleChange(exIndex, setIndex, field, value) {
     setExercises(prev => prev.map((ex, i) => {
       if (i !== exIndex) return ex
+      // Appliquer suggestion à toutes les séries
+      if (setIndex === 'applyAll') {
+        const logged = ex.logged.map(l => ({
+          ...l,
+          weight: l.weight || String(value.weight ?? ''),
+          reps:   l.reps   || String(value.reps ?? ''),
+        }))
+        return { ...ex, logged }
+      }
       const logged = ex.logged.map((l, j) => j === setIndex ? { ...l, [field]: value } : l)
       return { ...ex, logged }
     }))
@@ -265,7 +305,7 @@ export default function AujourdhuiPage() {
 
         {/* Exercices */}
         {exercises.map((ex, i) => (
-          <ExerciseBlock key={ex.id || i} ex={ex} exIndex={i} onChange={handleChange} />
+          <ExerciseBlock key={ex.id || i} ex={ex} exIndex={i} onChange={handleChange} userId={user?.id} />
         ))}
 
         {/* Erreur */}
