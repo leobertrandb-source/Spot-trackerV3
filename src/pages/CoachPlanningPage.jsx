@@ -101,7 +101,7 @@ export default function CoachPlanningPage() {
     const [{ data: profs }, { data: asgns }, { data: sess }] = await Promise.all([
       supabase.from('profiles').select('id, full_name, email').in('id', ids).order('full_name'),
       supabase.from('assignments')
-        .select('id, client_id, assigned_date, program_id, program_day_id, programs(name), program_days(name)')
+        .select('id, athlete_id, assigned_date, program_id, program_day_id, programs(name), program_days(name)')
         .eq('coach_id', user.id)
         .gte('assigned_date', startStr)
         .lte('assigned_date', endStr),
@@ -124,8 +124,8 @@ export default function CoachPlanningPage() {
   const assignIdx = useMemo(() => {
     const idx = {}
     for (const a of assignments) {
-      if (!idx[a.client_id]) idx[a.client_id] = {}
-      idx[a.client_id][a.assigned_date] = a
+      if (!idx[a.athlete_id]) idx[a.athlete_id] = {}
+      idx[a.athlete_id][a.assigned_date] = a
     }
     return idx
   }, [assignments])

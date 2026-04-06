@@ -532,7 +532,7 @@ export default function ProgramBuilderPage() {
         assignDate.setDate(start.getDate() + mondayOffset + (day.day_of_week - 1))
         const iso = assignDate.toISOString().split('T')[0]
         await supabase.from('assignments').insert({
-          coach_id: coachId, client_id: clientId,
+          coach_id: coachId, athlete_id: clientId,
           program_id: prog.id, program_day_id: day.id,
           assigned_date: iso, week_offset: w,
         })
