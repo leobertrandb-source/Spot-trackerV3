@@ -165,7 +165,7 @@ export default function CoachPlanningPage() {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
           <div>
-            <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 'clamp(20px,3vw,26px)', fontWeight: 800, color: T.text, letterSpacing: '-0.5px' }}>Planning</div>
+            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(20px,3vw,26px)', fontWeight: 800, color: T.text, letterSpacing: '-0.3px' }}>Planning</div>
             <div style={{ fontSize: 13, color: T.textDim, marginTop: 3 }}>Vue équipe — semaine du {weekDates[0].toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}</div>
           </div>
 
