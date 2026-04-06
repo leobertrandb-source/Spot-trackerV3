@@ -78,7 +78,6 @@ function VideoPreview({ youtubeUrl, description, muscleGroup }) {
 // ─── Modal sélection exercice ─────────────────────────────────────────────────
 function ExPicker({ exercises, onSelect, onClose }) {
   const [search, setSearch] = useState('')
-  const [hovered, setHovered] = useState(null)
   const [filter, setFilter] = useState('')
   const muscleGroups = [...new Set(exercises.map(e => e.muscle_group).filter(Boolean))].sort()
   const filtered = exercises.filter(e => {
@@ -86,13 +85,11 @@ function ExPicker({ exercises, onSelect, onClose }) {
     const matchFilter = !filter || e.muscle_group === filter
     return matchSearch && matchFilter
   })
-  const hoveredEx = hovered ? exercises.find(e => e.id === hovered) : null
-  const hoveredId = hoveredEx ? extractYoutubeId(hoveredEx.youtube_url) : null
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', padding: 16 }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ ...GLASS, width: '100%', maxWidth: 700, maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ ...GLASS, width: '100%', maxWidth: 500, maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', gap: 10, alignItems: 'center' }}>
           <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un exercice..."
             style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 12px', color: C.text, fontSize: 13, outline: 'none' }} />
@@ -107,58 +104,30 @@ function ExPicker({ exercises, onSelect, onClose }) {
             ))}
           </div>
         )}
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-          {/* Liste exercices */}
-          <div style={{ flex: 1, overflowY: 'auto' }}>
-            {filtered.slice(0, 50).map(ex => {
-              const id = extractYoutubeId(ex.youtube_url)
-              const thumb = id ? `https://img.youtube.com/vi/${id}/default.jpg` : null
-              const isHov = hovered === ex.id
-              return (
-                <div key={ex.id} onClick={() => onSelect(ex)} onMouseEnter={() => setHovered(ex.id)} onMouseLeave={() => setHovered(null)}
-                  style={{ padding: '10px 16px', display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer', borderBottom: `1px solid ${C.border}`, background: isHov ? 'rgba(62,207,142,0.05)' : 'transparent', transition: 'background 0.1s' }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.05)', display: 'grid', placeItems: 'center', position: 'relative' }}>
-                    {thumb ? <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 16 }}>💪</span>}
-                    {id && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'grid', placeItems: 'center', opacity: isHov ? 1 : 0, transition: 'opacity 0.15s' }}><span style={{ fontSize: 10, color: '#fff' }}>▶</span></div>}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ex.name}</div>
-                    <div style={{ fontSize: 11, color: C.sub, display: 'flex', gap: 8, marginTop: 1 }}>
-                      {ex.muscle_group && <span>{ex.muscle_group}</span>}
-                      {id && <span style={{ color: C.accent }}>▶ vidéo</span>}
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 11, color: C.accent, fontWeight: 700, opacity: isHov ? 1 : 0, transition: 'opacity 0.1s' }}>Ajouter →</div>
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {filtered.slice(0, 50).map(ex => {
+            const id = extractYoutubeId(ex.youtube_url)
+            const thumb = id ? `https://img.youtube.com/vi/${id}/default.jpg` : null
+            return (
+              <div key={ex.id} onClick={() => onSelect(ex)}
+                style={{ padding: '10px 16px', display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer', borderBottom: `1px solid ${C.border}` }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(62,207,142,0.05)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                <div style={{ width: 40, height: 40, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.05)', display: 'grid', placeItems: 'center' }}>
+                  {thumb ? <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} /> : <span style={{ fontSize: 16 }}>💪</span>}
                 </div>
-              )
-            })}
-            {filtered.length === 0 && <div style={{ padding: 32, textAlign: 'center', color: C.sub, fontSize: 13 }}>Aucun exercice trouvé</div>}
-          </div>
-          {/* Panneau aperçu */}
-          {hoveredEx && (
-            <div style={{ width: 220, borderLeft: `1px solid ${C.border}`, overflowY: 'auto', flexShrink: 0 }}>
-              {hoveredId ? (
-                <div style={{ position: 'relative', paddingBottom: '56.25%', background: '#000' }}>
-                  <img src={`https://img.youtube.com/vi/${hoveredId}/mqdefault.jpg`} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-                  <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,0.3)' }}>
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,0,0,0.85)', display: 'grid', placeItems: 'center' }}>
-                      <span style={{ color: '#fff', fontSize: 14, marginLeft: 2 }}>▶</span>
-                    </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ex.name}</div>
+                  <div style={{ fontSize: 11, color: C.sub, display: 'flex', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
+                    {ex.muscle_group && <span>{ex.muscle_group}</span>}
+                    {id && <span style={{ color: C.accent }}>▶ vidéo</span>}
+                    {ex.description && <span style={{ color: C.sub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{ex.description.slice(0, 60)}{ex.description.length > 60 ? '…' : ''}</span>}
                   </div>
                 </div>
-              ) : (
-                <div style={{ padding: '20px 14px', textAlign: 'center', borderBottom: `1px solid ${C.border}` }}>
-                  <div style={{ fontSize: 32 }}>💪</div>
-                </div>
-              )}
-              <div style={{ padding: '10px 12px' }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: C.text, marginBottom: 4 }}>{hoveredEx.name}</div>
-                {hoveredEx.muscle_group && <div style={{ fontSize: 10, color: C.accent, marginBottom: 8, fontWeight: 700 }}>{hoveredEx.muscle_group}</div>}
-                {hoveredEx.description && <div style={{ fontSize: 11, color: C.sub, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{hoveredEx.description.slice(0, 300)}{hoveredEx.description.length > 300 ? '...' : ''}</div>}
-                {!hoveredEx.description && !hoveredId && <div style={{ fontSize: 11, color: C.sub }}>Aucune description</div>}
               </div>
-            </div>
-          )}
+            )
+          })}
+          {filtered.length === 0 && <div style={{ padding: 32, textAlign: 'center', color: C.sub, fontSize: 13 }}>Aucun exercice trouvé</div>}
         </div>
       </div>
     </div>
