@@ -237,7 +237,7 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
   ]
 
   const coachPersoLinks = [
-    { to: '/coach',         label: 'Dashboard' },
+    { to: '/coach',         label: 'Accueil' },
     { to: '/coach/clients', label: 'Clients' },
     { to: '/planning',      label: 'Planning' },
     { to: '/programmes',    label: 'Programmes' },
@@ -262,12 +262,11 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
   ]
 
   const athleteTrainLinks = [
-    { to: '/mon-espace',              label: 'Mon espace' },
-    { to: '/entrainement/aujourdhui', label: 'Séance du jour' },
-    { to: '/entrainement/libre',      label: 'Séance libre' },
+    { to: '/mon-espace',              label: 'Accueil' },
+    { to: '/entrainement/aujourdhui', label: 'Aujourd\'hui' },
+    { to: '/entrainement/libre',      label: 'Entraînement' },
     { to: '/progression',             label: 'Progression' },
     { to: '/exercices',               label: 'Exercices' },
-    ...(showMethodeSpot ? [{ to: progRoute, label: 'Méthode & objectif' }] : []),
   ]
 
   const athleteNutritionLinks = [
@@ -304,7 +303,6 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
   } else if (isCoach) {
     nav = (
       <div style={{ display: 'grid', gap: 2 }}>
-        <SectionLabel>{showPrepPhysique ? 'Prépa physique' : 'Coaching'}</SectionLabel>
         {coachLinks.map((item, i) => (
           <NavItem key={item.to} {...item} active={isActive(item.to)} onClick={isMobile ? onClose : undefined} index={i} />
         ))}
@@ -323,16 +321,14 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
     nav = (
       <>
         <div style={{ display: 'grid', gap: 2 }}>
-          <SectionLabel>Entraînement</SectionLabel>
           {athleteTrainLinks.map((item, i) => (
             <NavItem key={item.to} {...item} active={isActive(item.to)} onClick={isMobile ? onClose : undefined} index={i} />
           ))}
         </div>
         <Divider />
         <div style={{ display: 'grid', gap: 2 }}>
-          <SectionLabel>Nutrition</SectionLabel>
           {athleteNutritionLinks.map((item, i) => (
-            <NavItem key={item.to} {...item} active={isActive(item.to)} onClick={isMobile ? onClose : undefined} index={i + 6} />
+            <NavItem key={item.to} {...item} active={isActive(item.to)} onClick={isMobile ? onClose : undefined} index={i + 5} />
           ))}
         </div>
       </>

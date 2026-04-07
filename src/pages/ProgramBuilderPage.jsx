@@ -16,41 +16,118 @@ const DAY_COLORS = ['#4d9fff','#9d7dea','#3ecf8e','#ff7043','#fbbf24','#26d4e8',
 
 function extractYoutubeId(url) {
   if (!url) return null
-  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
+  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/)
   return m ? m[1] : null
+}
+
+// ─── Aperçu vidéo inline ──────────────────────────────────────────────────────
+function VideoPreview({ youtubeUrl, description, muscleGroup }) {
+  const [open, setOpen] = useState(false)
+  const [playing, setPlaying] = useState(false)
+  const id = extractYoutubeId(youtubeUrl)
+  const thumb = id ? `https://img.youtube.com/vi/${id}/mqdefault.jpg` : null
+
+  if (!id && !description) return null
+
+  return (
+    <div style={{ marginTop: 8, borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+      {/* Toggle bar */}
+      <button onClick={() => { setOpen(o => !o); setPlaying(false) }}
+        style={{ width: '100%', padding: '7px 12px', background: `rgba(62,207,142,0.06)`, border: 'none', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', textAlign: 'left' }}>
+        <span style={{ fontSize: 13 }}>{open ? '▲' : '▶'}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: C.accent }}>{id ? 'Vidéo & consignes' : 'Consignes'}</span>
+        {muscleGroup && <span style={{ fontSize: 10, color: C.sub, marginLeft: 'auto', background: 'rgba(255,255,255,0.05)', padding: '2px 7px', borderRadius: 20 }}>{muscleGroup}</span>}
+      </button>
+
+      {open && (
+        <div style={{ padding: '10px 12px', background: 'rgba(0,0,0,0.2)', display: 'grid', gap: 10 }}>
+          {/* Player vidéo */}
+          {id && (
+            <div style={{ position: 'relative', paddingBottom: '56.25%', borderRadius: 8, overflow: 'hidden', background: '#000' }}>
+              {!playing ? (
+                <div onClick={() => setPlaying(true)} style={{ position: 'absolute', inset: 0, cursor: 'pointer' }}>
+                  {thumb && <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                  <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,0.35)' }}>
+                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,0,0,0.85)', display: 'grid', placeItems: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
+                      <span style={{ color: '#fff', fontSize: 18, marginLeft: 3 }}>▶</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <iframe
+                  src={`https://www.youtube.com/embed/${id}?autoplay=1&rel=0`}
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              )}
+            </div>
+          )}
+          {/* Description */}
+          {description && (
+            <div style={{ fontSize: 12, color: C.textMid || '#c4d0e0', lineHeight: 1.6, whiteSpace: 'pre-wrap', borderTop: id ? `1px solid ${C.border}` : 'none', paddingTop: id ? 8 : 0 }}>
+              {description}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ─── Modal sélection exercice ─────────────────────────────────────────────────
 function ExPicker({ exercises, onSelect, onClose }) {
   const [search, setSearch] = useState('')
-  const filtered = exercises.filter(e => !search || e.name?.toLowerCase().includes(search.toLowerCase()))
+  const [filter, setFilter] = useState('')
+  const muscleGroups = [...new Set(exercises.map(e => e.muscle_group).filter(Boolean))].sort()
+  const filtered = exercises.filter(e => {
+    const matchSearch = !search || e.name?.toLowerCase().includes(search.toLowerCase())
+    const matchFilter = !filter || e.muscle_group === filter
+    return matchSearch && matchFilter
+  })
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', padding: 16 }}
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={{ ...GLASS, width: '100%', maxWidth: 480, maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ ...GLASS, width: '100%', maxWidth: 500, maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', gap: 10, alignItems: 'center' }}>
           <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un exercice..."
             style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 12px', color: C.text, fontSize: 13, outline: 'none' }} />
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: C.sub, cursor: 'pointer', fontSize: 18 }}>✕</button>
         </div>
+        {/* Filtres groupes musculaires */}
+        {muscleGroups.length > 0 && (
+          <div style={{ padding: '8px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <button onClick={() => setFilter('')} style={{ padding: '3px 9px', borderRadius: 20, border: `1px solid ${!filter ? C.accent + '60' : C.border}`, background: !filter ? `${C.accent}15` : 'transparent', color: !filter ? C.accent : C.sub, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Tous</button>
+            {muscleGroups.map(mg => (
+              <button key={mg} onClick={() => setFilter(mg === filter ? '' : mg)} style={{ padding: '3px 9px', borderRadius: 20, border: `1px solid ${filter === mg ? C.accent + '60' : C.border}`, background: filter === mg ? `${C.accent}15` : 'transparent', color: filter === mg ? C.accent : C.sub, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{mg}</button>
+            ))}
+          </div>
+        )}
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          {filtered.slice(0, 30).map(ex => {
+          {filtered.slice(0, 50).map(ex => {
             const id = extractYoutubeId(ex.youtube_url)
             const thumb = id ? `https://img.youtube.com/vi/${id}/default.jpg` : null
             return (
-              <div key={ex.id} onClick={() => onSelect(ex)} style={{ padding: '10px 16px', display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer', borderBottom: `1px solid ${C.border}` }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+              <div key={ex.id} onClick={() => onSelect(ex)}
+                style={{ padding: '10px 16px', display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer', borderBottom: `1px solid ${C.border}` }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(62,207,142,0.05)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                <div style={{ width: 34, height: 34, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.05)', display: 'grid', placeItems: 'center' }}>
-                  {thumb ? <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 16 }}>💪</span>}
+                <div style={{ width: 40, height: 40, borderRadius: 8, overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.05)', display: 'grid', placeItems: 'center' }}>
+                  {thumb ? <img src={thumb} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', pointerEvents: 'none' }} /> : <span style={{ fontSize: 16 }}>💪</span>}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ex.name}</div>
-                  {ex.muscle_group && <div style={{ fontSize: 11, color: C.sub }}>{ex.muscle_group}</div>}
+                  <div style={{ fontSize: 11, color: C.sub, display: 'flex', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
+                    {ex.muscle_group && <span>{ex.muscle_group}</span>}
+                    {id && <span style={{ color: C.accent }}>▶ vidéo</span>}
+                    {ex.description && <span style={{ color: C.sub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{ex.description.slice(0, 60)}{ex.description.length > 60 ? '…' : ''}</span>}
+                  </div>
                 </div>
               </div>
             )
           })}
+          {filtered.length === 0 && <div style={{ padding: 32, textAlign: 'center', color: C.sub, fontSize: 13 }}>Aucun exercice trouvé</div>}
         </div>
       </div>
     </div>
@@ -134,6 +211,8 @@ function ProgramEditor({ program, exercises, onSave, onClose }) {
       .select('*, program_day_exercises(*)')
       .eq('program_id', program.id)
       .order('week_number').order('day_of_week')
+    // Map exercises by id for quick lookup
+    const exMap = Object.fromEntries(exercises.map(e => [e.id, e]))
     // Parser les séries stockées en JSON dans le champ reps
     const parsed = (data || []).map(day => ({
       ...day,
@@ -146,7 +225,8 @@ function ProgramEditor({ program, exercises, onSave, onClose }) {
           const n = Number(ex.sets) || 3
           sets = Array.from({ length: n }, () => ({ reps: ex.reps || '8-12', rest: ex.rest_seconds || 90 }))
         }
-        return { ...ex, sets, notes: ex.notes || '' }
+        const exData = exMap[ex.exercise_id] || {}
+        return { ...ex, sets, notes: ex.notes || '', youtube_url: exData.youtube_url || null, description: exData.description || null, muscle_group: exData.muscle_group || null }
       })
     }))
     setDays(parsed)
@@ -178,6 +258,9 @@ function ProgramEditor({ program, exercises, onSave, onClose }) {
       if (d.week_number !== week || d.day_of_week !== dayOfWeek) return d
       return { ...d, program_day_exercises: [...(d.program_day_exercises || []), {
         _new: true, exercise_id: ex.id, exercise_name: ex.name,
+        youtube_url: ex.youtube_url || null,
+        description: ex.description || null,
+        muscle_group: ex.muscle_group || null,
         sets: [{ reps: '8-12', rest: 90 }, { reps: '8-12', rest: 90 }, { reps: '8-12', rest: 90 }],
         notes: '', position: (d.program_day_exercises || []).length
       }]}
@@ -318,12 +401,19 @@ function ProgramEditor({ program, exercises, onSave, onClose }) {
               {(activeDayData.program_day_exercises || []).map((ex, i) => (
                 <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, borderRadius: 12, padding: '10px 14px' }}>
                   {/* Header exercice */}
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-                    <div style={{ flex: 1, fontSize: 13, fontWeight: 700, color: C.text }}>{ex.exercise_name}</div>
-                    <button onClick={() => removeExFromDay(activeDay.week, activeDay.dayOfWeek, i)} style={{ background: 'none', border: 'none', color: C.red, cursor: 'pointer', fontSize: 16 }}>×</button>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                    {(() => { const id = extractYoutubeId(ex.youtube_url); return id ? <img src={`https://img.youtube.com/vi/${id}/default.jpg`} alt="" style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 36, height: 36, borderRadius: 6, background: 'rgba(255,255,255,0.06)', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 16 }}>💪</div> })()}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ex.exercise_name}</div>
+                      {ex.muscle_group && <div style={{ fontSize: 10, color: C.sub }}>{ex.muscle_group}</div>}
+                    </div>
+                    <button onClick={() => removeExFromDay(activeDay.week, activeDay.dayOfWeek, i)} style={{ background: 'none', border: 'none', color: C.red, cursor: 'pointer', fontSize: 16, flexShrink: 0 }}>×</button>
                   </div>
+                  {/* Vidéo & description */}
+                  <VideoPreview youtubeUrl={ex.youtube_url} description={ex.description} muscleGroup={ex.muscle_group} />
 
-                  {/* Header colonnes */}
+                  {/* Séries — header colonnes */}
+                  <div style={{ marginTop: 10 }} />
                   <div className="prog-set-row" style={{ display: 'grid', gap: 6, marginBottom: 4 }}>
                     <div style={{ fontSize: 10, color: C.sub, textAlign: 'center' }}>#</div>
                     <div style={{ fontSize: 10, color: C.sub }}>Reps / intensité</div>
@@ -442,7 +532,7 @@ export default function ProgramBuilderPage() {
         assignDate.setDate(start.getDate() + mondayOffset + (day.day_of_week - 1))
         const iso = assignDate.toISOString().split('T')[0]
         await supabase.from('assignments').insert({
-          coach_id: coachId, client_id: clientId,
+          coach_id: coachId, athlete_id: clientId,
           program_id: prog.id, program_day_id: day.id,
           assigned_date: iso, week_offset: w,
         })

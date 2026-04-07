@@ -67,13 +67,19 @@ export function AuthProvider({ children }) {
     const gymSlug = gym?.slug || ''
     const isCoachingPerso = gymSlug === 'coaching-perso'
     const isPrepPhysique  = gymSlug === 'prep-physique'
-    // Fallback coaching perso si aucun gym assigné
     const showCoachingPerso = isCoachingPerso || (!isCoachingPerso && !isPrepPhysique)
     const showPrepPhysique  = isPrepPhysique
     const showMethodeSpot   = gym?.show_methode_spot === true || showCoachingPerso
 
+    // Identité visuelle du club — fallback sur les valeurs atlyo par défaut
+    const club = gym ? {
+      name:     gym.name || gym.slug || null,
+      logoUrl:  gym.logo_url || null,
+      color:    gym.color || '#3ecf8e',
+    } : null
+
     return {
-      user, profile, gym, gymSlug,
+      user, profile, gym, gymSlug, club,
       isCoach:          profile?.role === 'coach',
       isCoachingPerso,
       isPrepPhysique,

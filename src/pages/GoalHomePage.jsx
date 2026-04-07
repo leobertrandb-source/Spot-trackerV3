@@ -75,46 +75,20 @@ const ICONS = {
   dumbbell:"M6.5 6.5h11M6.5 17.5h11M3 9.5h2v5H3zM19 9.5h2v5h-2zM6.5 3v3M6.5 18v3M17.5 3v3M17.5 18v3",
 }
 
-// ─── Hero ─────────────────────────────────────────────────────────────────────
+// ─── Header simple ────────────────────────────────────────────────────────────
 
-function Hero({ name, goalType, todayProgram }) {
-  const [vis, setVis] = useState(false)
-  useEffect(() => { const t = setTimeout(() => setVis(true), 30); return () => clearTimeout(t) }, [])
-  const img = NAV_IMAGES['hero-athlete']
-
+function PageHeader({ name, todayProgram }) {
+  const dateLabel = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
   return (
-    <div style={{
-      borderRadius: 20, overflow: 'hidden', position: 'relative',
-      minHeight: 200,
-      opacity: vis ? 1 : 0, transform: vis ? 'none' : 'translateY(18px)',
-      transition: 'opacity 0.5s ease, transform 0.5s ease',
-    }}>
-      {img && (
-        <img src={img} alt="" style={{
-          position: 'absolute', inset: 0, width: '100%', height: '100%',
-          objectFit: 'cover', objectPosition: 'center 25%',
-        }} />
-      )}
-      <div style={{
-        position: 'absolute', inset: 0,
-        background: img
-          ? 'linear-gradient(90deg, rgba(7,9,14,0.93) 0%, rgba(7,9,14,0.72) 55%, rgba(7,9,14,0.35) 100%)'
-          : 'linear-gradient(135deg, rgba(12,16,24,0.98), rgba(7,9,14,0.98))',
-      }} />
-
-      <div style={{ position: 'relative', padding: '30px', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2.5, textTransform: 'uppercase', color: C.accent, marginBottom: 10, fontFamily: "'DM Sans',sans-serif" }}>{greet()}</div>
-          <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 'clamp(26px,4vw,40px)', fontWeight: 900, color: '#fff', lineHeight: 1.05, letterSpacing: '-1.2px' }}>
-            {name?.split(' ')[0] || 'Athlète'}
-          </div>
-          <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', marginTop: 8, fontFamily: "'DM Sans',sans-serif", lineHeight: 1.6 }}>
-            {todayProgram ? `Séance prévue : ${todayProgram}` : "Aucun programme prévu aujourd'hui."}
-          </div>
+    <div style={{ paddingBottom: 4 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: C.sub, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 6, fontFamily: "'DM Sans',sans-serif" }}>{dateLabel}</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(20px,3vw,26px)', fontWeight: 800, color: C.text, letterSpacing: '-0.3px' }}>
+          {name?.split(' ')[0] || 'Athlète'}
         </div>
-        {goalType && (
-          <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, padding: '6px 14px', background: 'rgba(62,207,142,0.12)', border: '1px solid rgba(62,207,142,0.3)', borderRadius: 20, fontFamily: "'DM Sans',sans-serif", flexShrink: 0, backdropFilter: 'blur(8px)' }}>
-            {goalLabel(goalType)}
+        {todayProgram && (
+          <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, padding: '4px 12px', background: `${C.accent}10`, border: `1px solid ${C.accent}25`, borderRadius: 20, fontFamily: "'DM Sans',sans-serif" }}>
+            {todayProgram}
           </div>
         )}
       </div>
@@ -154,7 +128,7 @@ function StatBlock({ label, value, color, iconPath, delay = 0, sub }) {
         </div>
       )}
 
-      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 22, fontWeight: 900, color: C.text, lineHeight: 1, letterSpacing: '-0.5px' }}>{value}</div>
+      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 22, fontWeight: 800, color: C.text, lineHeight: 1, letterSpacing: '-0.3px' }}>{value}</div>
       <div style={{ fontSize: 11, color: C.sub, marginTop: 5, fontFamily: "'DM Sans',sans-serif" }}>{label}</div>
       {sub && <div style={{ fontSize: 10, color, fontWeight: 700, marginTop: 2 }}>{sub}</div>}
     </div>
@@ -329,18 +303,14 @@ export default function GoalHomePage() {
 
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '8px 0 48px', display: 'grid', gap: 16 }}>
 
-        <Hero
-          name={profile?.full_name}
-          goalType={profile?.goal_type}
-          todayProgram={todayProg?.name}
-        />
+        <PageHeader name={profile?.full_name} todayProgram={todayProg?.name} />
 
         {/* Stats */}
         <div className="ag-stats">
-          <StatBlock label="Objectif" value={goalLabel(profile?.goal_type)} color={C.accent} iconPath={ICONS.target} delay={80} />
-          <StatBlock label="Calories aujourd'hui" value={`${Math.round(nutri.calories)}`} sub={goals.cal ? `/ ${goals.cal} kcal` : null} color={C.orange} iconPath={ICONS.fire} delay={130} />
-          <StatBlock label="Séances récentes" value={recentSessions.length} color={C.blue} iconPath={ICONS.chart} delay={180} sub={recentSessions[0] ? `Dernière le ${fmt(recentSessions[0].date)}` : null} />
-          <StatBlock label="Programme du jour" value={todayProg ? 'Assigné' : 'Libre'} color={C.purple} iconPath={ICONS.dumbbell} delay={230} sub={todayProg?.seance_type || null} />
+          <StatBlock label="Calories" value={`${Math.round(nutri.calories)}`} sub={goals.cal ? `objectif ${goals.cal} kcal` : null} color={C.orange} iconPath={ICONS.fire} delay={60} />
+          <StatBlock label="Séances" value={recentSessions.length} color={C.blue} iconPath={ICONS.chart} delay={100} sub={recentSessions[0] ? `Dernière le ${fmt(recentSessions[0].date)}` : null} />
+          <StatBlock label="Séance du jour" value={todayProg ? 'Programmée' : 'Libre'} color={C.accent} iconPath={ICONS.dumbbell} delay={140} />
+          <StatBlock label="Objectif" value={goalLabel(profile?.goal_type)} color={C.purple} iconPath={ICONS.target} delay={180} />
         </div>
 
         {loading ? (
@@ -356,16 +326,13 @@ export default function GoalHomePage() {
               imgKey="/entrainement/aujourdhui">
 
               {todayProg ? (
-                <div style={{ display: 'grid', gap: 6 }}>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 18, fontWeight: 800, color: C.text }}>{todayProg.name}</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, padding: '3px 10px', background: 'rgba(62,207,142,0.1)', border: '1px solid rgba(62,207,142,0.2)', borderRadius: 20, display: 'inline-block' }}>
-                    {todayProg.seance_type}
-                  </div>
-                  <div style={{ display: 'grid', gap: 4, marginTop: 4 }}>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 16, fontWeight: 800, color: C.text }}>{todayProg.name}</div>
+                  <div style={{ display: 'grid', gap: 5 }}>
                     {(todayProg.program_exercises || []).slice(0, 4).map((ex, i) => (
-                      <div key={i} style={{ fontSize: 12, color: C.sub, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ width: 4, height: 4, borderRadius: '50%', background: C.accent, flexShrink: 0 }} />
-                        {ex.sets_target}× {ex.exercise} {ex.reps_target ? `· ${ex.reps_target} reps` : ''}
+                      <div key={i} style={{ fontSize: 12, color: C.sub, display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <div style={{ width: 3, height: 3, borderRadius: '50%', background: C.accent, flexShrink: 0 }} />
+                        {ex.exercise}{ex.sets_target ? ` — ${ex.sets_target} séries` : ''}{ex.reps_target ? ` × ${ex.reps_target} reps` : ''}
                       </div>
                     ))}
                     {(todayProg.program_exercises || []).length > 4 && (
@@ -375,7 +342,7 @@ export default function GoalHomePage() {
                 </div>
               ) : (
                 <div style={{ fontSize: 13, color: C.dim, lineHeight: 1.6 }}>
-                  Ton coach n'a pas encore assigné de programme pour aujourd'hui. Lance une séance libre.
+                  Aucun programme prévu aujourd'hui.
                 </div>
               )}
             </SectionCard>
@@ -395,9 +362,9 @@ export default function GoalHomePage() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-around', paddingTop: 8 }}>
-                <MacroRing label="Prot." current={nutri.proteins} goal={goals.prot || 150} color={C.blue} />
-                <MacroRing label="Gluc." current={nutri.carbs}    goal={goals.carb || 200} color={C.yellow} />
-                <MacroRing label="Lip."  current={nutri.fats}     goal={goals.fat  || 70}  color={C.purple} />
+                <MacroRing label="Protéines" current={nutri.proteins} goal={goals.prot || 150} color={C.blue} />
+                <MacroRing label="Glucides"  current={nutri.carbs}    goal={goals.carb || 200} color={C.yellow} />
+                <MacroRing label="Lipides"   current={nutri.fats}     goal={goals.fat  || 70}  color={C.purple} />
               </div>
 
               <div style={{ display: 'flex', gap: 8 }}>
