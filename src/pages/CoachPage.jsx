@@ -18,11 +18,12 @@ function todayLabel() {
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
-function Hero({ name, clientCount, weekSessions }) {
+function Hero({ name, clientCount, weekSessions, club }) {
   const [vis, setVis] = useState(false)
   useEffect(() => { const t = setTimeout(() => setVis(true), 40); return () => clearTimeout(t) }, [])
   const img = NAV_IMAGES['hero-coach']
   const firstName = (name || 'Coach').split(' ')[0]
+  const accent = club?.color || T.accent
 
   return (
     <div style={{
@@ -33,6 +34,23 @@ function Hero({ name, clientCount, weekSessions }) {
       {img && <img src={img} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 25%' }} />}
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(100deg, rgba(7,9,14,0.97) 0%, rgba(7,9,14,0.82) 55%, rgba(7,9,14,0.35) 100%)' }} />
 
+      {/* Club logo — faded background */}
+      {club?.logoUrl && (
+        <img
+          src={club.logoUrl}
+          alt=""
+          style={{
+            position: 'absolute', right: 'clamp(24px,5vw,56px)', top: '50%',
+            transform: 'translateY(-50%)',
+            height: 'clamp(60px,12vw,110px)', width: 'auto',
+            objectFit: 'contain',
+            opacity: 0.08,
+            filter: 'grayscale(1) brightness(3)',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+
       <div style={{ position: 'relative', padding: 'clamp(24px,4vw,40px) clamp(24px,4vw,40px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
         {/* Left — identité */}
         <div>
@@ -42,6 +60,12 @@ function Hero({ name, clientCount, weekSessions }) {
           <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 'clamp(32px,5vw,54px)', fontWeight: 800, color: '#fff', lineHeight: 1, letterSpacing: '-0.5px' }}>
             {firstName}
           </div>
+          {club?.name && (
+            <div style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '3px 10px', borderRadius: 20, background: `${accent}18`, border: `1px solid ${accent}30` }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: accent, flexShrink: 0 }} />
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', color: accent, fontFamily: "'DM Sans',sans-serif" }}>{club.name}</span>
+            </div>
+          )}
         </div>
 
         {/* Right — métriques clés */}
@@ -52,7 +76,7 @@ function Hero({ name, clientCount, weekSessions }) {
           </div>
           <div style={{ width: 1, height: 36, background: 'rgba(255,255,255,0.15)', flexShrink: 0 }} />
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(26px,3.5vw,38px)', fontWeight: 800, color: T.accent, lineHeight: 1, letterSpacing: '-0.5px' }}>{weekSessions}</div>
+            <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(26px,3.5vw,38px)', fontWeight: 800, color: accent, lineHeight: 1, letterSpacing: '-0.5px' }}>{weekSessions}</div>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', marginTop: 5, fontFamily: "'DM Sans',sans-serif" }}>séances / sem.</div>
           </div>
         </div>
@@ -200,7 +224,7 @@ function ActionTile({ to, label, imgKey, delay }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CoachPage() {
-  const { user, profile } = useAuth()
+  const { user, profile, club } = useAuth()
   const coachId = profile?.id || user?.id || null
   const [clients, setClients]       = useState([])
   const [loading, setLoading]       = useState(true)
@@ -245,7 +269,7 @@ export default function CoachPage() {
 
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '8px 0 60px', display: 'grid', gap: 16, fontFamily: "'DM Sans',sans-serif" }}>
 
-        <Hero name={name} clientCount={clients.length} weekSessions={weekSessions} />
+        <Hero name={name} clientCount={clients.length} weekSessions={weekSessions} club={club} />
 
         {/* Barre stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', border: `1px solid ${T.border}`, borderRadius: 14, overflow: 'hidden', animation: 'fadeUp 0.4s ease both', animationDelay: '80ms' }}>
