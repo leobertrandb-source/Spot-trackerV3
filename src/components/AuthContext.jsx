@@ -65,9 +65,9 @@ export function AuthProvider({ children }) {
 
   const value = useMemo(() => {
     const gymSlug = gym?.slug || ''
-    const isCoachingPerso = gymSlug === 'coaching-perso'
-    const isPrepPhysique  = gymSlug === 'prep-physique'
-    const showCoachingPerso = isCoachingPerso || (!isCoachingPerso && !isPrepPhysique)
+    const isCoachingPerso = gymSlug === 'coaching-perso' || gymSlug === ''
+    const isPrepPhysique  = !isCoachingPerso
+    const showCoachingPerso = isCoachingPerso
     const showPrepPhysique  = isPrepPhysique
     const showMethodeSpot   = gym?.show_methode_spot === true || showCoachingPerso
 
