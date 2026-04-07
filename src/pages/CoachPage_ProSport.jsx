@@ -18,18 +18,19 @@ function statusFromScore(score) {
   return               { label: 'Fatigue importante', color: T.danger,  dot: T.danger,  bg: T.dangerGlow }
 }
 
-function Avatar({ name }) {
+function Avatar({ name, color }) {
   const initials = (name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
   return (
-    <div style={{ width: 42, height: 42, borderRadius: '50%', background: T.accent, display: 'grid', placeItems: 'center', color: '#fff', fontSize: 14, fontWeight: 700, flexShrink: 0, fontFamily: T.fontDisplay }}>
+    <div style={{ width: 42, height: 42, borderRadius: '50%', background: color || T.accent, display: 'grid', placeItems: 'center', color: '#fff', fontSize: 14, fontWeight: 700, flexShrink: 0, fontFamily: T.fontDisplay }}>
       {initials}
     </div>
   )
 }
 
 export default function CoachPageProSport() {
-  const { user, gym } = useAuth()
-  const gymName = gym?.name || 'Atlyo'
+  const { user, gym, club } = useAuth()
+  const gymName = club?.name || gym?.name || 'Atlyo'
+  const accent = club?.color || T.accent
   const navigate = useNavigate()
   const today = new Date().toISOString().split('T')[0]
 
@@ -169,9 +170,21 @@ export default function CoachPageProSport() {
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
 
         {/* Header */}
-        <div style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, position: 'relative' }}>
+          {/* Logo club fondu */}
+          {club?.logoUrl && (
+            <img src={club.logoUrl} alt="" style={{
+              position: 'absolute', left: '50%', top: '50%',
+              transform: 'translate(-50%, -50%)',
+              height: 'clamp(80px,14vw,140px)', width: 'auto',
+              objectFit: 'contain',
+              opacity: 0.05,
+              filter: 'grayscale(1)',
+              pointerEvents: 'none',
+            }} />
+          )}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: T.textMid, marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: accent, marginBottom: 8 }}>
               {gymName} · Préparation physique
             </div>
             <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(26px,4vw,36px)', fontWeight: 400, color: T.text, margin: 0, lineHeight: 1.2 }}>
@@ -187,9 +200,9 @@ export default function CoachPageProSport() {
               style={{
                 padding: '10px 18px',
                 borderRadius: 999,
-                border: `1px solid ${T.accent}40`,
-                background: T.accentGlowSm,
-                color: T.accent,
+                border: `1px solid ${accent}40`,
+                background: `${accent}12`,
+                color: accent,
                 fontSize: 13,
                 fontWeight: 700,
                 cursor: 'pointer',
@@ -212,8 +225,8 @@ export default function CoachPageProSport() {
                 <button key={t.key} onClick={() => setMainTab(t.key)}
                   style={{
                     padding: '8px 16px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                    border: `1px solid ${mainTab === t.key ? T.accent : T.border}`,
-                    background: mainTab === t.key ? T.accent : T.card,
+                    border: `1px solid ${mainTab === t.key ? accent : T.border}`,
+                    background: mainTab === t.key ? accent : T.card,
                     color: mainTab === t.key ? '#080d14' : T.textMid,
                     transition: 'all 0.15s',
                   }}>
@@ -226,9 +239,9 @@ export default function CoachPageProSport() {
                 onClick={() => setShowInvite(s => !s)}
                 style={{
                   padding: '10px 20px', borderRadius: 20,
-                  border: `1px solid ${T.accent}`,
-                  background: showInvite ? T.accent : T.accentGlowSm,
-                  color: showInvite ? '#080d14' : T.accent,
+                  border: `1px solid ${accent}`,
+                  background: showInvite ? accent : `${accent}12`,
+                  color: showInvite ? '#080d14' : accent,
                   fontSize: 13, fontWeight: 600, cursor: 'pointer',
                   transition: 'all 0.15s', flexShrink: 0,
                 }}>
@@ -338,7 +351,7 @@ export default function CoachPageProSport() {
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: '20px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
               <button onClick={() => setShowGpsImport(true)}
-                style={{ padding: '8px 16px', borderRadius: 20, border: `1px solid ${T.accent}`, background: T.accent, color: '#ffffff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                style={{ padding: '8px 16px', borderRadius: 20, border: `1px solid ${accent}`, background: accent, color: '#ffffff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 + Importer un CSV GPS
               </button>
             </div>
@@ -359,12 +372,12 @@ export default function CoachPageProSport() {
                   placeholder="email@athlete.com"
                   style={{ flex: 1, minWidth: 200, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 14px', color: T.text, fontSize: 14, outline: 'none' }} />
                 <button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()}
-                  style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: T.accent, color: '#ffffff', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: inviting || !inviteEmail.trim() ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+                  style={{ padding: '10px 20px', borderRadius: 10, border: 'none', background: accent, color: '#ffffff', fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: inviting || !inviteEmail.trim() ? 0.6 : 1, whiteSpace: 'nowrap' }}>
                   {inviting ? 'Génération...' : 'Générer & copier'}
                 </button>
               </div>
               {inviteMsg && (
-                <div style={{ marginTop: 8, fontSize: 12, color: T.accent, fontWeight: 600 }}>{inviteMsg}</div>
+                <div style={{ marginTop: 8, fontSize: 12, color: accent, fontWeight: 600 }}>{inviteMsg}</div>
               )}
               <div style={{ marginTop: 8, fontSize: 11, color: T.textMid }}>Le lien est copié automatiquement. Envoyez-le par email ou SMS.</div>
             </div>
@@ -400,7 +413,7 @@ export default function CoachPageProSport() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px,1fr))', gap: 12, marginBottom: 28 }}>
             {[
               { label: 'Athlètes',  value: clients.length,                            color: T.text,   sub: 'total' },
-              { label: 'Rempli',    value: clients.filter(c => c.filledToday).length,  color: T.accent,  sub: "aujourd'hui" },
+              { label: 'Rempli',    value: clients.filter(c => c.filledToday).length,  color: accent,  sub: "aujourd'hui" },
               { label: 'Alertes',   value: alerts.length,  color: alerts.length > 0 ? T.danger : T.textMid,   sub: 'fatigue ≥ 21' },
               { label: 'Vigilance', value: vigil.length,   color: vigil.length > 0 ? T.warn : T.textMid, sub: 'score 14–20' },
             ].map(({ label, value, color, sub }) => (
@@ -422,7 +435,7 @@ export default function CoachPageProSport() {
               { key: 'missing', label: `⬜ Non rempli (${missing.length})` },
             ].map(f => (
               <button key={f.key} className="filter-btn" onClick={() => setFilter(f.key)}
-                style={{ padding: '7px 14px', borderRadius: 20, border: `1px solid ${filter === f.key ? T.accent : T.border}`, background: filter === f.key ? T.accent : T.card, color: filter === f.key ? '#080d14' : T.text, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                style={{ padding: '7px 14px', borderRadius: 20, border: `1px solid ${filter === f.key ? accent : T.border}`, background: filter === f.key ? accent : T.card, color: filter === f.key ? '#080d14' : T.text, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                 {f.label}
               </button>
             ))}
@@ -453,13 +466,13 @@ export default function CoachPageProSport() {
 
                   {/* Identité */}
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
-                    <Avatar name={client.full_name || client.email} />
+                    <Avatar name={client.full_name || client.email} color={accent} />
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 600, color: T.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {client.full_name || client.email}
                       </div>
                       <div style={{ fontSize: 11, color: T.textMid, marginTop: 2, display: 'flex', gap: 8 }}>
-                        {client.filledToday && <span style={{ color: T.accent }}>✓ Rempli aujourd'hui</span>}
+                        {client.filledToday && <span style={{ color: accent }}>✓ Rempli aujourd'hui</span>}
                         {!client.filledToday && client.hooper && <span>Il y a {Math.floor((Date.now() - new Date(client.hooper.date+'T00:00:00').getTime())/86400000)}j</span>}
                         {domsCount > 0 && <span style={{ color: T.danger }}>🩹 {domsCount} DOMS</span>}
                       </div>
