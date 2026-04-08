@@ -12,10 +12,10 @@ import { LIGHT as T } from '../lib/data'
 
 function statusFromScore(score) {
   if (score === null) return { label: 'Non rempli', color: T.textDim, dot: T.textSub, bg: 'rgba(192,186,176,0.12)' }
-  if (score <= 7)  return { label: 'Très bon',         color: T.accent,  dot: T.accent,  bg: T.accentGlow }
-  if (score <= 13) return { label: 'Correct',          color: T.accent,  dot: T.accent,  bg: T.accentGlowSm }
-  if (score <= 20) return { label: 'Vigilance',        color: T.warn,    dot: T.warn,    bg: T.warnGlow }
-  return               { label: 'Fatigue importante', color: T.danger,  dot: T.danger,  bg: T.dangerGlow }
+  if (score <= 7)  return { label: 'Très bon',  color: T.accent,  dot: T.accent,  bg: T.accentGlow }
+  if (score <= 13) return { label: 'Correct',   color: T.accent,  dot: T.accent,  bg: T.accentGlowSm }
+  if (score <= 20) return { label: 'Vigilance', color: T.warn,    dot: T.warn,    bg: T.warnGlow }
+  return               { label: 'Alerte',       color: T.danger,  dot: T.danger,  bg: T.dangerGlow }
 }
 
 function Avatar({ name, color }) {
@@ -444,7 +444,7 @@ export default function CoachPageProSport() {
 
           {/* Liste clients */}
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 100px 80px 80px 36px', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${T.border}`, background: T.bgAlt }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 90px 90px 80px 36px', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${T.border}`, background: T.bgAlt }}>
               {['Athlète', 'HOOPER', 'Charge sem.', 'Statut', 'Médical', ''].map(h => (
                 <div key={h} style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: T.textMid }}>{h}</div>
               ))}
@@ -462,7 +462,7 @@ export default function CoachPageProSport() {
               return (
                 <div key={client.id} className="client-row"
                   onClick={() => navigate(`/prep/analyse/${client.id}`)}
-                  style={{ display: 'grid', gridTemplateColumns: '1fr 140px 100px 80px 80px 36px', gap: 12, padding: '14px 20px', borderBottom: isLast ? 'none' : `1px solid ${T.border}`, cursor: 'pointer', background: T.card, transition: 'background 0.15s', alignItems: 'center' }}>
+                  style={{ display: 'grid', gridTemplateColumns: '1fr 140px 90px 90px 80px 36px', gap: 12, padding: '14px 20px', borderBottom: isLast ? 'none' : `1px solid ${T.border}`, cursor: 'pointer', background: T.card, transition: 'background 0.15s', alignItems: 'center' }}>
 
                   {/* Identité */}
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
