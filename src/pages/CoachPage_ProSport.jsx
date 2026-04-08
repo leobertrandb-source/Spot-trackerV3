@@ -171,15 +171,14 @@ export default function CoachPageProSport() {
 
         {/* Header */}
         <div style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, position: 'relative' }}>
-          {/* Logo club fondu */}
+          {/* Logo club */}
           {club?.logoUrl && (
             <img src={club.logoUrl} alt="" style={{
-              position: 'absolute', left: '50%', top: '50%',
-              transform: 'translate(-50%, -50%)',
-              height: 'clamp(80px,14vw,140px)', width: 'auto',
+              position: 'absolute', right: 0, top: '50%',
+              transform: 'translateY(-50%)',
+              height: 'clamp(100px,18vw,180px)', width: 'auto',
               objectFit: 'contain',
-              opacity: 0.05,
-              filter: 'grayscale(1)',
+              opacity: 0.18,
               pointerEvents: 'none',
             }} />
           )}
