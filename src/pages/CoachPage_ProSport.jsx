@@ -174,11 +174,12 @@ export default function CoachPageProSport() {
           {/* Logo club */}
           {club?.logoUrl && (
             <img src={club.logoUrl} alt="" style={{
-              position: 'absolute', right: -20, top: '50%',
+              position: 'absolute', right: 0, top: '50%',
               transform: 'translateY(-50%)',
-              height: 'clamp(110px,20vw,200px)', width: 'auto',
+              height: 'clamp(120px,22vw,220px)', width: 'auto',
               objectFit: 'contain',
-              opacity: 0.2,
+              opacity: 0.35,
+              mixBlendMode: 'multiply',
               pointerEvents: 'none',
             }} />
           )}
