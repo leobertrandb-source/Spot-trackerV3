@@ -233,7 +233,6 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
     { to: '/coach/clients', label: 'Effectif' },
     { to: '/planning',      label: 'Planning' },
     { to: '/medical',       label: 'Médical' },
-    { to: '/programmes',    label: 'Programmes' },
   ]
 
   const coachPersoLinks = [
