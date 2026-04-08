@@ -217,6 +217,7 @@ export default function MedicalHubPage() {
   const [appointments, setAppointments] = useState([])
   const [matches, setMatches]           = useState([])
   const [loading, setLoading]           = useState(true)
+  const [loadError, setLoadError]       = useState(null)
   const [tab, setTab]                   = useState('infirmerie')
 
   // Match modal state
@@ -228,7 +229,9 @@ export default function MedicalHubPage() {
   const [savingMatch, setSavingMatch]       = useState(false)
 
   const load = useCallback(async () => {
+    if (!user?.id) return
     setLoading(true)
+    setLoadError(null)
 
     let coachId = user.id
     if (profile?.role === 'staff_medical') {
@@ -240,8 +243,8 @@ export default function MedicalHubPage() {
 
     const { data: links, error: clientsErr } = await supabase
       .from('coach_clients').select('client_id').eq('coach_id', coachId)
-    if (clientsErr) console.error('[MedicalHub] coach_clients:', clientsErr)
-    if (!links?.length) { setLoading(false); return }
+    if (clientsErr) { console.error('[MedicalHub] coach_clients:', clientsErr); setLoadError('Erreur chargement athlètes'); setLoading(false); return }
+    if (!links?.length) { setAthletes([]); setInjuries([]); setLoading(false); return }
     const ids = links.map(l => l.client_id)
 
     const [
@@ -400,8 +403,17 @@ export default function MedicalHubPage() {
         {tab === 'infirmerie' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 20, alignItems: 'start' }}>
             <div>
-              {loading ? (
+              {loadError ? (
+                <div style={{ padding: 20, background: '#fdecea', borderRadius: 14, border: '1px solid #f5c6c6', color: P.red, fontSize: 13, fontWeight: 600 }}>
+                  ⚠️ {loadError} — vérifie que le lien coach_clients est bien configuré en base.
+                </div>
+              ) : loading ? (
                 <div style={{ padding: 40, textAlign: 'center', color: P.sub, background: P.card, borderRadius: 16, border: `1px solid ${P.border}` }}>Chargement...</div>
+              ) : athletes.length === 0 ? (
+                <div style={{ padding: 40, textAlign: 'center', color: P.sub, background: P.card, borderRadius: 16, border: `1px solid ${P.border}` }}>
+                  Aucun athlète lié à ce compte coach.<br/>
+                  <span style={{ fontSize: 11, marginTop: 8, display: 'block', color: P.sub }}>Vérifie la table coach_clients dans Supabase.</span>
+                </div>
               ) : blesseActif.length === 0 && enSurveillance.length === 0 ? (
                 <div style={{ padding: 40, textAlign: 'center', color: P.sub, background: P.card, borderRadius: 16, border: `1px solid ${P.border}` }}>
                   ✓ Aucun blessé actif

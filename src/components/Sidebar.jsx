@@ -229,10 +229,9 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
 
   // ── Navigation sets ────────────────────────────────────────────────────────
   const coachPrepLinks = [
-    { to: '/coach',         label: 'Dashboard' },
-    { to: '/coach/clients', label: 'Effectif' },
-    { to: '/planning',      label: 'Planning' },
-    { to: '/medical',       label: 'Médical' },
+    { to: '/coach',      label: 'Dashboard' },
+    { to: '/calendrier', label: 'Calendrier' },
+    { to: '/medical',    label: 'Médical' },
   ]
 
   const coachPersoLinks = [
