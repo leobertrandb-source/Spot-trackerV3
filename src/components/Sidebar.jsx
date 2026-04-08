@@ -57,9 +57,9 @@ const NAV_ACCENTS = {
 }
 
 // ─── NavItem ──────────────────────────────────────────────────────────────────
-function NavItem({ to, label, active, onClick, index = 0 }) {
+function NavItem({ to, label, active, onClick, index = 0, accentOverride }) {
   const [hovered, setHovered] = useState(false)
-  const accent = NAV_ACCENTS[to] || T.accent
+  const accent = accentOverride || NAV_ACCENTS[to] || T.accent
   const Icon = NAV_ICONS[to] || Target
 
   return (
@@ -213,9 +213,10 @@ function UserCard({ name, roleLabel, email }) {
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function Sidebar({ isMobile = false, mobileOpen = false, onClose }) {
   const location = useLocation()
-  const { profile, user, signOut, showMethodeSpot, showPrepPhysique } = useAuth()
+  const { profile, user, signOut, showMethodeSpot, showPrepPhysique, club } = useAuth()
   const isCoach = profile?.role === 'coach'
   const isStaffMedical = profile?.role === 'staff_medical'
+  const clubAccent = club?.color || null
 
   const isActive = (to) => location.pathname === to || location.pathname.startsWith(to + '/')
 
@@ -228,12 +229,11 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
 
   // ── Navigation sets ────────────────────────────────────────────────────────
   const coachPrepLinks = [
-    { to: '/coach',       label: 'Dashboard' },
+    { to: '/coach',         label: 'Dashboard' },
     { to: '/coach/clients', label: 'Effectif' },
-    { to: '/planning',    label: 'Planning' },
-    { to: '/calendrier',  label: 'Calendrier' },
-    { to: '/medical',     label: 'Médical' },
-    { to: '/programmes',  label: 'Programmes' },
+    { to: '/planning',      label: 'Planning' },
+    { to: '/medical',       label: 'Médical' },
+    { to: '/programmes',    label: 'Programmes' },
   ]
 
   const coachPersoLinks = [
@@ -304,7 +304,7 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
     nav = (
       <div style={{ display: 'grid', gap: 2 }}>
         {coachLinks.map((item, i) => (
-          <NavItem key={item.to} {...item} active={isActive(item.to)} onClick={isMobile ? onClose : undefined} index={i} />
+          <NavItem key={item.to} {...item} active={isActive(item.to)} onClick={isMobile ? onClose : undefined} index={i} accentOverride={showPrepPhysique ? clubAccent : null} />
         ))}
       </div>
     )
