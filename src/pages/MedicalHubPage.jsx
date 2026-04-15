@@ -267,6 +267,8 @@ export default function MedicalHubPage() {
   const [linkResult, setLinkResult] = useState(null) // profile found
   const [linkError, setLinkError] = useState('')
   const [savingLink, setSavingLink] = useState(false)
+  const [linkInviteMode, setLinkInviteMode] = useState(false) // pas de compte → invitation
+  const [linkInviteName, setLinkInviteName] = useState('')
 
   // Match modal state
   const [showMatchModal, setShowMatchModal] = useState(false)
@@ -426,11 +428,24 @@ export default function MedicalHubPage() {
   }
 
   // ── Lier un joueur par email ────────────────────────────────────────────────
+  function closeLinkModal() {
+    setShowLinkModal(false)
+    setLinkEmail('')
+    setLinkResult(null)
+    setLinkError('')
+    setLinkInviteMode(false)
+    setLinkInviteName('')
+  }
+
   async function searchByEmail() {
     setLinkError('')
     setLinkResult(null)
+    setLinkInviteMode(false)
     const { data } = await supabase.from('profiles').select('id, full_name, email, poste').eq('email', linkEmail.trim().toLowerCase()).maybeSingle()
-    if (!data) { setLinkError('Aucun compte trouvé pour cet email.'); return }
+    if (!data) {
+      setLinkInviteMode(true)
+      return
+    }
     const already = athletes.find(a => a.id === data.id)
     if (already) { setLinkError('Ce joueur est déjà dans votre effectif.'); return }
     setLinkResult(data)
@@ -443,13 +458,35 @@ export default function MedicalHubPage() {
     const { error } = await supabase.from('coach_clients').insert({ coach_id: coachId, client_id: linkResult.id })
     setSavingLink(false)
     if (!error) {
-      setShowLinkModal(false)
-      setLinkEmail('')
-      setLinkResult(null)
+      closeLinkModal()
       load()
     } else {
       setLinkError('Erreur lors du lien : ' + error.message)
     }
+  }
+
+  async function inviteAthlete() {
+    if (!linkEmail || !linkInviteName.trim()) { setLinkError('Renseignez le nom complet du joueur.'); return }
+    setSavingLink(true)
+    setLinkError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const coachId = profile?.id || user?.id
+      const [firstName, ...rest] = linkInviteName.trim().split(' ')
+      const lastName = rest.join(' ') || '.'
+      const res = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/import-players-csv`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session?.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coachId, players: [{ email: linkEmail.trim().toLowerCase(), first_name: firstName, last_name: lastName }] }),
+      })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(payload?.error || 'Erreur serveur')
+      closeLinkModal()
+      load()
+    } catch (e) {
+      setLinkError(e.message || 'Erreur lors de l\'invitation.')
+    }
+    setSavingLink(false)
   }
 
   const returns = active
@@ -1131,26 +1168,32 @@ export default function MedicalHubPage() {
 
     {/* ── Modal Lier un joueur ─────────────────────────────────────────────── */}
     {showLinkModal && (
-      <div onClick={() => { setShowLinkModal(false); setLinkEmail(''); setLinkResult(null); setLinkError('') }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+      <div onClick={closeLinkModal} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
         <div onClick={e => e.stopPropagation()} style={{ background: P.card, borderRadius: 16, padding: 24, width: '100%', maxWidth: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.15)', border: `1px solid ${P.border}` }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <div style={{ fontSize: 17, fontWeight: 700, color: P.text }}>Lier un joueur</div>
-            <button onClick={() => { setShowLinkModal(false); setLinkEmail(''); setLinkResult(null); setLinkError('') }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: P.sub }}>×</button>
-          </div>
-          <div style={{ fontSize: 13, color: P.sub, marginBottom: 16 }}>Entrez l'adresse email du compte joueur pour le rattacher à votre effectif.</div>
-
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <input value={linkEmail} onChange={e => { setLinkEmail(e.target.value); setLinkResult(null); setLinkError('') }}
-              onKeyDown={e => e.key === 'Enter' && searchByEmail()}
-              placeholder="email@joueur.fr" type="email"
-              style={{ flex: 1, padding: '10px 12px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, color: P.text, fontSize: 14, outline: 'none', fontFamily: 'inherit' }} />
-            <button onClick={searchByEmail} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: P.accent, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-              Chercher
-            </button>
+            <div style={{ fontSize: 17, fontWeight: 700, color: P.text }}>
+              {linkInviteMode ? '✉️ Inviter un joueur' : 'Lier un joueur'}
+            </div>
+            <button onClick={closeLinkModal} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: P.sub }}>×</button>
           </div>
 
-          {linkError && <div style={{ fontSize: 13, color: P.red, marginBottom: 12, padding: '8px 12px', background: '#fdecea', borderRadius: 8 }}>{linkError}</div>}
+          {/* Étape 1 — recherche email */}
+          {!linkInviteMode && (
+            <>
+              <div style={{ fontSize: 13, color: P.sub, marginBottom: 16 }}>Entrez l'email du joueur pour le rattacher à votre effectif.</div>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                <input value={linkEmail} onChange={e => { setLinkEmail(e.target.value); setLinkResult(null); setLinkError('') }}
+                  onKeyDown={e => e.key === 'Enter' && searchByEmail()}
+                  placeholder="email@joueur.fr" type="email"
+                  style={{ flex: 1, padding: '10px 12px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, color: P.text, fontSize: 14, outline: 'none', fontFamily: 'inherit' }} />
+                <button onClick={searchByEmail} style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: P.accent, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Chercher
+                </button>
+              </div>
+            </>
+          )}
 
+          {/* Étape 2a — compte trouvé */}
           {linkResult && (
             <div style={{ padding: '14px 16px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 12, marginBottom: 16 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: P.text }}>{linkResult.full_name || linkResult.email}</div>
@@ -1158,13 +1201,33 @@ export default function MedicalHubPage() {
             </div>
           )}
 
+          {/* Étape 2b — aucun compte → invitation */}
+          {linkInviteMode && (
+            <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
+              <div style={{ padding: '10px 14px', background: '#fef3c7', borderRadius: 10, fontSize: 13, color: '#92400e' }}>
+                Aucun compte trouvé pour <strong>{linkEmail}</strong>. Renseignez le nom pour envoyer une invitation par email.
+              </div>
+              <input value={linkInviteName} onChange={e => { setLinkInviteName(e.target.value); setLinkError('') }}
+                placeholder="Prénom Nom du joueur"
+                style={{ padding: '10px 12px', background: P.bg, border: `1px solid ${P.border}`, borderRadius: 10, color: P.text, fontSize: 14, outline: 'none', fontFamily: 'inherit' }} />
+            </div>
+          )}
+
+          {linkError && <div style={{ fontSize: 13, color: P.red, marginBottom: 12, padding: '8px 12px', background: '#fdecea', borderRadius: 8 }}>{linkError}</div>}
+
           <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={() => { setShowLinkModal(false); setLinkEmail(''); setLinkResult(null); setLinkError('') }}
+            <button onClick={closeLinkModal}
               style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${P.border}`, background: 'transparent', color: P.sub, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Annuler</button>
             {linkResult && (
               <button onClick={linkAthlete} disabled={savingLink}
                 style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: P.accent, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', opacity: savingLink ? 0.6 : 1 }}>
                 {savingLink ? 'Ajout...' : `Lier ${linkResult.full_name || 'ce joueur'}`}
+              </button>
+            )}
+            {linkInviteMode && (
+              <button onClick={inviteAthlete} disabled={savingLink || !linkInviteName.trim()}
+                style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: P.accent, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', opacity: (savingLink || !linkInviteName.trim()) ? 0.6 : 1 }}>
+                {savingLink ? 'Envoi...' : '✉️ Envoyer l\'invitation'}
               </button>
             )}
           </div>
