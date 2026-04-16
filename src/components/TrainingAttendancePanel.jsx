@@ -71,6 +71,7 @@ export default function TrainingAttendancePanel({ clients = [] }) {
   const [loading, setLoading]           = useState(true)
   const [sendMsg, setSendMsg]           = useState('')
   const [sending, setSending]           = useState(false)
+  const [dbError, setDbError]           = useState('')
 
   const load = useCallback(async () => {
     if (!clients.length) { setLoading(false); return }
@@ -114,9 +115,10 @@ export default function TrainingAttendancePanel({ clients = [] }) {
       { onConflict: 'athlete_id,date' }
     )
     if (error) {
-      console.error('[Attendance] upsert error:', error)
-      // Rollback optimiste
+      setDbError(`Erreur Supabase : ${error.message} (code: ${error.code})`)
       load()
+    } else {
+      setDbError('')
     }
     setSaving(p => ({ ...p, [athleteId]: false }))
   }
@@ -216,6 +218,12 @@ export default function TrainingAttendancePanel({ clients = [] }) {
           ))}
         </div>
       </div>
+
+      {dbError && (
+        <div style={{ marginBottom: 10, fontSize: 13, fontWeight: 600, padding: '10px 14px', borderRadius: 8, color: '#c0392b', background: '#fdecea', border: '1px solid #f5c6c6' }}>
+          ⚠️ {dbError}
+        </div>
+      )}
 
       {sendMsg && (
         <div style={{ marginBottom: 10, fontSize: 13, fontWeight: 600, padding: '8px 12px', borderRadius: 8, color: sendMsg.startsWith('✓') ? P.green : P.red, background: sendMsg.startsWith('✓') ? '#e8f5ee' : '#fdecea' }}>
