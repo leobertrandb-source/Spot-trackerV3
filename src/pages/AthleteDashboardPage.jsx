@@ -92,7 +92,7 @@ function NavCard({ emoji, label, sub, badge, badgeColor, badgeBg, to, delay = 0 
 }
 
 export default function AthleteDashboardPage() {
-  const { user, profile, gym } = useAuth()
+  const { user, profile, gym, club } = useAuth()
   const navigate = useNavigate()
 
   const [hooper, setHooper]         = useState(null)
@@ -106,7 +106,9 @@ export default function AthleteDashboardPage() {
   const [loading, setLoading]       = useState(true)
 
   const today = new Date().toISOString().split('T')[0]
-  const gymName = gym?.name || 'Atlyo'
+  const gymName   = club?.name || gym?.name || 'Atlyo'
+  const clubColor = club?.color || P.accent
+  const clubLogo  = club?.logoUrl || null
   const firstName = (profile?.full_name || '').split(' ').slice(-1)[0] || 'Joueur'
   const todayDone = hooper?.date === today
 
@@ -184,11 +186,26 @@ export default function AthleteDashboardPage() {
       <div style={{ maxWidth: 860, margin: '0 auto' }}>
 
         {/* ── Header ── */}
-        <div style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, animation: 'fadeUp 0.35s ease both' }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: P.sub, marginBottom: 8 }}>
-              {gymName} · Athlète
+        <div style={{ marginBottom: 28, animation: 'fadeUp 0.35s ease both' }}>
+
+          {/* Bandeau club */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '10px 18px', borderRadius: 14, marginBottom: 20,
+            background: `linear-gradient(135deg, ${clubColor}18, ${clubColor}08)`,
+            border: `1px solid ${clubColor}30`,
+          }}>
+            {clubLogo && (
+              <img src={clubLogo} alt={gymName} style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: 6 }} />
+            )}
+            <div style={{ fontSize: 12, fontWeight: 700, color: clubColor, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+              {gymName}
             </div>
+            <div style={{ marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%', background: clubColor, boxShadow: `0 0 8px ${clubColor}` }} />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+          <div>
             <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 'clamp(26px,4vw,36px)', fontWeight: 400, color: P.text, margin: 0, lineHeight: 1.2 }}>
               Bonjour, {firstName}
             </h1>
@@ -207,6 +224,7 @@ export default function AthleteDashboardPage() {
               {status.label}
               {lastScore !== null && <span style={{ fontWeight: 400, color: P.sub, marginLeft: 6 }}>HOOPER {lastScore}/40</span>}
             </div>
+          </div>
           </div>
         </div>
 
@@ -382,9 +400,9 @@ export default function AthleteDashboardPage() {
                 <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 16, fontWeight: 400, color: P.text, lineHeight: 1.3, marginBottom: 8 }}>
                   {nextMatch.label || `vs ${nextMatch.opponent}`}
                 </div>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: '#e8f5ee', borderRadius: 999 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: P.green }} />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: P.green }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: `${clubColor}15`, borderRadius: 999 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: clubColor }} />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: clubColor }}>
                     {new Date(nextMatch.match_date + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}
                   </span>
                 </div>

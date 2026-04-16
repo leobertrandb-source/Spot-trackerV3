@@ -51,6 +51,14 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Récupérer le gym_id du coach pour le propager sur les athlètes
+    const { data: coachProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('gym_id')
+      .eq('id', coachId)
+      .maybeSingle()
+    const coachGymId = coachProfile?.gym_id || null
+
     let created = 0
     let linked = 0
     let invited = 0
@@ -99,6 +107,7 @@ Deno.serve(async (req) => {
                 email,
                 full_name: fullName,
                 role: 'athlete',
+                gym_id: coachGymId,
               },
               { onConflict: 'id' }
             )
