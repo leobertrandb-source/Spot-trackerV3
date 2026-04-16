@@ -36,7 +36,7 @@ import ProgrammeAthletiquePage from './pages/ProgrammeAthletiquePage'
 import ExercisesPage from './pages/ExercisesPage'
 import PrepHooperPage from './pages/PrepHooperPage'
 import PrepChargePage from './pages/PrepChargePage'
-import PrepCompoPage from './pages/PrepCompoPage'
+import AthleteCompoPage from './pages/AthleteCompoPage'
 import PrepTopsetPage from './pages/PrepTopsetPage'
 import PrepChargeExternePage from './pages/PrepChargeExternePage'
 import PrepDashboardPage from './pages/PrepDashboardPage'
@@ -173,7 +173,7 @@ function PrivateAppShell() {
           {/* ── PRÉPA PHYSIQUE ── */}
           <Route path="/prep/hooper"         element={canPrepPhysique ? <PrepHooperPage />       : <Navigate to={athleteHome} replace />} />
           <Route path="/prep/charge"         element={canPrepPhysique ? <PrepChargePage />        : <Navigate to={athleteHome} replace />} />
-          <Route path="/prep/compo"          element={canPrepPhysique ? <PrepCompoPage />         : <Navigate to={athleteHome} replace />} />
+          <Route path="/prep/compo"          element={canPrepPhysique && !isCoach ? <AthleteCompoPage /> : canPrepPhysique && isCoach ? <Navigate to="/prep/dashboard" replace /> : <Navigate to={athleteHome} replace />} />
           <Route path="/prep/topset"         element={canPrepPhysique ? <PrepTopsetPage />        : <Navigate to={athleteHome} replace />} />
           <Route path="/prep/charge-externe" element={canPrepPhysique ? <PrepChargeExternePage /> : <Navigate to={athleteHome} replace />} />
           <Route path="/prep/dashboard"      element={canPrepPhysique && isCoach ? <PrepDashboardPage /> : <Navigate to={athleteHome} replace />} />
