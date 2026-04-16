@@ -43,7 +43,12 @@ import PrepDashboardPage from './pages/PrepDashboardPage'
 import PrepAnalysePage from './pages/PrepAnalysePage'
 import CoachPageProSport from './pages/CoachPage_ProSport'
 import ClubKioskPage from './pages/ClubKioskPage'
+import ClubKioskPlayersPage from './pages/ClubKioskPlayersPage'
 import ClubKioskHooperPage from './pages/ClubKioskHooperPage'
+import ClubKioskRpePage from './pages/ClubKioskRpePage'
+import ClubKioskTopsetPage from './pages/ClubKioskTopsetPage'
+import ClubKioskCmjPage from './pages/ClubKioskCmjPage'
+import ClubKioskPrehensionPage from './pages/ClubKioskPrehensionPage'
 
 import MedicalPage from './pages/MedicalPage'
 import MedicalHubPage from './pages/MedicalHubPage'
@@ -244,6 +249,11 @@ function RootRouter() {
       <Route path="/join/:token" element={<PlayerJoinPage />} />
       <Route path="/coach-kiosk" element={<ClubKioskPage />} />
       <Route path="/coach-kiosk/hooper/:playerId" element={<ClubKioskHooperPage />} />
+      <Route path="/coach-kiosk/rpe/:playerId" element={<ClubKioskRpePage />} />
+      <Route path="/coach-kiosk/topset/:playerId" element={<ClubKioskTopsetPage />} />
+      <Route path="/coach-kiosk/cmj/:playerId" element={<ClubKioskCmjPage />} />
+      <Route path="/coach-kiosk/prehension/:playerId" element={<ClubKioskPrehensionPage />} />
+      <Route path="/coach-kiosk/:testKey" element={<ClubKioskPlayersPage />} />
       <Route path="*" element={<PrivateAppShell />} />
     </Routes>
   )
