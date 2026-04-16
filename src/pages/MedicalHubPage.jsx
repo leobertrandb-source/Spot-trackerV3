@@ -103,7 +103,7 @@ function normalizePoste(poste) {
   return (poste || '').trim() || 'Poste non renseigné'
 }
 
-function MedicalRosterTile({ athlete, onClick }) {
+function MedicalRosterTile({ athlete, onClick, onRemove }) {
   const isInjured    = athlete.activeInjuries.length > 0
   const isProtocol   = !isInjured && athlete.surveillance.length > 0
   const isFit        = !isInjured && !isProtocol
@@ -131,7 +131,8 @@ function MedicalRosterTile({ athlete, onClick }) {
       : null
 
   return (
-    <button onClick={onClick}
+    <div
+      onClick={onClick}
       style={{
         border: `2px solid ${STATUS.border}22`,
         background: '#ffffff',
@@ -148,10 +149,30 @@ function MedicalRosterTile({ athlete, onClick }) {
         textAlign: 'center',
         width: '100%',
         boxSizing: 'border-box',
+        position: 'relative',
       }}
       onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 14px 32px ${STATUS.shadow}` }}
       onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 8px 24px ${STATUS.shadow}` }}
     >
+      {/* Bouton supprimer */}
+      {onRemove && (
+        <button
+          onClick={e => { e.stopPropagation(); onRemove() }}
+          title="Retirer de l'effectif"
+          style={{
+            position: 'absolute', top: 8, right: 8,
+            width: 24, height: 24, borderRadius: '50%',
+            border: 'none', background: '#fdecea',
+            color: P.red, fontSize: 14, fontWeight: 700,
+            cursor: 'pointer', display: 'grid', placeItems: 'center',
+            opacity: 0.7, transition: 'opacity 0.15s',
+            lineHeight: 1, padding: 0,
+          }}
+          onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+          onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}
+        >×</button>
+      )}
+
       {/* Avatar with status ring */}
       <div style={{ position: 'relative' }}>
         <RosterAvatar name={athlete.full_name || athlete.email} avatarUrl={athlete.avatar_url} size={72} />
@@ -196,7 +217,7 @@ function MedicalRosterTile({ athlete, onClick }) {
           )}
         </div>
       )}
-    </button>
+    </div>
   )
 }
 
@@ -489,6 +510,15 @@ export default function MedicalHubPage() {
     setSavingLink(false)
   }
 
+  async function removeAthlete(athleteId) {
+    const athlete = athletes.find(a => a.id === athleteId)
+    const name = athlete?.full_name || athlete?.email || 'ce joueur'
+    if (!window.confirm(`Retirer ${name} de l'effectif ?`)) return
+    const coachId = profile?.id || user?.id
+    await supabase.from('coach_clients').delete().eq('coach_id', coachId).eq('client_id', athleteId)
+    load()
+  }
+
   const returns = active
     .filter(i => i.date_return)
     .sort((a, b) => new Date(a.date_return) - new Date(b.date_return))
@@ -751,6 +781,7 @@ export default function MedicalHubPage() {
                         key={athlete.id}
                         athlete={{ ...athlete, avatar_url: null }}
                         onClick={() => navigate(`/medical/${athlete.id}`)}
+                        onRemove={() => removeAthlete(athlete.id)}
                       />
                     ))}
                   </div>

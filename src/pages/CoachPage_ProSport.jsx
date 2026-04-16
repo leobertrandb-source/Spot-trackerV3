@@ -101,6 +101,12 @@ export default function CoachPageProSport() {
     : filter === 'missing' ? missing
     : clients
 
+  async function removeClient(clientId, name) {
+    if (!window.confirm(`Retirer ${name || 'cet athlète'} de l'effectif ?`)) return
+    await supabase.from('coach_clients').delete().eq('coach_id', user.id).eq('client_id', clientId)
+    load()
+  }
+
   async function handleInviteStaff() {
     const email = window.prompt('Email du staff médical à inviter :')
     if (!email?.trim()) return
@@ -505,8 +511,14 @@ export default function CoachPageProSport() {
                     🏥 Médical
                   </div>
 
-                  {/* Chevron */}
-                  <div style={{ color: T.textMid, fontSize: 14 }}>›</div>
+                  {/* Supprimer */}
+                  <div
+                    onClick={e => { e.stopPropagation(); removeClient(client.id, client.full_name || client.email) }}
+                    title="Retirer de l'effectif"
+                    style={{ color: T.danger, fontSize: 16, cursor: 'pointer', opacity: 0.4, transition: 'opacity 0.15s', display: 'grid', placeItems: 'center' }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                    onMouseLeave={e => e.currentTarget.style.opacity = '0.4'}
+                  >✕</div>
                 </div>
               )
             })}
