@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import PushNotifToggle from '../components/PushNotifToggle'
+import IOSInstallBanner from '../components/IOSInstallBanner'
 
 // ─── Même palette que CoachPage_ProSport ──────────────────────────────────────
 const P = {
@@ -435,6 +436,7 @@ export default function AthleteDashboardPage() {
         </div>
 
         {/* Notifications push */}
+        <IOSInstallBanner />
         <PushNotifToggle user={user} light />
 
       </div>
