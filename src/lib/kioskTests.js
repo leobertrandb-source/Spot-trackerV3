@@ -59,7 +59,7 @@ export const KIOSK_TESTS = [
     key: 'hydratation',
     emoji: '💧',
     label: 'Hydratation',
-    sub: 'Couleur urine · Indice d'hydratation',
+    sub: "Couleur urine · Indice d'hydratation",
     color: '#4d9fff',
     bg: '#eef6ff',
     border: '#a8cff5',
