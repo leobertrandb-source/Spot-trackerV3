@@ -102,6 +102,12 @@ export default function CoachPageProSport() {
     : filter === 'missing' ? missing
     : clients
 
+  async function handleRemoveAthlete(clientId, clientName) {
+    if (!window.confirm(`Retirer ${clientName} de l'effectif ?`)) return
+    await supabase.from('coach_clients').delete().eq('coach_id', user.id).eq('client_id', clientId)
+    load()
+  }
+
   async function handleInviteStaff() {
     const email = window.prompt('Email du staff médical à inviter :')
     if (!email?.trim()) return
@@ -444,8 +450,8 @@ export default function CoachPageProSport() {
 
           {/* Liste clients */}
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 90px 90px 80px 36px', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${T.border}`, background: T.bgAlt }}>
-              {['Athlète', 'HOOPER', 'Charge sem.', 'Statut', 'Médical', ''].map(h => (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 90px 90px 80px 36px 28px', gap: 12, padding: '10px 20px', borderBottom: `1px solid ${T.border}`, background: T.bgAlt }}>
+              {['Athlète', 'HOOPER', 'Charge sem.', 'Statut', 'Médical', '', ''].map((h, i) => (
                 <div key={h} style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: T.textMid }}>{h}</div>
               ))}
             </div>
@@ -462,7 +468,7 @@ export default function CoachPageProSport() {
               return (
                 <div key={client.id} className="client-row"
                   onClick={() => navigate(`/prep/analyse/${client.id}`)}
-                  style={{ display: 'grid', gridTemplateColumns: '1fr 140px 90px 90px 80px 36px', gap: 12, padding: '14px 20px', borderBottom: isLast ? 'none' : `1px solid ${T.border}`, cursor: 'pointer', background: T.card, transition: 'background 0.15s', alignItems: 'center' }}>
+                  style={{ display: 'grid', gridTemplateColumns: '1fr 140px 90px 90px 80px 36px 28px', gap: 12, padding: '14px 20px', borderBottom: isLast ? 'none' : `1px solid ${T.border}`, cursor: 'pointer', background: T.card, transition: 'background 0.15s', alignItems: 'center' }}>
 
                   {/* Identité */}
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center', minWidth: 0 }}>
@@ -520,6 +526,19 @@ export default function CoachPageProSport() {
 
                   {/* Chevron */}
                   <div style={{ color: T.textMid, fontSize: 14 }}>›</div>
+
+                  {/* Supprimer */}
+                  <div
+                    onClick={e => { e.stopPropagation(); handleRemoveAthlete(client.id, client.full_name || client.email) }}
+                    title="Retirer de l'effectif"
+                    style={{ width: 28, height: 28, display: 'grid', placeItems: 'center', borderRadius: 8, cursor: 'pointer', color: 'rgba(180,60,60,0.4)', transition: 'all 0.15s', flexShrink: 0 }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#fdecea'; e.currentTarget.style.color = '#c0392b' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(180,60,60,0.4)' }}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+                    </svg>
+                  </div>
                 </div>
               )
             })}
