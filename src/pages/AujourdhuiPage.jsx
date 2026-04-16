@@ -5,6 +5,7 @@ import { PageWrap } from '../components/UI'
 import { T } from '../lib/data'
 import { computeSmartProgression } from '../lib/smartProgressionEngine'
 import SmartCoachCard from '../components/SmartCoachCard'
+import PushNotifToggle from '../components/PushNotifToggle'
 
 const today = new Date().toISOString().split('T')[0]
 const todayLabel = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -322,6 +323,8 @@ export default function AujourdhuiPage() {
             {saving ? 'Enregistrement…' : saved ? '✓ Séance enregistrée' : 'Enregistrer la séance'}
           </button>
         )}
+
+        <PushNotifToggle user={user} />
       </div>
     </PageWrap>
   )

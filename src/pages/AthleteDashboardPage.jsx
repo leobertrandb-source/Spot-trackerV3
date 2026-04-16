@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
+import PushNotifToggle from '../components/PushNotifToggle'
 
 // ─── Même palette que CoachPage_ProSport ──────────────────────────────────────
 const P = {
@@ -431,6 +432,11 @@ export default function AthleteDashboardPage() {
             <NavCard emoji="📅" label="Calendrier" sub="Matchs · Entraînements · RDV" to="/calendrier" delay={630} />
             <NavCard emoji="✋" label="Ma présence" sub="Indiquer mon statut pour l'entraînement" to="/ma-presence" delay={660} />
           </div>
+        </div>
+
+        {/* ── Notifications push ── */}
+        <div style={{ marginTop: 20, animation: 'fadeUp 0.35s ease 0.7s both' }}>
+          <PushNotifToggle user={user} />
         </div>
 
       </div>

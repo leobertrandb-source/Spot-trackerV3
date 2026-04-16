@@ -5,6 +5,7 @@
 // POST /attendance-reminders  → rappels présences automatiques
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import webpush from 'https://esm.sh/web-push@3.6.6'
 
 const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -15,35 +16,64 @@ const CRON_SECRET   = Deno.env.get('CRON_SECRET')!
 
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
 
+webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE)
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, content-type',
 }
 
-async function sendPush(subscription: any, payload: object) {
-  const { default: webpush } = await import('https://esm.sh/web-push@3.6.6')
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE)
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...CORS, 'Content-Type': 'application/json' },
+  })
+}
+
+async function sendPush(sub: { endpoint: string; p256dh: string; auth: string }, payload: object): Promise<boolean> {
   try {
-    await webpush.sendNotification(subscription, JSON.stringify(payload))
+    await webpush.sendNotification(
+      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+      JSON.stringify(payload),
+    )
     return true
-  } catch { return false }
+  } catch (err: any) {
+    // 410 = subscription expired/unsubscribed → on peut la supprimer
+    if (err?.statusCode === 410 || err?.statusCode === 404) {
+      await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint)
+    } else {
+      console.error('sendPush error', err?.statusCode, err?.message)
+    }
+    return false
+  }
 }
 
 async function sendToAthletes(ids: string[], title: string, body: string, url = '/') {
-  const { data: subs } = await supabase
+  const { data: subs, error } = await supabase
     .from('push_subscriptions')
-    .select('*')
+    .select('endpoint, p256dh, auth')
     .in('user_id', ids)
+
+  if (error) {
+    console.error('push_subscriptions fetch error:', error.message)
+    return { sent: 0 }
+  }
 
   if (!subs?.length) return { sent: 0 }
 
+  const payload = {
+    title,
+    body,
+    url,
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-72.png',
+    data: { url },
+  }
+
   let sent = 0
   for (const sub of subs) {
-    const ok = await sendPush(sub.subscription, {
-      title, body, url,
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-72.png',
-    })
+    if (!sub.endpoint || !sub.p256dh || !sub.auth) continue
+    const ok = await sendPush(sub as { endpoint: string; p256dh: string; auth: string }, payload)
     if (ok) sent++
   }
   return { sent }
@@ -57,23 +87,24 @@ Deno.serve(async (req) => {
   // ── CRON — rappels HOOPER ──────────────────────────────────────────────
   if (path === 'cron') {
     if (req.headers.get('Authorization') !== `Bearer ${CRON_SECRET}`)
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+      return json({ error: 'Unauthorized' }, 401)
 
     const { data: athletes } = await supabase.from('profiles').select('id').eq('role', 'athlete')
-    if (!athletes?.length) return new Response(JSON.stringify({ sent: 0 }), { headers: CORS })
+    if (!athletes?.length) return json({ sent: 0 })
 
     const result = await sendToAthletes(
       athletes.map((a: any) => a.id),
       '📊 Bien-être du jour',
-      'Comment tu te sens aujourd\'hui ? Remplis ton HOOPER !',
+      "Comment tu te sens aujourd'hui ? Remplis ton HOOPER !",
+      '/prep/hooper',
     )
-    return new Response(JSON.stringify(result), { headers: CORS })
+    return json(result)
   }
 
   // ── ATTENDANCE-REMINDERS — rappels automatiques présences ─────────────
   if (path === 'attendance-reminders') {
     if (req.headers.get('Authorization') !== `Bearer ${CRON_SECRET}`)
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+      return json({ error: 'Unauthorized' }, 401)
 
     const { dayOfWeek, currentHour } = await req.json()
 
@@ -83,11 +114,10 @@ Deno.serve(async (req) => {
       .eq('day_of_week', dayOfWeek)
       .eq('active', true)
 
-    if (!schedules?.length) return new Response(JSON.stringify({ sent: 0 }), { headers: CORS })
+    if (!schedules?.length) return json({ sent: 0 })
 
     let totalSent = 0
     for (const sched of schedules) {
-      // Tolérance 30 min pour que le cron horaire attrape l'heure configurée
       const [sH, sM] = sched.send_hour.split(':').map(Number)
       const [cH, cM] = currentHour.split(':').map(Number)
       if (Math.abs((sH * 60 + sM) - (cH * 60 + cM)) > 30) continue
@@ -101,32 +131,43 @@ Deno.serve(async (req) => {
 
       const result = await sendToAthletes(
         links.map((l: any) => l.client_id),
-        '📋 Entraînement aujourd\'hui',
-        'Rappel — entraînement ce soir. Signale ta présence !',
+        "📋 Entraînement aujourd'hui",
+        "Rappel — entraînement ce soir. Signale ta présence !",
+        '/ma-presence',
       )
       totalSent += result.sent
     }
 
-    return new Response(JSON.stringify({ sent: totalSent }), { headers: CORS })
+    return json({ sent: totalSent })
   }
 
   // ── MANUAL — envoi manuel depuis le coach ──────────────────────────────
   if (path === 'manual') {
     const authHeader = req.headers.get('Authorization') || ''
     if (!authHeader.startsWith('Bearer '))
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+      return json({ error: 'Unauthorized' }, 401)
 
-    const { data: { user }, error } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
-    if (error || !user)
-      return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401 })
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    )
+    if (authError || !user)
+      return json({ error: 'Invalid token' }, 401)
 
-    const { athleteIds, title, message, url } = await req.json()
+    const body = await req.json().catch(() => null)
+    if (!body) return json({ error: 'Invalid JSON body' }, 400)
+
+    const { athleteIds, title, message, url } = body
     if (!athleteIds?.length)
-      return new Response(JSON.stringify({ error: 'No athleteIds' }), { status: 400 })
+      return json({ error: 'No athleteIds' }, 400)
 
-    const result = await sendToAthletes(athleteIds, title || 'Atlyo', message || '', url || '/')
-    return new Response(JSON.stringify(result), { headers: CORS })
+    const result = await sendToAthletes(
+      athleteIds,
+      title || 'Atlyo',
+      message || '',
+      url || '/',
+    )
+    return json(result)
   }
 
-  return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers: CORS })
+  return json({ error: 'Not found' }, 404)
 })
