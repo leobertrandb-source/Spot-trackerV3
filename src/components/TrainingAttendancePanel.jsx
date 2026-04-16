@@ -107,17 +107,16 @@ export default function TrainingAttendancePanel({ clients = [] }) {
   }, [clients, selectedDate])
 
   async function setStatus(athleteId, status) {
-    // Si on reclique sur le statut actuel → on efface (toggle off)
-    const next = attendance[athleteId] === status ? null : status
     setSaving(p => ({ ...p, [athleteId]: true }))
-    setAttendance(p => next ? { ...p, [athleteId]: next } : (({ [athleteId]: _, ...rest }) => rest)(p))
-    if (next) {
-      await supabase.from('training_attendance').upsert(
-        { athlete_id: athleteId, coach_id: user.id, date: selectedDate, status: next, session_type: sessionType },
-        { onConflict: 'athlete_id,date' }
-      )
-    } else {
-      await supabase.from('training_attendance').delete().eq('athlete_id', athleteId).eq('date', selectedDate)
+    setAttendance(p => ({ ...p, [athleteId]: status }))
+    const { error } = await supabase.from('training_attendance').upsert(
+      { athlete_id: athleteId, coach_id: user.id, date: selectedDate, status },
+      { onConflict: 'athlete_id,date' }
+    )
+    if (error) {
+      console.error('[Attendance] upsert error:', error)
+      // Rollback optimiste
+      load()
     }
     setSaving(p => ({ ...p, [athleteId]: false }))
   }
@@ -127,7 +126,7 @@ export default function TrainingAttendancePanel({ clients = [] }) {
     for (const c of clients) newAtt[c.id] = status
     setAttendance(newAtt)
     await supabase.from('training_attendance').upsert(
-      clients.map(c => ({ athlete_id: c.id, coach_id: user.id, date: selectedDate, status, session_type: sessionType })),
+      clients.map(c => ({ athlete_id: c.id, coach_id: user.id, date: selectedDate, status })),
       { onConflict: 'athlete_id,date' }
     )
   }
