@@ -53,17 +53,19 @@ export default function MyAttendancePage() {
   const [saving, setSaving]     = useState(false)
   const [saved, setSaved]       = useState(false)
   const [coachInfo, setCoachInfo] = useState(null)
+  const [coachId, setCoachId]   = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
 
     const [{ data: att }, { data: coach }] = await Promise.all([
       supabase.from('training_attendance').select('status').eq('athlete_id', user.id).eq('date', today).maybeSingle(),
-      supabase.from('coach_clients').select('coach:coach_id(full_name, email)').eq('client_id', user.id).maybeSingle(),
+      supabase.from('coach_clients').select('coach_id, coach:coach_id(full_name, email)').eq('client_id', user.id).maybeSingle(),
     ])
 
     if (att) setCurrent(att.status)
     if (coach?.coach) setCoachInfo(coach.coach)
+    if (coach?.coach_id) setCoachId(coach.coach_id)
     setLoading(false)
   }, [user.id, today])
 
@@ -75,6 +77,7 @@ export default function MyAttendancePage() {
 
     await supabase.from('training_attendance').upsert({
       athlete_id: user.id,
+      coach_id: coachId,
       date: today,
       status,
     }, { onConflict: 'athlete_id,date' })
@@ -127,7 +130,7 @@ export default function MyAttendancePage() {
             <div style={{ fontSize: 14, color: T.sub }}>{profile.full_name}</div>
           )}
           {coachInfo && (
-            <div style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>
+            <div style={{ fontSize: 12, color: T.sub, marginTop: 4 }}>
               Coach : {coachInfo.full_name || coachInfo.email}
             </div>
           )}
