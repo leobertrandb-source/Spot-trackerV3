@@ -21,10 +21,10 @@ const P = {
 }
 
 const HOOPER_FIELDS = [
-  { key: 'fatigue', label: 'Fatigue',  color: '#c0392b', bg: '#fdecea' },
-  { key: 'sommeil', label: 'Sommeil',  color: '#1a3a5c', bg: '#eef3ff' },
-  { key: 'stress',  label: 'Stress',   color: '#b5830a', bg: '#fdf6e3' },
-  { key: 'douleur', label: 'Douleur',  color: '#6b3a7d', bg: '#f5eeff' },
+  { key: 'fatigue',     label: 'Fatigue',     color: '#c0392b', bg: '#fdecea' },
+  { key: 'sommeil',     label: 'Sommeil',     color: '#1a3a5c', bg: '#eef3ff' },
+  { key: 'stress',      label: 'Stress',      color: '#b5830a', bg: '#fdf6e3' },
+  { key: 'courbatures', label: 'Courbatures', color: '#6b3a7d', bg: '#f5eeff' },
 ]
 
 function hooperStatus(score) {
@@ -154,7 +154,7 @@ export default function AthleteDashboardPage() {
   useEffect(() => { load() }, [load])
 
   const lastScore = hooper
-    ? (hooper.fatigue || 0) + (hooper.sommeil || 0) + (hooper.stress || 0) + (hooper.douleur || 0)
+    ? (hooper.fatigue || 0) + (hooper.sommeil || 0) + (hooper.stress || 0) + (hooper.courbatures || 0)
     : null
 
   const status = hooperStatus(lastScore)
