@@ -443,7 +443,7 @@ export default function AthleteDashboardPage() {
               badgeColor={todayDone ? P.green : P.yellow}
               badgeBg={todayDone ? '#e8f5ee' : '#fdf6e3'}
               to="/prep/hooper" delay={480} />
-            <NavCard emoji="⚡" label="Charge interne" sub="RPE · Effort perçu · Unités arbitraires" to="/prep/charge" delay={510} />
+            <NavCard emoji="⚡" label="Suivi de fatigue" sub="Tests physiques · Préhension · CMJ" to="/prep/charge" delay={510} />
             <NavCard emoji="📡" label="Charge externe" sub="GPS · Distance · Accélérations" to="/prep/charge-externe" delay={540} />
             <NavCard emoji="🏋️" label="TOPSET" sub="Performances · 1RM estimé" to="/prep/topset" delay={570} />
             <NavCard emoji="📊" label="Composition corporelle" sub="Poids · Masse grasse · Masse musculaire" to="/prep/compo" delay={600} />

@@ -680,7 +680,8 @@ export default function PrepAnalysePage() {
   const { user, profile, isCoach, gym } = useAuth()
   const gymName = gym?.name || 'Atlyo'
   const coachId = profile?.id || user?.id || null
-  const { id } = useParams()
+  const { id: paramId } = useParams()
+  const id = paramId || user?.id  // athlète consulte sa propre page sans paramètre
   const navigate = useNavigate()
   const [client, setClient] = useState(null)
   const [data, setData] = useState({ hooper: [], compo: [], topsets: [], charge: [], chargeInterne: [] })

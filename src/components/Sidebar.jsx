@@ -257,10 +257,10 @@ export default function Sidebar({ isMobile = false, mobileOpen = false, onClose 
   const athletePrepLinks = [
     { to: '/mon-tableau-de-bord',  label: 'Dashboard' },
     { to: '/prep/hooper',          label: 'Hooper' },
-    { to: '/prep/charge',          label: 'Charge interne' },
+    { to: '/prep/charge',          label: 'Suivi de fatigue' },
     { to: '/prep/charge-externe',  label: 'Charge externe' },
     { to: '/prep/topset',          label: 'Topset' },
-    { to: '/prep/compo',           label: 'Composition' },
+    { to: '/prep/compo',           label: 'Composition corporelle' },
     { to: '/calendrier',           label: 'Calendrier' },
     { to: '/ma-presence',          label: 'Ma présence' },
   ]
