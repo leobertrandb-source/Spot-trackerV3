@@ -102,7 +102,8 @@ export default function CoachPageProSport() {
     : clients
 
   async function removeClient(clientId, name) {
-    if (!window.confirm(`Retirer ${name || 'cet athlète'} de l'effectif ?`)) return
+    const label = name || 'cet athlète'
+    if (!window.confirm(`⚠️ Retirer ${label} de l'effectif ?\n\nCette action supprime le lien coach-athlète. Elle ne supprime pas le compte.`)) return
     await supabase.from('coach_clients').delete().eq('coach_id', user.id).eq('client_id', clientId)
     load()
   }

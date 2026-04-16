@@ -513,7 +513,7 @@ export default function MedicalHubPage() {
   async function removeAthlete(athleteId) {
     const athlete = athletes.find(a => a.id === athleteId)
     const name = athlete?.full_name || athlete?.email || 'ce joueur'
-    if (!window.confirm(`Retirer ${name} de l'effectif ?`)) return
+    if (!window.confirm(`⚠️ Retirer ${name} de l'effectif ?\n\nCette action supprime le lien coach-athlète. Elle ne supprime pas le compte.`)) return
     const coachId = profile?.id || user?.id
     await supabase.from('coach_clients').delete().eq('coach_id', coachId).eq('client_id', athleteId)
     load()
