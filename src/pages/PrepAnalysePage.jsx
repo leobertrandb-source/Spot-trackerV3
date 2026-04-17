@@ -688,7 +688,7 @@ export default function PrepAnalysePage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [client, setClient] = useState(null)
-  const [data, setData] = useState({ hooper: [], compo: [], topsets: [], charge: [], chargeInterne: [] })
+  const [data, setData] = useState({ hooper: [], compo: [], topsets: [], charge: [], chargeInterne: [], rpe: [], sprints: [], broncos: [], weightLogs: [], squatJumps: [], doms: [], kioskTopsets: [] })
   const [loading, setLoading] = useState(true)
   const [selectedEx, setSelectedEx] = useState(null)
 
@@ -701,6 +701,13 @@ export default function PrepAnalysePage() {
       { data: topsets },
       { data: charge },
       { data: chargeInterne },
+      { data: rpe },
+      { data: sprints },
+      { data: broncos },
+      { data: weightLogs },
+      { data: squatJumps },
+      { data: doms },
+      { data: kioskTopsets },
     ] = await Promise.all([
       supabase.from('profiles').select('full_name, email').eq('id', id).single(),
       supabase.from('hooper_logs').select('*').eq('user_id', id).order('date',{ascending:true}).limit(60),
@@ -708,9 +715,16 @@ export default function PrepAnalysePage() {
       supabase.from('topset_logs').select('*').eq('user_id', id).order('date',{ascending:true}).limit(100),
       supabase.from('charge_externe_logs').select('*').eq('user_id', id).order('date',{ascending:true}),
       supabase.from('charge_logs').select('*').eq('user_id', id).order('date',{ascending:true}).limit(60),
+      supabase.from('rpe_logs').select('*').eq('user_id', id).order('date',{ascending:true}).limit(60),
+      supabase.from('sprint_logs').select('*').eq('user_id', id).order('date',{ascending:true}).limit(30),
+      supabase.from('bronco_logs').select('*').eq('user_id', id).order('date',{ascending:true}).limit(30),
+      supabase.from('weight_logs').select('*').eq('user_id', id).order('date',{ascending:true}).limit(90),
+      supabase.from('squat_jump_logs').select('*').eq('user_id', id).order('date',{ascending:true}).limit(30),
+      supabase.from('doms_logs').select('*').eq('user_id', id).order('date',{ascending:true}).limit(30),
+      supabase.from('kiosk_topset').select('*').eq('user_id', id).order('date',{ascending:true}).limit(100),
     ])
     setClient(profile)
-    setData({ hooper: hooper||[], compo: compo||[], topsets: topsets||[], charge: charge||[], chargeInterne: chargeInterne||[] })
+    setData({ hooper: hooper||[], compo: compo||[], topsets: topsets||[], charge: charge||[], chargeInterne: chargeInterne||[], rpe: rpe||[], sprints: sprints||[], broncos: broncos||[], weightLogs: weightLogs||[], squatJumps: squatJumps||[], doms: doms||[], kioskTopsets: kioskTopsets||[] })
     setLoading(false)
   }, [id])
 
@@ -730,6 +744,29 @@ export default function PrepAnalysePage() {
     graisse: data.compo.filter(c=>c.body_fat_pct).map(c=>({value:parseFloat(c.body_fat_pct),date:c.date})),
     maigre:  data.compo.filter(c=>c.muscle_mass_kg).map(c=>({value:parseFloat(c.muscle_mass_kg),date:c.date})),
   }
+  const allWeightPoints = useMemo(() => {
+    const byDate = {}
+    for (const w of data.weightLogs) byDate[w.date] = { value: parseFloat(w.weight_kg), date: w.date }
+    for (const c of data.compo) if (c.weight_kg) byDate[c.date] = { value: parseFloat(c.weight_kg), date: c.date }
+    return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date))
+  }, [data.compo, data.weightLogs])
+
+  const rpeByDate = useMemo(() => {
+    const m = {}
+    for (const r of data.rpe) m[r.date] = r
+    return m
+  }, [data.rpe])
+
+  const allTopsets = useMemo(() => {
+    const kiosk = data.kioskTopsets.map(t => ({
+      ...t,
+      exercise_name: t.exercise,
+      estimated_1rm: t.weight_kg && t.reps ? Math.round(parseFloat(t.weight_kg) * (1 + parseInt(t.reps) / 30) * 10) / 10 : null,
+      rpe: null,
+    }))
+    return [...data.topsets, ...kiosk].sort((a, b) => a.date.localeCompare(b.date))
+  }, [data.topsets, data.kioskTopsets])
+
   const lastC = data.compo[data.compo.length-1]
   const prevC = data.compo.length > 1 ? data.compo[data.compo.length-2] : null
   const [selectedBilanIdx, setSelectedBilanIdx] = useState(null)
@@ -774,24 +811,24 @@ export default function PrepAnalysePage() {
     return byKey
   }, [data.compo])
 
-  const exerciseNames = useMemo(()=>[...new Set(data.topsets.map(t=>t.exercise_name))],[data.topsets])
+  const exerciseNames = useMemo(()=>[...new Set(allTopsets.map(t=>t.exercise_name))],[allTopsets])
   useEffect(()=>{if(exerciseNames.length&&!selectedEx)setSelectedEx(exerciseNames[0])},[exerciseNames])
 
   const topsetSeries = useMemo(()=>{
     if(!selectedEx) return []
-    return data.topsets.filter(t=>t.exercise_name===selectedEx)
+    return allTopsets.filter(t=>t.exercise_name===selectedEx)
       .map(t=>({value:t.estimated_1rm||Math.round((t.weight_kg||0)*(1+(t.reps||0)/30)*10)/10,date:t.date}))
       .filter(t=>t.value>0)
-  },[data.topsets,selectedEx])
+  },[allTopsets,selectedEx])
 
   const prs = useMemo(()=>{
     const map={}
-    for(const t of data.topsets){
+    for(const t of allTopsets){
       const rm=t.estimated_1rm||Math.round((t.weight_kg||0)*(1+(t.reps||0)/30)*10)/10
       if(!map[t.exercise_name]||rm>map[t.exercise_name]) map[t.exercise_name]=rm
     }
     return map
-  },[data.topsets])
+  },[allTopsets])
 
   const weeklyCharge = useMemo(()=>{
     const w={}
@@ -970,7 +1007,7 @@ export default function PrepAnalysePage() {
                 <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
                   <thead>
                     <tr style={{ borderBottom:`2px solid ${P.border}` }}>
-                      {['Date','Score','F','S','St','C','DOMS'].map(h=>(
+                      {['Date','Score','F','S','St','C','DOMS','RPE séance'].map(h=>(
                         <th key={h} style={{ padding:'8px 10px', textAlign:'left', fontWeight:600, fontSize:10, letterSpacing:0.8, textTransform:'uppercase', color:P.sub }}>{h}</th>
                       ))}
                     </tr>
@@ -998,6 +1035,14 @@ export default function PrepAnalysePage() {
                                 {domsN} zone{domsN>1?'s':''}
                               </button>
                             ) : '–'}
+                          </td>
+                          <td style={{ padding:'8px 10px' }}>
+                            {rpeByDate[h.date] ? (
+                              <span style={{ fontWeight:700, color: rpeByDate[h.date].rpe>=8?P.red:rpeByDate[h.date].rpe>=6?P.yellow:P.green }}>
+                                {rpeByDate[h.date].rpe}/10
+                                {rpeByDate[h.date].duration_min ? <span style={{ fontWeight:400, color:P.sub, marginLeft:4 }}>{rpeByDate[h.date].duration_min}min</span> : null}
+                              </span>
+                            ) : <span style={{ color:P.dim }}>–</span>}
                           </td>
                         </tr>
                       )
@@ -1077,7 +1122,7 @@ export default function PrepAnalysePage() {
             {/* Graphiques courbes */}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px,1fr))', gap:20 }}>
               {[
-                {data:compoData.poids,   color:CHART_COLORS.poids,   title:'Poids', unit:' kg',  key:'weight_kg'},
+                {data:allWeightPoints,   color:CHART_COLORS.poids,   title:'Poids', unit:' kg',  key:'weight_kg'},
                 {data:compoData.graisse, color:CHART_COLORS.graisse, title:'Masse grasse', unit:'%', key:'body_fat_pct'},
                 {data:compoData.maigre,  color:CHART_COLORS.maigre,  title:'Masse maigre', unit:' kg', key:'muscle_mass_kg'},
               ].filter(g=>g.data.length>=2).map(({data,color,title,unit,key})=>(
@@ -1224,77 +1269,72 @@ export default function PrepAnalysePage() {
           </div>
         </Section>
 
-        {/* ── TESTS CHARGE INTERNE ── */}
-        {data.chargeInterne.length > 0 && (() => {
+        {/* ── TESTS PHYSIQUES ── */}
+        {(data.chargeInterne.length > 0 || data.sprints.length > 0 || data.broncos.length > 0 || data.squatJumps.length > 0) && (() => {
           const ci = data.chargeInterne
-          const last = ci[ci.length-1]
-          const prev = ci.length > 1 ? ci[ci.length-2] : null
-          const grip  = ci.filter(c=>c.prehension_kg).map(c=>({value:parseFloat(c.prehension_kg),date:c.date}))
+          const lastCI = ci[ci.length-1]
+          const prevCI = ci.length > 1 ? ci[ci.length-2] : null
+          const grip   = ci.filter(c=>c.prehension_kg).map(c=>({value:parseFloat(c.prehension_kg),date:c.date}))
           const submax = ci.filter(c=>c.submax_kg).map(c=>({value:parseFloat(c.submax_kg),date:c.date}))
-          const cmj   = ci.filter(c=>c.cmj_cm).map(c=>({value:parseFloat(c.cmj_cm),date:c.date}))
-          const badge = [
-            last.prehension_kg ? `Grip ${last.prehension_kg}kg` : null,
-            last.submax_kg     ? `Submax ${last.submax_kg}kg`   : null,
-            last.cmj_cm        ? `CMJ ${last.cmj_cm}cm`         : null,
-          ].filter(Boolean).join(' · ') || 'Données disponibles'
+          const cmj    = ci.filter(c=>c.cmj_cm).map(c=>({value:parseFloat(c.cmj_cm),date:c.date}))
+          const sj     = data.squatJumps.map(s=>({value:parseFloat(s.height_cm),date:s.date}))
+          const t10    = data.sprints.filter(s=>s.time_10m).map(s=>({value:parseFloat(s.time_10m),date:s.date}))
+          const t30    = data.sprints.filter(s=>s.time_30m).map(s=>({value:parseFloat(s.time_30m),date:s.date}))
+          const bronco = data.broncos.map(b=>({value:parseFloat(b.time_seconds),date:b.date}))
+
+          const lastSJ = data.squatJumps[data.squatJumps.length-1]
+          const lastBronco = data.broncos[data.broncos.length-1]
+          const lastSprint = data.sprints[data.sprints.length-1]
+
+          const badgeParts = [
+            lastCI?.cmj_cm        ? `CMJ ${lastCI.cmj_cm}cm` : null,
+            lastSJ                ? `SJ ${lastSJ.height_cm}cm` : null,
+            lastCI?.prehension_kg ? `Grip ${lastCI.prehension_kg}kg` : null,
+            lastSprint?.time_30m  ? `Sprint 30m ${lastSprint.time_30m}s` : null,
+            lastBronco            ? `Bronco ${Math.floor(lastBronco.time_seconds/60)}:${String(Math.round(lastBronco.time_seconds%60)).padStart(2,'0')}` : null,
+          ].filter(Boolean)
+
+          function StatCard({ label, value, unit, color, desc, delta, deltaUnit }) {
+            return (
+              <div style={{ padding:'12px 16px', background:P.bg, borderRadius:10, border:`1px solid ${P.border}` }}>
+                <div style={{ fontSize:10, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub, marginBottom:4 }}>{label}</div>
+                <div style={{ fontSize:22, fontWeight:700, color, fontFamily:"'DM Serif Display',serif", lineHeight:1 }}>
+                  {value}<span style={{ fontSize:12, color:P.sub, marginLeft:3 }}>{unit}</span>
+                </div>
+                {delta != null && (
+                  <div style={{ fontSize:11, color: delta < 0 ? P.green : P.red, marginTop:4, fontWeight:600 }}>
+                    {delta < 0 ? '↓' : '↑'} {Math.abs(Math.round(delta*100)/100)}{deltaUnit||unit}
+                  </div>
+                )}
+                {desc && <div style={{ fontSize:10, color:P.dim, marginTop:4 }}>{desc}</div>}
+              </div>
+            )
+          }
+
           return (
-            <Section title="Tests — Charge interne" icon="💪" color={P.blue} badge={badge}>
-              <div style={{ paddingTop:20, display:'grid', gap:20 }}>
+            <Section title="Tests physiques" icon="💪" color={P.blue} badge={badgeParts.join(' · ') || 'Données disponibles'}>
+              <div style={{ paddingTop:20, display:'grid', gap:24 }}>
 
-                {/* Dernières valeurs */}
+                {/* Stat cards */}
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(130px,1fr))', gap:10 }}>
-                  {[
-                    { key:'prehension_kg', label:'Force préhension', unit:'kg', color:CHART_COLORS.stress,   desc:'GRIP' },
-                    { key:'submax_kg',     label:'Submax',           unit:'kg', color:CHART_COLORS.sommeil,  desc:"FC 3' / FC 1'" },
-                    { key:'cmj_cm',        label:'CMJ',              unit:'cm', color:CHART_COLORS.hooper,   desc:'Counter Movement Jump' },
-                  ].filter(f => last[f.key]).map(({key,label,unit,color,desc}) => {
-                    const delta = prev?.[key] ? parseFloat(last[key]) - parseFloat(prev[key]) : null
-                    return (
-                      <div key={key} style={{ padding:'12px 16px', background:P.bg, borderRadius:10, border:`1px solid ${P.border}` }}>
-                        <div style={{ fontSize:10, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub, marginBottom:4 }}>{label}</div>
-                        <div style={{ fontSize:22, fontWeight:700, color, fontFamily:"'DM Serif Display',serif", lineHeight:1 }}>
-                          {last[key]}<span style={{ fontSize:12, color:P.sub, marginLeft:3 }}>{unit}</span>
-                        </div>
-                        {delta !== null && (
-                          <div style={{ fontSize:11, color: delta > 0 ? P.green : P.red, marginTop:4, fontWeight:600 }}>
-                            {delta > 0 ? '↑' : '↓'} {Math.abs(Math.round(delta*10)/10)}{unit}
-                          </div>
-                        )}
-                        <div style={{ fontSize:10, color:P.dim, marginTop:4 }}>{desc}</div>
-                      </div>
-                    )
-                  })}
+                  {lastCI?.cmj_cm        && <StatCard label="CMJ" value={lastCI.cmj_cm} unit="cm" color={CHART_COLORS.hooper} desc="Counter Movement Jump" delta={prevCI?.cmj_cm ? parseFloat(lastCI.cmj_cm)-parseFloat(prevCI.cmj_cm) : null} />}
+                  {lastSJ                && <StatCard label="Squat Jump" value={lastSJ.height_cm} unit="cm" color={P.purple} desc="Sans contre-mouvement" delta={data.squatJumps.length>1 ? parseFloat(lastSJ.height_cm)-parseFloat(data.squatJumps[data.squatJumps.length-2].height_cm) : null} />}
+                  {lastCI?.prehension_kg && <StatCard label="Préhension" value={lastCI.prehension_kg} unit="kg" color={CHART_COLORS.stress} desc="GRIP" delta={prevCI?.prehension_kg ? parseFloat(lastCI.prehension_kg)-parseFloat(prevCI.prehension_kg) : null} />}
+                  {lastCI?.submax_kg     && <StatCard label="Submax" value={lastCI.submax_kg} unit="kg" color={CHART_COLORS.sommeil} desc="FC 3' / FC 1'" delta={prevCI?.submax_kg ? parseFloat(lastCI.submax_kg)-parseFloat(prevCI.submax_kg) : null} />}
+                  {lastSprint?.time_10m  && <StatCard label="Sprint 10m" value={lastSprint.time_10m} unit="s" color={P.red} desc="Vitesse départ" delta={data.sprints.length>1&&data.sprints[data.sprints.length-2].time_10m ? parseFloat(lastSprint.time_10m)-parseFloat(data.sprints[data.sprints.length-2].time_10m) : null} />}
+                  {lastSprint?.time_30m  && <StatCard label="Sprint 30m" value={lastSprint.time_30m} unit="s" color={P.red} desc="Vitesse maximale" delta={data.sprints.length>1&&data.sprints[data.sprints.length-2].time_30m ? parseFloat(lastSprint.time_30m)-parseFloat(data.sprints[data.sprints.length-2].time_30m) : null} />}
+                  {lastBronco            && <StatCard label="Bronco" value={`${Math.floor(lastBronco.time_seconds/60)}:${String(Math.round(lastBronco.time_seconds%60)).padStart(2,'0')}`} unit="" color={P.yellow} desc="5×20m" />}
                 </div>
 
-                {/* Graphes évolution */}
+                {/* Graphes */}
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px,1fr))', gap:16 }}>
-                  {grip.length>=2   && <ClickableChart data={grip}   color={CHART_COLORS.stress}  unit=" kg" title="Force de préhension (GRIP)"><D3Chart data={grip}   color={CHART_COLORS.stress}  h={100} title="Préhension (GRIP)" unit=" kg" lastValue={grip[grip.length-1]?.value}     delta={grip.length>1   ? grip[grip.length-1].value   - grip[grip.length-2].value   : null} /></ClickableChart>}
-                  {submax.length>=2 && <ClickableChart data={submax} color={CHART_COLORS.sommeil} unit=" kg" title="Submax (FC 3' / FC 1')"><D3Chart data={submax} color={CHART_COLORS.sommeil} h={100} title="Submax" unit=" kg"            lastValue={submax[submax.length-1]?.value} delta={submax.length>1 ? submax[submax.length-1].value - submax[submax.length-2].value : null} /></ClickableChart>}
-                  {cmj.length>=2    && <ClickableChart data={cmj}    color={CHART_COLORS.hooper}  unit=" cm" title="CMJ (Counter Movement Jump)"><D3Chart data={cmj}    color={CHART_COLORS.hooper}  h={100} title="CMJ" unit=" cm"              lastValue={cmj[cmj.length-1]?.value}       delta={cmj.length>1    ? cmj[cmj.length-1].value    - cmj[cmj.length-2].value    : null} /></ClickableChart>}
-                </div>
-
-                {/* Historique tableau */}
-                <div style={{ overflowX:'auto' }}>
-                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-                    <thead>
-                      <tr style={{ borderBottom:`2px solid ${P.border}` }}>
-                        {['Date','Préhension','Submax','CMJ','Notes'].map(h=>(
-                          <th key={h} style={{ padding:'8px 10px', textAlign:'left', fontSize:10, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', color:P.sub }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...ci].reverse().map(log=>(
-                        <tr key={log.id} style={{ borderBottom:`1px solid ${P.border}` }}>
-                          <td style={{ padding:'8px 10px', color:P.text }}>{new Date(log.date+'T00:00:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'2-digit'})}</td>
-                          <td style={{ padding:'8px 10px', fontWeight:600, color:CHART_COLORS.stress  }}>{log.prehension_kg ? `${log.prehension_kg} kg` : '—'}</td>
-                          <td style={{ padding:'8px 10px', fontWeight:600, color:CHART_COLORS.sommeil }}>{log.submax_kg     ? `${log.submax_kg} kg`     : '—'}</td>
-                          <td style={{ padding:'8px 10px', fontWeight:600, color:CHART_COLORS.hooper  }}>{log.cmj_cm        ? `${log.cmj_cm} cm`        : '—'}</td>
-                          <td style={{ padding:'8px 10px', color:P.dim, fontSize:11 }}>{log.notes || '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  {cmj.length>=2    && <ClickableChart data={cmj}    color={CHART_COLORS.hooper} unit=" cm" title="CMJ"><D3Chart data={cmj}    color={CHART_COLORS.hooper} h={100} title="CMJ" unit=" cm" lastValue={cmj[cmj.length-1]?.value}   delta={cmj.length>1?cmj[cmj.length-1].value-cmj[cmj.length-2].value:null} /></ClickableChart>}
+                  {sj.length>=2     && <ClickableChart data={sj}     color={P.purple}            unit=" cm" title="Squat Jump"><D3Chart data={sj}     color={P.purple}            h={100} title="SJ" unit=" cm"  lastValue={sj[sj.length-1]?.value}    delta={sj.length>1?sj[sj.length-1].value-sj[sj.length-2].value:null} /></ClickableChart>}
+                  {grip.length>=2   && <ClickableChart data={grip}   color={CHART_COLORS.stress} unit=" kg" title="Préhension (GRIP)"><D3Chart data={grip}   color={CHART_COLORS.stress} h={100} title="GRIP" unit=" kg" lastValue={grip[grip.length-1]?.value}   delta={grip.length>1?grip[grip.length-1].value-grip[grip.length-2].value:null} /></ClickableChart>}
+                  {t10.length>=2    && <ClickableChart data={t10}    color={P.red}               unit=" s"  title="Sprint 10m"><D3Chart data={t10}    color={P.red}               h={100} title="10m" unit=" s"  lastValue={t10[t10.length-1]?.value}  delta={t10.length>1?t10[t10.length-1].value-t10[t10.length-2].value:null} /></ClickableChart>}
+                  {t30.length>=2    && <ClickableChart data={t30}    color={P.red}               unit=" s"  title="Sprint 30m"><D3Chart data={t30}    color={P.red}               h={100} title="30m" unit=" s"  lastValue={t30[t30.length-1]?.value}  delta={t30.length>1?t30[t30.length-1].value-t30[t30.length-2].value:null} /></ClickableChart>}
+                  {bronco.length>=2 && <ClickableChart data={bronco} color={P.yellow}            unit=" s"  title="Bronco (secondes)"><D3Chart data={bronco} color={P.yellow}            h={100} title="Bronco" unit=" s" lastValue={bronco[bronco.length-1]?.value} delta={bronco.length>1?bronco[bronco.length-1].value-bronco[bronco.length-2].value:null} /></ClickableChart>}
+                  {submax.length>=2 && <ClickableChart data={submax} color={CHART_COLORS.sommeil} unit=" kg" title="Submax"><D3Chart data={submax} color={CHART_COLORS.sommeil} h={100} title="Submax" unit=" kg" lastValue={submax[submax.length-1]?.value} delta={submax.length>1?submax[submax.length-1].value-submax[submax.length-2].value:null} /></ClickableChart>}
                 </div>
 
               </div>
@@ -1318,7 +1358,7 @@ export default function PrepAnalysePage() {
             )}
 
             {selectedEx && (() => {
-              const logs = data.topsets.filter(t => t.exercise_name === selectedEx)
+              const logs = allTopsets.filter(t => t.exercise_name === selectedEx)
               if (!logs.length) return null
 
               // Calculs volumétrie
