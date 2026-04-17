@@ -49,6 +49,11 @@ import ClubKioskRpePage from './pages/ClubKioskRpePage'
 import ClubKioskTopsetPage from './pages/ClubKioskTopsetPage'
 import ClubKioskCmjPage from './pages/ClubKioskCmjPage'
 import ClubKioskPrehensionPage from './pages/ClubKioskPrehensionPage'
+import ClubKioskSprintPage from './pages/ClubKioskSprintPage'
+import ClubKioskBroncoPage from './pages/ClubKioskBroncoPage'
+import ClubKioskPoidsPage from './pages/ClubKioskPoidsPage'
+import ClubKioskSquatJumpPage from './pages/ClubKioskSquatJumpPage'
+import ClubKioskDomsPage from './pages/ClubKioskDomsPage'
 
 import MedicalPage from './pages/MedicalPage'
 import MedicalHubPage from './pages/MedicalHubPage'
@@ -253,6 +258,11 @@ function RootRouter() {
       <Route path="/coach-kiosk/topset/:playerId" element={<ClubKioskTopsetPage />} />
       <Route path="/coach-kiosk/cmj/:playerId" element={<ClubKioskCmjPage />} />
       <Route path="/coach-kiosk/prehension/:playerId" element={<ClubKioskPrehensionPage />} />
+      <Route path="/coach-kiosk/sprint/:playerId" element={<ClubKioskSprintPage />} />
+      <Route path="/coach-kiosk/bronco/:playerId" element={<ClubKioskBroncoPage />} />
+      <Route path="/coach-kiosk/poids/:playerId" element={<ClubKioskPoidsPage />} />
+      <Route path="/coach-kiosk/squat_jump/:playerId" element={<ClubKioskSquatJumpPage />} />
+      <Route path="/coach-kiosk/doms/:playerId" element={<ClubKioskDomsPage />} />
       <Route path="/coach-kiosk/:testKey" element={<ClubKioskPlayersPage />} />
       <Route path="*" element={<PrivateAppShell />} />
     </Routes>
