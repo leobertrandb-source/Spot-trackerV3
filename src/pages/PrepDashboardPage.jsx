@@ -485,6 +485,20 @@ export default function PrepDashboardPage() {
 
   useEffect(() => { load() }, [load])
 
+  // Realtime — mise à jour instantanée quand un athlète soumet son HOOPER
+  useEffect(() => {
+    if (!coachId) return
+    const channel = supabase
+      .channel('dashboard-hooper-live')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'hooper_logs',
+      }, () => { load() })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [coachId, load])
+
   // Ouvrir panel DOMS avec historique
   function openDoms(e, athlete) {
     e.stopPropagation()
