@@ -182,7 +182,7 @@ export default function CoachPageProSport() {
           {club?.logoUrl && (
             <img src={club.logoUrl} alt="" style={{
               position: 'absolute', right: 0, top: '50%',
-              transform: 'translateY(-50%) translateX(30%)',
+              transform: 'translateY(-80%) translateX(30%)',
               height: 'clamp(60px,10vw,110px)', width: 'auto',
               objectFit: 'contain',
               opacity: 0.35,
