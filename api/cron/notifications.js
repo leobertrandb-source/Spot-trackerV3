@@ -30,6 +30,7 @@ export default async function handler(req, res) {
       {
         method: 'POST',
         headers: commonHeaders,
+        body: JSON.stringify({ dayOfWeek, currentHour }),
       }
     );
 
