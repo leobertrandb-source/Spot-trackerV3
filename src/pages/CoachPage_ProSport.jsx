@@ -102,8 +102,9 @@ export default function CoachPageProSport() {
     : filter === 'missing' ? missing
     : clients
 
-  async function handleRemoveAthlete(clientId, clientName) {
-    if (!window.confirm(`Retirer ${clientName} de l'effectif ?`)) return
+  async function removeClient(clientId, name) {
+    const label = name || 'cet athlète'
+    if (!window.confirm(`⚠️ Retirer ${label} de l'effectif ?\n\nCette action supprime le lien coach-athlète. Elle ne supprime pas le compte.`)) return
     await supabase.from('coach_clients').delete().eq('coach_id', user.id).eq('client_id', clientId)
     load()
   }
@@ -524,12 +525,9 @@ export default function CoachPageProSport() {
                     🏥 Médical
                   </div>
 
-                  {/* Chevron */}
-                  <div style={{ color: T.textMid, fontSize: 14 }}>›</div>
-
                   {/* Supprimer */}
                   <div
-                    onClick={e => { e.stopPropagation(); handleRemoveAthlete(client.id, client.full_name || client.email) }}
+                    onClick={e => { e.stopPropagation(); removeClient(client.id, client.full_name || client.email) }}
                     title="Retirer de l'effectif"
                     style={{ width: 28, height: 28, display: 'grid', placeItems: 'center', borderRadius: 8, cursor: 'pointer', color: 'rgba(180,60,60,0.4)', transition: 'all 0.15s', flexShrink: 0 }}
                     onMouseEnter={e => { e.currentTarget.style.background = '#fdecea'; e.currentTarget.style.color = '#c0392b' }}

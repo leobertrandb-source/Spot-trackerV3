@@ -48,10 +48,16 @@ async function sendToAthletes(ids: string[], title: string, body: string, url = 
 
   let sent = 0
   for (const sub of subs) {
-    const ok = await sendPush(sub.subscription, {
-      title, body, url,
+    const subscription = {
+      endpoint: sub.endpoint,
+      keys: { p256dh: sub.p256dh, auth: sub.auth },
+    }
+    const ok = await sendPush(subscription, {
+      title,
+      body,
       icon: '/icons/icon-192.png',
       badge: '/icons/icon-72.png',
+      data: { url },
     })
     if (ok) sent++
   }

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
 import PushNotifToggle from '../components/PushNotifToggle'
+import IOSInstallBanner from '../components/IOSInstallBanner'
 
 // ─── Même palette que CoachPage_ProSport ──────────────────────────────────────
 const P = {
@@ -21,9 +22,9 @@ const P = {
 }
 
 const HOOPER_FIELDS = [
-  { key: 'fatigue',     label: 'Fatigue',     color: '#c0392b', bg: '#fdecea' },
-  { key: 'sommeil',     label: 'Sommeil',     color: '#1a3a5c', bg: '#eef3ff' },
-  { key: 'stress',      label: 'Stress',      color: '#b5830a', bg: '#fdf6e3' },
+  { key: 'fatigue', label: 'Fatigue',  color: '#c0392b', bg: '#fdecea' },
+  { key: 'sommeil', label: 'Sommeil',  color: '#1a3a5c', bg: '#eef3ff' },
+  { key: 'stress',  label: 'Stress',   color: '#b5830a', bg: '#fdf6e3' },
   { key: 'courbatures', label: 'Courbatures', color: '#6b3a7d', bg: '#f5eeff' },
 ]
 
@@ -160,7 +161,7 @@ export default function AthleteDashboardPage() {
   const status = hooperStatus(lastScore)
 
   const hooperChartData = hoopers.map(h => ({
-    value: (h.fatigue || 0) + (h.sommeil || 0) + (h.stress || 0) + (h.douleur || 0),
+    value: (h.fatigue || 0) + (h.sommeil || 0) + (h.stress || 0) + (h.courbatures || 0),
   }))
 
   const weightHistory = compoHistory.filter(c => c.weight_kg).map(c => ({ value: parseFloat(c.weight_kg) }))
@@ -453,7 +454,8 @@ export default function AthleteDashboardPage() {
         </div>
 
         {/* Notifications push */}
-        <PushNotifToggle user={user} />
+        <IOSInstallBanner />
+        <PushNotifToggle user={user} light />
 
       </div>
     </div>

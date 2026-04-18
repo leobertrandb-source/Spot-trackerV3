@@ -4,9 +4,8 @@ import {
   subscribeToPush,
   unsubscribeFromPush,
 } from '../lib/pushNotifications'
-import { T } from '../lib/data'
 
-export default function PushNotifToggle({ user }) {
+export default function PushNotifToggle({ user, light = false }) {
   const [status, setStatus] = useState('off')
   const [loading, setLoading] = useState(false)
   const [checking, setChecking] = useState(true)
@@ -104,13 +103,18 @@ export default function PushNotifToggle({ user }) {
 
   const isDisabled = loading || checking || !user?.id
 
+  const borderColor = light ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.10)'
+  const textColor   = light ? '#1a1a2e' : '#f0f0f0'
+  const subColor    = light ? '#6b7280' : '#9ca3af'
+  const bg          = light ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)'
+
   return (
     <div
       style={{
         padding: 14,
         borderRadius: 14,
-        border: `1px solid ${T.border}`,
-        background: 'rgba(255,255,255,0.03)',
+        border: `1px solid ${borderColor}`,
+        background: bg,
       }}
     >
       <div
@@ -127,14 +131,14 @@ export default function PushNotifToggle({ user }) {
             style={{
               fontSize: 14,
               fontWeight: 800,
-              color: T.text,
+              color: textColor,
               marginBottom: 4,
             }}
           >
             Notifications push
           </div>
 
-          <div style={{ fontSize: 12, color: T.textDim }}>
+          <div style={{ fontSize: 12, color: subColor }}>
             {checking
               ? 'Vérification en cours...'
               : status === 'on'
@@ -158,7 +162,7 @@ export default function PushNotifToggle({ user }) {
               status === 'on'
                 ? 'rgba(62,207,142,0.16)'
                 : 'rgba(157,125,234,0.16)',
-            color: status === 'on' ? '#3ecf8e' : T.accentLight,
+            color: status === 'on' ? '#3ecf8e' : '#9d7dea',
           }}
         >
           {checking

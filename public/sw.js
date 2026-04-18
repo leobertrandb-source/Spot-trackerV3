@@ -1,7 +1,7 @@
 // public/sw.js — Atlyo Service Worker
 // Push notifications + cache offline PWA
 
-const CACHE_NAME = 'atlyo-v1'
+const CACHE_NAME = 'atlyo-v2'
 
 // Fichiers à mettre en cache pour le mode offline
 const PRECACHE_URLS = [
@@ -78,14 +78,14 @@ self.addEventListener('push', event => {
   const { title, body, icon, badge, tag, data } = payload
 
   const options = {
-    body:    body    || '',
-    icon:    icon    || '/icons/icon-192.png',
-    badge:   badge   || '/icons/icon-72.png',
-    tag:     tag     || 'atlyo-notif',
-    vibrate: [100, 50, 100],
-    data:    data    || {},
-    actions: payload.actions || [],
-    requireInteraction: payload.requireInteraction || false,
+    body:    body || '',
+    icon:    icon || '/icons/icon-192.png',
+    badge:   badge || '/icons/icon-72.png',
+    tag:     tag || 'atlyo-notif',
+    vibrate: [200, 100, 200],
+    data:    { url: '/', ...(data || {}) },
+    requireInteraction: false,
+    silent: false,
   }
 
   event.waitUntil(
