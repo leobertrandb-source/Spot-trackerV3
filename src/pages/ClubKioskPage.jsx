@@ -2,290 +2,141 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../components/AuthContext'
-import KioskHeader from '../components/kiosk/KioskHeader'
-import PlayerTile from '../components/kiosk/PlayerTile'
 import KioskPinModal from '../components/kiosk/KioskPinModal'
 import KioskPinSetup from '../components/kiosk/KioskPinSetup'
+import { KIOSK_TESTS } from '../lib/kioskTests'
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10)
+const P = {
+  bg: '#f5f3ef', card: '#ffffff', border: '#e8e4dc',
+  text: '#1a1a1a', sub: '#6b6b6b', dim: '#a0a0a0', accent: '#1a3a2a',
 }
 
 export default function ClubKioskPage() {
   const navigate = useNavigate()
   const { user, profile } = useAuth()
-
   const coachId = profile?.id || user?.id || null
 
-  const [loading, setLoading] = useState(true)
   const [coach, setCoach] = useState(null)
-  const [players, setPlayers] = useState([])
-  const [doneMap, setDoneMap] = useState({})
-  const [statusFilter, setStatusFilter] = useState('remaining') // remaining | all | done
+  const [loading, setLoading] = useState(true)
   const [pinOpen, setPinOpen] = useState(false)
 
-  const dateLabel = useMemo(
-    () =>
-      new Date().toLocaleDateString('fr-FR', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-      }),
-    []
-  )
+  const dateLabel = useMemo(() =>
+    new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }), [])
 
   useEffect(() => {
-  window.history.pushState(null, '', window.location.href)
-  const handlePopState = () => {
     window.history.pushState(null, '', window.location.href)
-  }
-  window.addEventListener('popstate', handlePopState)
-  return () => window.removeEventListener('popstate', handlePopState)
-}, [])
+    const handle = () => window.history.pushState(null, '', window.location.href)
+    window.addEventListener('popstate', handle)
+    return () => window.removeEventListener('popstate', handle)
+  }, [])
+
   useEffect(() => {
-    const load = async () => {
-      if (!coachId) {
-        setLoading(false)
-        return
-      }
-
-      setLoading(true)
-      const today = todayIso()
-
-      // 1) Coach -> athlètes (même source que le dashboard)
-      const { data: links, error: linksError } = await supabase
-        .from('coach_clients')
-        .select('client_id')
-        .eq('coach_id', coachId)
-
-      if (linksError) {
-        console.error('coach_clients error:', linksError)
-        setPlayers([])
-        setDoneMap({})
-        setLoading(false)
-        return
-      }
-
-      const ids = (links || []).map((l) => l.client_id).filter(Boolean)
-
-      // Profil coach local pour le PIN + nom affiché
-      setCoach({
-        id: coachId,
-        name: profile?.full_name || user?.user_metadata?.full_name || 'Mode borne équipe',
-        kiosk_pin: profile?.kiosk_pin || null,
-      })
-
-      if (!ids.length) {
-        setPlayers([])
-        setDoneMap({})
-        setLoading(false)
-        return
-      }
-
-      // 2) Profils joueurs
-      const [{ data: profilesData, error: profilesError }, { data: hooperData, error: hooperError }] =
-  await Promise.all([
-    supabase
-      .from('profiles')
-      .select('id, full_name')
-      .in('id', ids),
-
-    supabase
-      .from('hooper_logs')
-      .select('user_id, date')
-      .in('user_id', ids)
-      .eq('date', today),
-  ])
-
-      if (profilesError) {
-        console.error('profiles error full:', JSON.stringify(profilesError, null, 2))
-      }
-
-      if (hooperError) {
-        console.error('hooper_logs error:', hooperError)
-      }
-
-      const cleanPlayers = (profilesData || []).sort((a, b) =>
-        (a.full_name || '').localeCompare(b.full_name || '')
-      )
-
-      const nextDoneMap = Object.fromEntries(
-        (hooperData || []).map((log) => [log.user_id, true])
-      )
-
-      setPlayers(cleanPlayers)
-      setDoneMap(nextDoneMap)
-      setLoading(false)
-    }
-
-    load()
+    if (!coachId) { setLoading(false); return }
+    setCoach({
+      id: coachId,
+      name: profile?.full_name || user?.user_metadata?.full_name || 'Club',
+      kiosk_pin: profile?.kiosk_pin || null,
+    })
+    setLoading(false)
   }, [coachId, profile?.full_name, profile?.kiosk_pin, user?.user_metadata?.full_name])
 
-  const doneCount = Object.values(doneMap).filter(Boolean).length
+  if (loading) return (
+    <div style={{ minHeight: '100vh', background: P.bg, display: 'grid', placeItems: 'center', color: P.sub, fontFamily: 'Inter, sans-serif', fontSize: 13 }}>
+      Chargement...
+    </div>
+  )
 
-  const filteredPlayers = useMemo(() => {
-    if (statusFilter === 'done') {
-      return players.filter((p) => !!doneMap[p.id])
-    }
-    if (statusFilter === 'remaining') {
-      return players.filter((p) => !doneMap[p.id])
-    }
-    return players
-  }, [players, doneMap, statusFilter])
-
-  if (loading) {
-    return (
-      <div
-        style={{
-          minHeight: '100vh',
-          background: '#f5f3ef',
-          display: 'grid',
-          placeItems: 'center',
-          fontFamily: 'Inter, sans-serif',
-          color: '#6b6b6b',
-        }}
-      >
-        Chargement du mode borne...
-      </div>
-    )
-  }
-
-  if (!loading && coach && !coach.kiosk_pin) {
-    return (
-      <KioskPinSetup
-        coachId={coach.id}
-        coachName={coach.name}
-        supabase={supabase}
-        onSave={(pin) => setCoach((prev) => ({ ...prev, kiosk_pin: pin }))}
-      />
-    )
-  }
+  if (!loading && coach && !coach.kiosk_pin) return (
+    <KioskPinSetup
+      coachId={coach.id}
+      coachName={coach.name}
+      supabase={supabase}
+      onSave={(pin) => setCoach(prev => ({ ...prev, kiosk_pin: pin }))}
+    />
+  )
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#f5f3ef',
-        padding: 20,
-        fontFamily: 'Inter, sans-serif',
-      }}
-    >
-      <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-        <KioskHeader
-  clubName={coach?.name}
-  protocol="HOOPER"
-  dateLabel={dateLabel}
-  completedCount={doneCount}
-  totalCount={players.length}
-  onExit={() => setPinOpen(true)}
-/>
+    <div style={{ minHeight: '100vh', background: P.bg, fontFamily: 'Inter, sans-serif', padding: 20 }}>
+      <div style={{ maxWidth: 1060, margin: '0 auto' }}>
 
-        <div
-          style={{
-            marginBottom: 18,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 12,
-            flexWrap: 'wrap',
-          }}
-        >
+        {/* Header */}
+        <div style={{
+          background: P.card, border: `1px solid ${P.border}`, borderRadius: 24,
+          padding: '20px 26px', marginBottom: 32,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          flexWrap: 'wrap', gap: 16, boxShadow: '0 12px 32px rgba(0,0,0,0.06)',
+        }}>
           <div>
-            <div style={{ fontSize: 18, color: '#1a1a1a', fontWeight: 800 }}>
-              Sélectionner un joueur
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.4, textTransform: 'uppercase', color: P.dim, marginBottom: 6 }}>
+              Mode borne équipe
             </div>
-            <div style={{ fontSize: 13, color: '#6b6b6b', marginTop: 4 }}>
-              {doneCount} / {players.length} questionnaires complétés aujourd&apos;hui
-            </div>
+            <div style={{ fontSize: 26, fontWeight: 900, color: P.text, lineHeight: 1.1 }}>{coach?.name || 'Club'}</div>
+            <div style={{ fontSize: 13, color: P.sub, marginTop: 6, textTransform: 'capitalize' }}>{dateLabel}</div>
           </div>
-
-          <div
-            style={{
-              display: 'flex',
-              gap: 8,
-              flexWrap: 'wrap',
-              background: '#fff',
-              border: '1px solid #e8e4dc',
-              borderRadius: 999,
-              padding: 6,
-            }}
-          >
-            {[
-              { key: 'remaining', label: 'Restants' },
-              { key: 'all', label: 'Tous' },
-              { key: 'done', label: 'Terminés' },
-            ].map((item) => {
-              const active = statusFilter === item.key
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => setStatusFilter(item.key)}
-                  style={{
-                    height: 38,
-                    padding: '0 14px',
-                    borderRadius: 999,
-                    border: 'none',
-                    background: active ? '#1a3a2a' : 'transparent',
-                    color: active ? '#fff' : '#1a1a1a',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {item.label}
-                </button>
-              )
-            })}
-          </div>
+          <button onClick={() => setPinOpen(true)} style={{
+            border: `1px solid ${P.border}`, background: P.card, color: P.sub,
+            borderRadius: 999, padding: '10px 20px', fontWeight: 700, fontSize: 13, cursor: 'pointer',
+          }}>
+            Quitter
+          </button>
         </div>
 
-        {filteredPlayers.length === 0 ? (
-          <div
-            style={{
-              background: '#fff',
-              border: '1px solid #e8e4dc',
-              borderRadius: 20,
-              padding: 28,
-              textAlign: 'center',
-              color: '#6b6b6b',
-              fontWeight: 600,
-            }}
-          >
-            {players.length === 0
-              ? 'Aucun athlète trouvé pour ce coach.'
-              : 'Aucun joueur dans ce filtre.'}
-          </div>
-        ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-              gap: 16,
-            }}
-          >
-            {filteredPlayers.map((player) => {
-              const done = !!doneMap[player.id]
-              return (
-                <PlayerTile
-                  key={player.id}
-                  player={player}
-                  done={done}
-                  onClick={() => {
-                    if (done) return
-                    navigate(`/coach-kiosk/hooper/${player.id}`)
-                  }}
-                />
-              )
-            })}
-          </div>
-        )}
+        {/* Titre */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 22, fontWeight: 900, color: P.text, marginBottom: 4 }}>Choisir le test</div>
+          <div style={{ fontSize: 14, color: P.sub }}>Sélectionne le protocole à remplir, puis choisis ton nom</div>
+        </div>
+
+        {/* Grille tests */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
+          {KIOSK_TESTS.map(test => (
+            <TestCard key={test.key} test={test} onClick={() => navigate(`/coach-kiosk/${test.key}`)} />
+          ))}
+        </div>
 
         <KioskPinModal
-  open={pinOpen}
-  onClose={() => setPinOpen(false)}
-  expectedPin={coach?.kiosk_pin || ''}
-  onSuccess={() => navigate('/coach')}  // ← FIX
-/>
+          open={pinOpen}
+          onClose={() => setPinOpen(false)}
+          expectedPin={coach?.kiosk_pin || ''}
+          onSuccess={() => navigate('/coach')}
+        />
       </div>
     </div>
+  )
+}
+
+function TestCard({ test, onClick }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: hovered ? test.bg : '#ffffff',
+        border: `2px solid ${hovered ? test.color : '#e8e4dc'}`,
+        borderRadius: 22, padding: '26px 22px',
+        cursor: 'pointer', textAlign: 'left',
+        display: 'flex', flexDirection: 'column', gap: 14,
+        boxShadow: hovered ? `0 12px 32px rgba(0,0,0,0.10)` : '0 6px 20px rgba(0,0,0,0.04)',
+        transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
+        transition: 'all 0.15s ease',
+      }}
+    >
+      <div style={{
+        width: 54, height: 54, borderRadius: 16,
+        background: test.bg, border: `1px solid ${test.border}`,
+        display: 'grid', placeItems: 'center', fontSize: 26,
+      }}>
+        {test.emoji}
+      </div>
+      <div>
+        <div style={{ fontSize: 19, fontWeight: 900, color: '#1a1a1a', marginBottom: 5 }}>{test.label}</div>
+        <div style={{ fontSize: 12, color: '#6b6b6b', lineHeight: 1.5 }}>{test.sub}</div>
+      </div>
+      <div style={{ fontSize: 12, fontWeight: 800, color: test.color, marginTop: 'auto' }}>
+        Démarrer →
+      </div>
+    </button>
   )
 }

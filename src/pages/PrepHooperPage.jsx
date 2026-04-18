@@ -385,13 +385,18 @@ export default function PrepHooperPage() {
 
       const score = values.fatigue + values.sommeil + values.stress + values.courbatures
 
-      if (score >= 21) {
-        fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/send-notifications/fatigue`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`,
-          },
-        }).catch(() => {})
+      if (score >= 14) {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (!session?.access_token) return
+          fetch(`${process.env.REACT_APP_SUPABASE_URL}/functions/v1/send-notifications/fatigue-alert`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ score }),
+          }).catch(() => {})
+        })
       }
     }
 

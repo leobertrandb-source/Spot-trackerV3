@@ -168,7 +168,7 @@ export default function ClubKioskHooperPage() {
     if (!submitted) return
 
     const timer = setTimeout(() => {
-      navigate('/coach-kiosk')
+      navigate('/coach-kiosk/hooper')
     }, 1500)
 
     return () => clearTimeout(timer)
@@ -291,7 +291,7 @@ export default function ClubKioskHooperPage() {
 
         <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
           <button
-            onClick={() => navigate('/coach-kiosk')}
+            onClick={() => navigate('/coach-kiosk/hooper')}
             type="button"
             style={{
               width: 180,
